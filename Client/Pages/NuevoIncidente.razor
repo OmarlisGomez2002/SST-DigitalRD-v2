@@ -1,0 +1,811 @@
+﻿@page "/incidentes/nuevo"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<PageTitle>Nuevo incidente · SST-Digital RD</PageTitle>
+
+<!-- ===== ENCABEZADO ===== -->
+<div class="form-page-header">
+    <button class="btn-back" @onclick="Cancelar">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a incidentes
+    </button>
+    <div class="form-page-title">
+        <h1>Nuevo registro de incidente</h1>
+        <span class="form-page-sub">
+            Complete todos los campos y firme para generar el reporte oficial
+        </span>
+    </div>
+    <div class="form-page-actions">
+        
+        <button class="btn-primary"
+                @onclick="EnviarFormulario"
+                disabled="@(!FormularioValido || Guardando)">
+            @if (Guardando)
+            {
+                <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                <span>Enviando...</span>
+            }
+            else
+            {
+                <i class="ti ti-send" aria-hidden="true"></i>
+                <span>Enviar reporte</span>
+            }
+        </button>
+    </div>
+</div>
+
+<!-- ===== PROGRESO ===== -->
+<div class="form-progress">
+    @foreach (var (paso, idx) in Pasos.Select((p, i) => (p, i + 1)))
+    {
+        <div class="progress-step @(PasoActual == idx ? "active" : "") @(PasoActual > idx ? "done" : "")">
+            <div class="step-circle">
+                @if (PasoActual > idx)
+                {
+                    <i class="ti ti-check" aria-hidden="true"></i>
+                }
+                else
+                {
+
+                    @idx
+                }
+            </div>
+            <span class="step-label">@paso</span>
+        </div>
+        @if (idx < Pasos.Count)
+        {
+            <div class="step-line @(PasoActual > idx ? "done" : "")"></div>
+        }
+    }
+</div>
+
+<div class="form-body">
+
+    <!-- ══════════════════════════════
+         PASO 1 — Datos del incidente
+    ══════════════════════════════ -->
+    @if (PasoActual == 1)
+    {
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                <span>Datos del incidente</span>
+                <span class="card-badge">Paso 1 de 4</span>
+            </div>
+
+            <!-- Tipo de incidente -->
+            <div class="form-field">
+                <label>Tipo de incidente <span class="required">*</span></label>
+                <div class="tipo-inc-grid">
+                    @foreach (var tipo in TiposIncidente)
+                    {
+                        var t = tipo;
+                        <div class="tipo-inc-opt @(Modelo.Tipo == t.Valor ? "selected" : "")"
+                             @onclick="() => Modelo.Tipo = t.Valor"
+                             style="border-color:@(Modelo.Tipo == t.Valor ? t.Color : "")">
+                            <i class="ti @t.Icono"
+                               style="color:@(Modelo.Tipo == t.Valor ? t.Color : "")"
+                               aria-hidden="true"></i>
+                            <span>@t.Etiqueta</span>
+                        </div>
+                    }
+                </div>
+                @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Tipo))
+                {
+                    <span class="field-error">Seleccione el tipo de incidente</span>
+                }
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-field">
+                    <label>Obra / Proyecto <span class="required">*</span></label>
+                    <select @bind="Modelo.ObraId" class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
+                        <option value="0">Seleccionar obra...</option>
+                        @foreach (var obra in ObrasDisponibles)
+                        {
+                            <option value="@obra.Id">@obra.Nombre</option>
+                        }
+                    </select>
+
+                    @if (MostrarErrores && Modelo.ObraId == 0)
+                    {
+                        <span class="field-error">Seleccione una obra</span>
+                    }
+                </div>
+
+                <div class="form-field">
+                    <label>Área / Zona <span class="required">*</span></label>
+                    <input type="text"
+                           @bind="Modelo.Area"
+                           placeholder="Ej. Piso 4 · Fachada Norte"
+                           class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")" />
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area))
+                    {
+                        <span class="field-error">El área es requerida</span>
+                    }
+                </div>
+
+                <div class="form-field">
+                    <label>Fecha del incidente <span class="required">*</span></label>
+                    <input type="date" @bind="Modelo.Fecha" />
+                </div>
+
+                <div class="form-field">
+                    <label>Hora del incidente</label>
+                    <input type="time" @bind="Modelo.Hora" />
+                </div>
+
+                <div class="form-field">
+                    <label>Trabajador afectado</label>
+                    <input type="text"
+                           @bind="Modelo.Afectado"
+                           placeholder="Nombre del trabajador (si aplica)" />
+                </div>
+
+                <div class="form-field">
+                    <label>Días perdidos estimados</label>
+                    <input type="number"
+                           @bind="Modelo.DiasPerdidos"
+                           min="0" max="365"
+                           placeholder="0" />
+                </div>
+
+                <div class="form-field">
+                    <label>Inspector responsable</label>
+                    <input type="text"
+                           @bind="Modelo.Inspector"
+                           placeholder="Nombre del inspector" />
+                </div>
+
+                <div class="form-field">
+                    <label>¿Requirió atención médica?</label>
+                    <select @bind="Modelo.AtencionMedica">
+                        <option value="">Seleccionar...</option>
+                        <option>Sí — atención en sitio</option>
+                        <option>Sí — traslado a clínica</option>
+                        <option>No requirió atención</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-nav">
+            <div></div>
+            <button class="btn-primary" @onclick="Siguiente">
+                Siguiente <i class="ti ti-arrow-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+
+    <!-- ══════════════════════════════
+         PASO 2 — Evidencia
+    ══════════════════════════════ -->
+    @if (PasoActual == 2)
+    {
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="ti ti-camera" aria-hidden="true"></i>
+                <span>Evidencia del incidente</span>
+                <span class="card-badge">Paso 2 de 4</span>
+            </div>
+
+            <!-- GPS -->
+            <div class="form-field">
+                <label>Ubicación GPS <span class="required">*</span></label>
+                @if (!GpsCargado && !GpsCargando)
+                {
+                    <div class="gps-empty">
+                        <i class="ti ti-current-location" aria-hidden="true"></i>
+                        <p>Capture la ubicación exacta donde ocurrió el incidente.</p>
+                        <button class="btn-primary" @onclick="CapturarGPSAutomatico">
+                            <i class="ti ti-map-pin" aria-hidden="true"></i>
+                            Capturar ubicación
+                        </button>
+                    </div>
+                }
+                @if (GpsCargando)
+                {
+                    <div class="gps-loading">
+                        <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                        <span>Obteniendo coordenadas...</span>
+                    </div>
+                }
+                @if (GpsCargado)
+                {
+                    <div class="gps-result">
+                        <div class="gps-coords-grid">
+                            <div class="gps-coord">
+                                <span class="gps-coord-label">Latitud</span>
+                                <span class="gps-coord-val">@Modelo.Latitud.ToString("F6")</span>
+                            </div>
+                            <div class="gps-coord">
+                                <span class="gps-coord-label">Longitud</span>
+                                <span class="gps-coord-val">@Modelo.Longitud.ToString("F6")</span>
+                            </div>
+                            <div class="gps-coord">
+                                <span class="gps-coord-label">Precisión</span>
+                                <span class="gps-coord-val">±@Modelo.PrecisionGps.ToString("F0") m</span>
+                            </div>
+                            <div class="gps-coord">
+                                <span class="gps-coord-label">Hora</span>
+                                <span class="gps-coord-val">@DateTime.Now.ToString("hh:mm tt")</span>
+                            </div>
+                        </div>
+                        <button class="btn-secondary btn-sm" @onclick="RecapturarGPS">
+                            <i class="ti ti-refresh" aria-hidden="true"></i>
+                            Recapturar
+                        </button>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(GpsError))
+                {
+                    <div class="alert-banner danger">
+                        <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                        @GpsError
+                    </div>
+                }
+            </div>
+
+            <!-- Fotos -->
+            <div class="form-field">
+                <label>
+                    Fotografías de evidencia <span class="required">*</span>
+                    <span style="font-weight:400;color:var(--text-hint)">
+                        (mínimo 1, máximo 5)
+                    </span>
+                </label>
+                <div class="foto-upload-zone"
+                     @onclick="SimularFoto">
+                    <i class="ti ti-camera-plus" aria-hidden="true"></i>
+                    <span>Tomar foto desde la cámara del dispositivo</span>
+                    <small>Cada foto se sella automáticamente con GPS y timestamp</small>
+                </div>
+                @if (Fotos.Any())
+                {
+                    <div class="foto-preview-grid">
+                        @foreach (var foto in Fotos)
+                        {
+                            <div class="foto-preview-item">
+                                <i class="ti ti-photo" aria-hidden="true"></i>
+                                <span class="foto-sellada-badge">Sellada</span>
+                                <button class="foto-remove"
+                                        @onclick="() => Fotos.Remove(foto)">
+                                    <i class="ti ti-x" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        }
+                        @if (Fotos.Count < 5)
+                        {
+                            <div class="foto-add-more" @onclick="SimularFoto">
+                                <i class="ti ti-plus" aria-hidden="true"></i>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Descripción -->
+            <div class="form-field">
+                <label>Descripción detallada del evento <span class="required">*</span></label>
+                <textarea @bind="Modelo.Descripcion"
+                          rows="4"
+                          placeholder="Describa con detalle cómo ocurrió el incidente, condiciones del área, factores contribuyentes, secuencia de eventos...">
+                    </textarea>
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Descripcion))
+                {
+                    <span class="field-error">La descripción es requerida</span>
+                }
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-field">
+                    <label>Testigos presentes</label>
+                    <input type="text"
+                           @bind="Modelo.Testigos"
+                           placeholder="Nombres separados por coma" />
+                </div>
+                <div class="form-field">
+                    <label>¿Notificar al MTRAB?</label>
+                    <select @bind="Modelo.NotificarMTRAB">
+                        <option value="false">No — incidente leve o cuasi-accidente</option>
+                        <option value="true">Sí — accidente grave o fatal (24-48h)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-nav">
+            <button class="btn-secondary" @onclick="Anterior">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
+            </button>
+            <button class="btn-primary" @onclick="Siguiente"
+                    disabled="@(!GpsCargado || !Fotos.Any())">
+                Siguiente <i class="ti ti-arrow-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+
+    <!-- ══════════════════════════════
+         PASO 3 — Acciones correctivas
+    ══════════════════════════════ -->
+    @if (PasoActual == 3)
+    {
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+                <span>Acciones correctivas</span>
+                <span class="card-badge">Paso 3 de 4</span>
+            </div>
+
+            <div class="acciones-list">
+                @foreach (var accion in AccionesCorrectivas)
+                {
+                    var a = accion;
+                    var num = AccionesCorrectivas.IndexOf(a) + 1;
+                    <div class="accion-item-form">
+                        <div class="accion-num">@num</div>
+                        <div class="accion-body-form">
+                            <div class="form-field">
+                                <label>Descripción de la acción</label>
+                                <input type="text"
+                                       @bind="a.Descripcion"
+                                       placeholder="¿Qué se va a hacer para prevenir la recurrencia?" />
+                            </div>
+                            <div class="form-grid-2">
+                                <div class="form-field">
+                                    <label>Responsable</label>
+                                    <input type="text"
+                                           @bind="a.Responsable"
+                                           placeholder="Nombre del responsable" />
+                                </div>
+                                <div class="form-field">
+                                    <label>Fecha límite</label>
+                                    <input type="date" @bind="a.FechaLimite" />
+                                </div>
+                            </div>
+                        </div>
+                        @if (AccionesCorrectivas.Count > 1)
+                        {
+                            <button class="icon-action"
+                                    style="margin-top:4px"
+                                    @onclick="() => AccionesCorrectivas.Remove(a)">
+                                <i class="ti ti-trash" aria-hidden="true"></i>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <button class="btn-secondary btn-sm" @onclick="AgregarAccion">
+                <i class="ti ti-plus" aria-hidden="true"></i>
+                Agregar otra acción
+            </button>
+
+            @if (Modelo.NotificarMTRAB == "true")
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                    Este incidente requiere notificación al Ministerio de Trabajo
+                    dentro de las 24-48 horas. El sistema generará el formulario
+                    oficial automáticamente al enviar.
+                </div>
+            }
+        </div>
+
+        <div class="form-nav">
+            <button class="btn-secondary" @onclick="Anterior">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
+            </button>
+            <button class="btn-primary" @onclick="Siguiente">
+                Siguiente <i class="ti ti-arrow-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    }
+
+    <!-- ══════════════════════════════
+         PASO 4 — Firma y envío
+    ══════════════════════════════ -->
+    @if (PasoActual == 4)
+    {
+        <div class="form-card">
+            <div class="form-card-header">
+                <i class="ti ti-writing" aria-hidden="true"></i>
+                <span>Firma del inspector</span>
+                @if (FirmaCapturada)
+                {
+                    <span class="card-badge ok">Firma lista</span>
+                }
+            </div>
+
+            <!-- Resumen -->
+            <div class="charla-resumen">
+                <div class="resumen-item">
+                    <span class="resumen-label">Tipo</span>
+                    <span class="resumen-val">@Modelo.Tipo</span>
+                </div>
+                <div class="resumen-item">
+                    <span class="resumen-label">Área</span>
+                    <span class="resumen-val">@Modelo.Area</span>
+                </div>
+                <div class="resumen-item">
+                    <span class="resumen-label">Fecha</span>
+                    <span class="resumen-val">@Modelo.Fecha.ToString("dd/MM/yyyy")</span>
+                </div>
+                <div class="resumen-item">
+                    <span class="resumen-label">Fotos</span>
+                    <span class="resumen-val">@Fotos.Count capturadas</span>
+                </div>
+            </div>
+
+            <!-- Info del firmante -->
+            <div class="firma-info">
+                <div class="firma-quien">
+                    <div class="avatar" style="background:#E6F1FB;color:#185FA5">RG</div>
+                    <div>
+                        <div class="firma-nombre">@Modelo.Inspector</div>
+                        <div class="firma-rol">Inspector · Prevencionista SST</div>
+                    </div>
+                </div>
+                <div class="firma-fecha">
+                    <i class="ti ti-calendar" aria-hidden="true"></i>
+                    @DateTime.Now.ToString("dd/MM/yyyy hh:mm tt")
+                </div>
+            </div>
+
+            <!-- Canvas -->
+            <div class="firma-canvas-wrap">
+                <canvas id="firmaIncidenteCanvas"
+                        width="600" height="180"
+                        class="firma-canvas @(FirmaCapturada ? "signed" : "")">
+                </canvas>
+                @if (!FirmaCapturada)
+                {
+                    <div class="firma-placeholder">
+                        <i class="ti ti-pencil" aria-hidden="true"></i>
+                        Firme aquí con el mouse o con el dedo
+                    </div>
+                }
+            </div>
+
+            <div class="firma-actions">
+                <button class="btn-secondary btn-sm" @onclick="LimpiarFirma">
+                    <i class="ti ti-eraser" aria-hidden="true"></i>
+                    Limpiar
+                </button>
+                <button class="btn-primary btn-sm"
+                        @onclick="CapturarFirma"
+                        disabled="@FirmaCapturada">
+                    <i class="ti ti-check" aria-hidden="true"></i>
+                    @(FirmaCapturada ? "Firma guardada" : "Confirmar firma")
+                </button>
+            </div>
+
+            @if (FirmaCapturada)
+            {
+                <div class="alert-banner ok">
+                    <i class="ti ti-shield-check" aria-hidden="true"></i>
+                    Firma capturada. El reporte será sellado con hash SHA-256
+                    y quedará disponible para descarga en PDF.
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorGeofencing))
+        {
+            <div class="alert-banner danger"
+                 style="margin-bottom:12px">
+                <i class="ti ti-map-pin-off" aria-hidden="true"></i>
+                <div>
+                    <div style="font-weight:500">
+                        Registro rechazado por geofencing
+                    </div>
+                    <div style="font-size:12px;margin-top:2px">
+                        @ErrorGeofencing
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="form-nav">
+            <button class="btn-secondary" @onclick="Anterior">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
+            </button>
+            <button class="btn-primary"
+                    @onclick="EnviarFormulario"
+                    disabled="@(!FirmaCapturada || Guardando)">
+                @if (Guardando)
+                {
+                    <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                    <span>Enviando...</span>
+                }
+                else
+                {
+                    <i class="ti ti-send" aria-hidden="true"></i>
+                    <span>Enviar reporte oficial</span>
+                }
+            </button>
+        </div>
+    }
+
+</div>
+
+@code {
+    // ── Pasos ──────────────────────────────────────────────────
+    private List<string> Pasos = new()
+    {
+        "Datos del incidente", "Evidencia", "Acciones correctivas", "Firma y envío"
+    };
+    private int PasoActual = 1;
+    private bool MostrarErrores = false;
+    private bool Guardando = false;
+    private bool FirmaCapturada = false;
+    private bool GpsCargado = false;
+    private bool GpsCargando = false;
+    private string GpsError = "";
+
+    private string ErrorGeofencing = "";
+
+    private class ErrorDto
+    {
+        public string Error { get; set; } = "";
+    }
+
+    // ── Modelo ─────────────────────────────────────────────────
+    private IncidenteFormDto Modelo = new()
+    {
+        Fecha = DateTime.Today,
+        Hora = new TimeOnly(DateTime.Now.Hour, DateTime.Now.Minute),
+        Inspector = "Ramón Gómez"
+    };
+
+    // ── Fotos ──────────────────────────────────────────────────
+    private List<string> Fotos = new();
+
+    private void SimularFoto()
+    {
+        if (Fotos.Count < 5)
+            Fotos.Add($"foto_{Fotos.Count + 1}.jpg");
+    }
+
+    // ── Acciones correctivas ───────────────────────────────────
+    private List<AccionCorrectiva> AccionesCorrectivas = new()
+    {
+        new() { FechaLimite = DateTime.Today.AddDays(7) }
+    };
+
+    private void AgregarAccion() =>
+        AccionesCorrectivas.Add(new() { FechaLimite = DateTime.Today.AddDays(7) });
+
+    // ── Validación ─────────────────────────────────────────────
+    private bool FormularioValido =>
+        !string.IsNullOrEmpty(Modelo.Tipo) &&
+        Modelo.ObraId > 0 &&
+        !string.IsNullOrWhiteSpace(Modelo.Area) &&
+        !string.IsNullOrWhiteSpace(Modelo.Descripcion) &&
+        GpsCargado &&
+        Fotos.Any() &&
+        FirmaCapturada;
+
+    // ── Navegación ─────────────────────────────────────────────
+    private async Task Siguiente()
+    {
+        if (PasoActual == 1)
+        {
+            MostrarErrores = true;
+            if (string.IsNullOrEmpty(Modelo.Tipo) ||
+                Modelo.ObraId == 0 ||
+                string.IsNullOrWhiteSpace(Modelo.Area)) return;
+            MostrarErrores = false;
+        }
+        if (PasoActual == 2)
+        {
+            MostrarErrores = true;
+            if (string.IsNullOrWhiteSpace(Modelo.Descripcion)) return;
+            MostrarErrores = false;
+        }
+        if (PasoActual < Pasos.Count)
+        {
+            PasoActual++;
+
+            // Si llegamos a firma y no hay GPS, intentar capturar
+            if (PasoActual == 4 && !GpsCargado)
+                await CapturarGPSAutomatico();
+        }
+    }
+
+    private void Anterior() { if (PasoActual > 1) PasoActual--; }
+    private void Cancelar() => Nav.NavigateTo("/incidentes");
+
+    // ── GPS ────────────────────────────────────────────────────
+    private async Task CapturarGPSAutomatico()
+    {
+        if (GpsCargado) return; // ya capturado, no repetir
+        GpsCargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var coords = await JS.InvokeAsync<GeoCoords>(
+                "SSTGeo.getPosition");
+            Modelo.Latitud = coords.Latitude;
+            Modelo.Longitud = coords.Longitude;
+            Modelo.PrecisionGps = coords.Accuracy;
+            GpsCargado = true;
+            GpsError = "";
+        }
+        catch
+        {
+            GpsError = "No se pudo obtener la ubicación. " +
+                       "Active el GPS e intente nuevamente.";
+        }
+        finally
+        {
+            GpsCargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RecapturarGPS()
+    {
+        GpsCargado = false;
+        Modelo.Latitud = Modelo.Longitud = Modelo.PrecisionGps = 0;
+    }
+
+    // ── Firma ──────────────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (PasoActual == 4)
+            await JS.InvokeVoidAsync("SSTFirma.init", "firmaIncidenteCanvas");
+    }
+
+    private async Task CapturarFirma()
+    {
+        var dataUrl = await JS.InvokeAsync<string>(
+            "SSTFirma.getDataUrl", "firmaIncidenteCanvas");
+        if (!string.IsNullOrEmpty(dataUrl) && dataUrl != "data:,")
+        {
+            Modelo.FirmaBase64 = dataUrl;
+            FirmaCapturada = true;
+        }
+    }
+
+    private async Task LimpiarFirma()
+    {
+        await JS.InvokeVoidAsync("SSTFirma.clear", "firmaIncidenteCanvas");
+        FirmaCapturada = false;
+        Modelo.FirmaBase64 = "";
+    }
+
+    // ── Envío ──────────────────────────────────────────────────
+    private async Task EnviarFormulario()
+    {
+        if (!FormularioValido) return;
+        Guardando = true;
+        ErrorGeofencing = "";
+        StateHasChanged();
+        var dto = new CrearIncidenteDto
+        {
+            Descripcion = Modelo.Descripcion,
+            Tipo = Modelo.Tipo,
+            Area = Modelo.Area,
+            ObraId = Modelo.ObraId,
+            Obra = Modelo.ObraId.ToString(),
+            Afectado = Modelo.Afectado,
+            Inspector = Modelo.Inspector,
+            AtencionMedica = Modelo.AtencionMedica,
+            Testigos = Modelo.Testigos,
+            Fecha = Modelo.Fecha,
+            DiasPerdidos = Modelo.DiasPerdidos,
+            Latitud = Modelo.Latitud,
+            Longitud = Modelo.Longitud,
+            PrecisionGps = Modelo.PrecisionGps,
+            CantidadFotos = Fotos.Count,
+            NotificarMTRAB = Modelo.NotificarMTRAB == "true",
+            FirmaBase64 = Modelo.FirmaBase64,
+            AccionesCorrectivas = AccionesCorrectivas
+            .Select(a => new AccionCorrectivaDto
+            {
+                Descripcion = a.Descripcion,
+                Responsable = a.Responsable,
+                FechaLimite = a.FechaLimite,
+                Estado = "Pendiente"
+            }).ToList()
+        };
+
+        var response = await Http.PostAsJsonAsync("api/incidentes", dto);
+
+        if (response.IsSuccessStatusCode)
+            Nav.NavigateTo("/incidentes");
+        else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            // Leer el mensaje de error del backend
+            var error = await response.Content.ReadFromJsonAsync<ErrorDto>();
+            ErrorGeofencing = error?.Error ?? "No se pudo guardar el incidente.";
+            Guardando = false;
+            StateHasChanged();
+        }
+        else
+        {
+            ErrorGeofencing = "Error inesperado. Intente nuevamente.";
+            Guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<ObraActivaDto> ObrasDisponibles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var obras = await Http.GetFromJsonAsync<List<ObraActivaDto>>("api/configuracion/obras");
+
+            if (obras is not null)
+                ObrasDisponibles = obras;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando obras: {ex.Message}");
+        }
+    }
+
+    private async Task GuardarBorrador()
+    {
+        Guardando = true;
+        StateHasChanged();
+        await Task.Delay(800); // TODO: POST /api/incidentes/borrador
+        Guardando = false;
+        StateHasChanged();
+    }
+
+    // ── Tipos de incidente ─────────────────────────────────────
+    private List<TipoIncidente> TiposIncidente = new()
+    {
+        new("Accidente grave",    "ti-first-aid-kit", "#A32D2D"),
+        new("Accidente leve",     "ti-bandage",       "#854F0B"),
+        new("Cuasi-accidente",    "ti-alert-triangle","#854F0B"),
+        new("Condición insegura", "ti-eye-off",       "#185FA5"),
+    };
+
+    // ── Clases de datos ────────────────────────────────────────
+    public class IncidenteFormDto
+    {
+        public string Tipo { get; set; } = "";
+        public int ObraId { get; set; }
+        public string Area { get; set; } = "";
+        public DateTime Fecha { get; set; }
+        public TimeOnly Hora { get; set; }
+        public string Afectado { get; set; } = "";
+        public int DiasPerdidos { get; set; }
+        public string Inspector { get; set; } = "";
+        public string AtencionMedica { get; set; } = "";
+        public double Latitud { get; set; }
+        public double Longitud { get; set; }
+        public double PrecisionGps { get; set; }
+        public string Descripcion { get; set; } = "";
+        public string Testigos { get; set; } = "";
+        public string NotificarMTRAB { get; set; } = "false";
+        public string FirmaBase64 { get; set; } = "";
+    }
+
+    public class AccionCorrectiva
+    {
+        public string Descripcion { get; set; } = "";
+        public string Responsable { get; set; } = "";
+        public DateTime FechaLimite { get; set; }
+    }
+
+    public record TipoIncidente(string Valor, string Icono, string Color)
+    {
+        public string Etiqueta => Valor;
+    }
+
+    public class GeoCoords
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double Accuracy { get; set; }
+    }
+}

@@ -1,0 +1,1011 @@
+﻿@page "/epp"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Inventario EPP · SST-Digital RD</PageTitle>
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="search-box">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text"
+               placeholder="Buscar trabajador, tipo de EPP..."
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+    </div>
+    <div class="toolbar-filters">        
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn" @onclick="TogglePanelFiltros">
+                <i class="ti ti-filter" aria-hidden="true"></i>
+                Filtrar
+                @if (FiltrosActivos > 0)
+                {
+                    <span class="filter-badge">@FiltrosActivos</span>
+                }
+            </button>
+
+            @if (MostrarPanelFiltros)
+            {
+                <div class="filtros-panel">
+                    <div class="filtros-panel-header">
+                        <span>Filtros avanzados</span>
+                        <button class="icon-action" @onclick="TogglePanelFiltros">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body">
+                        <div class="form-field">
+                            <label>Cuadrilla</label>
+                            <select @bind="FiltroCuadrilla">
+                                <option value="">Todas</option>
+                                @foreach (var c in CuadrillasUnicas)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Estado general</label>
+                            <select @bind="FiltroEstadoGeneral">
+                                <option value="">Todos</option>
+                                <option value="Al día">Al día</option>
+                                <option value="Por vencer">Por vencer</option>
+                                <option value="Requiere acción">Requiere acción</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filtros-panel-footer">
+                        <button class="btn-secondary btn-sm"
+                                @onclick="LimpiarFiltros">
+                            Limpiar
+                        </button>
+                        <button class="btn-primary btn-sm"
+                                @onclick="AplicarFiltros">
+                            Aplicar filtros
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+        <button class="filter-btn" @onclick="ExportarCSV">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Exportar
+        </button>        
+    </div>
+    @if (_puedeCrear)
+    {
+        <button class="btn-primary" @onclick="AsignarEPP">
+            <i class="ti ti-plus" aria-hidden="true"></i>
+            Asignar EPP
+        </button>
+    }
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Total artículos en stock</span>
+        <span class="insp-stat-val">@TotalStock <small>unidades</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Vencen en ≤ 30 días</span>
+        <span class="insp-stat-val" style="color:#A32D2D">
+            @VencenProximo <small>artículos</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Trabajadores cubiertos</span>
+        <span class="insp-stat-val">@TrabajadoresCubiertos <small>activos</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Artículos por reponer</span>
+        <span class="insp-stat-val" style="color:#854F0B">
+            @ArticulosPorReponer <small>tipos</small>
+        </span>
+    </div>
+</div>
+
+<!-- ===== ALERTA DE VENCIDOS ===== -->
+@if (TrabajadoresVencidos.Any())
+{
+    <div class="epp-alert-strip">
+        <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+        <div class="epp-alert-text">
+            <div class="epp-alert-title">
+                @TrabajadoresVencidos.Count trabajador(es) con EPP vencido hoy
+            </div>
+            <div class="epp-alert-sub">
+                @string.Join(" · ", TrabajadoresVencidos.Select(t => t.Nombre)) — Casco de seguridad vencido
+            </div>
+        </div>
+        <span class="pill pill-danger" style="cursor:pointer">Ver todos →</span>
+    </div>
+}
+
+<!-- ===== TABS ===== -->
+<div class="tabs-bar">
+    @foreach (var tab in Tabs)
+    {
+        <button class="tab @(TabActivo == tab.Key ? "active" : "")"
+                @onclick="() => CambiarTab(tab.Key)">
+            @tab.Label
+            @if (tab.Count > 0)
+            {
+                <span>(@tab.Count)</span>
+            }
+        </button>
+    }
+</div>
+
+<!-- ===== TABLA POR TRABAJADOR ===== -->
+@if (TabActivo == "trabajador")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Trabajador</th>
+                    <th>Casco</th>
+                    <th>Chaleco</th>
+                    <th>Botas</th>
+                    <th>Guantes</th>
+                    <th>Arnés</th>
+                    <th>Estado general</th>
+                    <th style="width:80px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!TrabajadoresFiltrados.Any())
+                {
+                    <tr>
+                        <td colspan="8" class="empty-state">
+                            <i class="ti ti-hardhat" aria-hidden="true"></i>
+                            <span>No se encontraron trabajadores</span>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var t in TrabajadoresPaginados)
+                    {
+                        <tr>
+                            <td>
+                                <div class="inspector-cell">
+                                    <div class="mini-avatar"
+                                         style="background:@t.AvatarBg;color:@t.AvatarColor">
+                                        @t.Iniciales
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:500">@t.Nombre</div>
+                                        <div class="text-hint">@t.Cargo · @t.Cuadrilla</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>@GetEppPill(t.Casco)</td>
+                            <td>@GetEppPill(t.Chaleco)</td>
+                            <td>@GetEppPill(t.Botas)</td>
+                            <td>@GetEppPill(t.Guantes)</td>
+                            <td>@GetEppPill(t.Arnes)</td>
+                            <td>@GetEstadoGeneralPill(t)</td>
+                            <td>
+                                <div class="row-actions">
+                                    <button class="icon-action"
+                                            title="Ver detalle"
+                                            @onclick="() => VerDetalleEPP(t)">
+                                        <i class="ti ti-eye" aria-hidden="true"></i>
+                                    </button>
+                                    @if (_puedeEditar)
+                                    {
+                                        <button class="icon-action"
+                                                title="Editar EPP"
+                                                @onclick="() => EditarEPP(t)">
+                                            <i class="ti ti-edit" aria-hidden="true"></i>
+                                        </button>
+                                    }
+                                    
+                                    <button class="icon-action" title="Descargar PDF"
+                                            @onclick="() => DescargarPDFEPP(t)">
+                                        <i class="ti ti-download" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="pagination-bar">
+            <span class="page-info">
+                Mostrando @PaginaDesde–@PaginaHasta
+                de @TrabajadoresFiltrados.Count() trabajadores
+            </span>
+            <div class="page-btns">
+                <button class="page-btn"
+                        @onclick="PaginaAnterior"
+                        disabled="@(PaginaActual == 1)">
+                    <i class="ti ti-chevron-left" aria-hidden="true"></i>
+                </button>
+                @for (int i = 1; i <= TotalPaginas; i++)
+                {
+                    var p = i;
+                    <button class="page-btn @(PaginaActual == p ? "active" : "")"
+                            @onclick="() => IrAPagina(p)">
+                        @p
+                    </button>
+                }
+                <button class="page-btn"
+                        @onclick="PaginaSiguiente"
+                        disabled="@(PaginaActual == TotalPaginas)">
+                    <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== TABLA POR TIPO DE EPP ===== -->
+@if (TabActivo == "tipo")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Tipo de EPP</th>
+                    <th>Stock total</th>
+                    <th>En uso</th>
+                    <th>Disponibles</th>
+                    <th>Vencen pronto</th>
+                    <th>Estado stock</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var epp in StockPorTipo)
+                {
+                    <tr>
+                        <td>
+                            <div class="epp-tipo-cell">
+                                <div class="epp-tipo-icon"
+                                     style="background:@epp.IconoBg">
+                                    <i class="ti @epp.Icono"
+                                       style="color:@epp.IconoColor"
+                                       aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight:500">@epp.Nombre</div>
+                                    <div class="text-hint">@epp.Categoria</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@epp.StockTotal</td>
+                        <td>@epp.EnUso</td>
+                        <td>@epp.Disponibles</td>
+                        <td>
+                            @if (epp.VencenProximo > 0)
+                            {
+                                <span class="pill pill-warn">
+                                    <i class="ti ti-clock" aria-hidden="true"></i>
+                                    @epp.VencenProximo
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-ok">Ninguno</span>
+                            }
+                        </td>
+                        <td>
+                            @{
+                                var pct = epp.StockTotal == 0 ? 0 :
+                                (double)epp.Disponibles / epp.StockTotal * 100;
+                            }
+                            <div class="stock-bar-wrap">
+                                <div class="stock-bar-track">
+                                    <div class="stock-bar-fill"
+                                         style="width:@pct%;
+                                                        background:@(pct > 30 ? "#3B6D11" :
+                                                                                                      pct > 10 ? "#854F0B" : "#A32D2D")">
+                            </div>
+                        </div>
+                        <span class="stock-pct">@pct.ToString("F0")%</span>
+                    </div>
+                </td>
+            </tr>
+                        }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (TabActivo == "alertas")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Trabajador</th>
+                    <th>EPP afectado</th>
+                    <th>Estado</th>
+                    <th>Días restantes</th>
+                    <th style="width:80px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!AlertasEPP.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <i class="ti ti-shield-check"
+                               style="color:#3B6D11"
+                               aria-hidden="true"></i>
+                            <span style="color:#3B6D11">
+                                Sin alertas de EPP activas
+                            </span>
+                        </td>
+                    </tr>
+                }
+                @foreach (var alerta in AlertasEPP)
+                {
+                    var iniciales = string.Concat(
+                    alerta.NombreTrabajador.Split(' ')
+                    .Take(2).Select(p => p[0].ToString()))
+                    .ToUpper();
+                    <tr>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar"
+                                     style="background:#E6F1FB;
+                                                    color:#185FA5">
+                                    @iniciales
+                                </div>
+                                <div>
+                                    <div style="font-weight:500">
+                                        @alerta.NombreTrabajador
+                                    </div>
+                                    <div class="text-hint">
+                                        @alerta.Cargo · @alerta.Cuadrilla
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@alerta.TipoEPP</td>
+                        <td>
+                            <span class="pill @(alerta.DiasRestantes < 0
+                                                                  ? "pill-danger" : "pill-warn")">
+                                @(alerta.DiasRestantes < 0
+                                                        ? "Vencido" : "Por vencer")
+                    </span>
+                </td>
+                <td>
+                    @if (alerta.DiasRestantes < 0)
+                            {
+                                <span style="color:#A32D2D;font-weight:500">
+                                    Hace @Math.Abs(alerta.DiasRestantes) días
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="color:#854F0B;font-weight:500">
+                                    @alerta.DiasRestantes días
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="icon-action"
+                                        title="Asignar EPP"
+                                        @onclick="AsignarEPP">
+                                    <i class="ti ti-plus" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (TabActivo == "historial")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Trabajador</th>
+                    <th>EPP entregado</th>
+                    <th>Marca</th>
+                    <th>Fecha entrega</th>
+                    <th>Fecha vencimiento</th>
+                    <th>Entregado por</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!HistorialEPP.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="ti ti-history" aria-hidden="true"></i>
+                            <span>Sin historial de entregas</span>
+                        </td>
+                    </tr>
+                }
+                @foreach (var hist in HistorialEPP)
+                {
+                    var iniciales = string.Concat(
+                    hist.NombreTrabajador.Split(' ')
+                    .Take(2).Select(p => p[0].ToString()))
+                    .ToUpper();
+                    <tr>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar"
+                                     style="background:#E6F1FB;
+                                                    color:#185FA5">
+                                    @iniciales
+                                </div>
+                                @hist.NombreTrabajador
+                            </div>
+                        </td>
+                        <td>@hist.TipoEPP</td>
+                        <td>@hist.Marca</td>
+                        <td>@hist.FechaEntrega.ToString("dd/MM/yyyy")</td>
+                        <td>@hist.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                        <td>@hist.EntregadoPor</td>
+                        <td>
+                            <span class="pill @(hist.Estado == "Vigente"
+                                                                  ? "pill-ok" : "pill-danger")">
+                        @hist.Estado
+                    </span>
+                </td>
+            </tr>
+                        }
+            </tbody>
+        </table>
+    </div>
+}
+@* @if (TabActivo == "alertas")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Trabajador</th>
+                    <th>EPP afectado</th>
+                    <th>Estado</th>
+                    <th>Días restantes</th>
+                    <th style="width:80px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var alerta in AlertasEPP)
+                {
+                    <tr>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar"
+                                     style="background:@alerta.AvatarBg;
+                                                    color:@alerta.AvatarColor">
+                                    @alerta.Iniciales
+                                </div>
+                                <div>
+                                    <div style="font-weight:500">@alerta.Nombre</div>
+                                    <div class="text-hint">@alerta.Cargo · @alerta.Cuadrilla</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@alerta.TipoEPP</td>
+                        <td>
+                            <span class="pill @(alerta.DiasRestantes < 0 ? "pill-danger" : "pill-warn")">
+                                @(alerta.DiasRestantes < 0 ? "Vencido" : "Por vencer")
+                            </span>
+                        </td>
+                        <td>
+                            @if (alerta.DiasRestantes < 0)
+                            {
+                                <span style="color:#A32D2D;font-weight:500">
+                                    Hace @Math.Abs(alerta.DiasRestantes) días
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="color:#854F0B;font-weight:500">
+                                    @alerta.DiasRestantes días
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="icon-action"
+                                        title="Asignar EPP"
+                                        @onclick="AsignarEPP">
+                                    <i class="ti ti-plus" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+} *@
+
+@* @if (TabActivo == "historial")
+{
+    <div class="table-card">
+        <table class="insp-table">
+            <thead>
+                <tr>
+                    <th>Trabajador</th>
+                    <th>EPP entregado</th>
+                    <th>Marca</th>
+                    <th>Fecha entrega</th>
+                    <th>Fecha vencimiento</th>
+                    <th>Entregado por</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var hist in HistorialEPP)
+                {
+                    <tr>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar"
+                                     style="background:@hist.AvatarBg;
+                                                    color:@hist.AvatarColor">
+                                    @hist.Iniciales
+                                </div>
+                                @hist.Nombre
+                            </div>
+                        </td>
+                        <td>@hist.TipoEPP</td>
+                        <td>@hist.Marca</td>
+                        <td>@hist.FechaEntrega.ToString("dd/MM/yyyy")</td>
+                        <td>@hist.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                        <td>@hist.EntregadoPor</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+} *@
+<!-- ===== MODAL DETALLE ===== -->
+@if (TrabajadorDetalle is not null)
+{
+    <div class="modal-backdrop" @onclick="CerrarDetalle">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="inspector-cell">
+                    <div class="mini-avatar"
+                         style="background:@TrabajadorDetalle.AvatarBg;
+                                    color:@TrabajadorDetalle.AvatarColor;
+                                    width:36px;height:36px;font-size:13px">
+                        @TrabajadorDetalle.Iniciales
+                    </div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px">
+                            @TrabajadorDetalle.Nombre
+                        </div>
+                        <div class="text-hint">
+                            @TrabajadorDetalle.Cargo · @TrabajadorDetalle.Cuadrilla
+                        </div>
+                    </div>
+                </div>
+                <button class="icon-action" @onclick="CerrarDetalle">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="detalle-section-title">Inventario de EPP asignado</div>
+                <div class="epp-detalle-grid">
+                    @foreach (var item in GetEppItems(TrabajadorDetalle))
+                    {
+                        <div class="epp-detalle-item @GetEppClass(item.Estado)">
+                            <div class="epp-detalle-icon">
+                                <i class="ti @item.Icono" aria-hidden="true"></i>
+                            </div>
+                            <div class="epp-detalle-info">
+                                <div class="epp-detalle-nombre">@item.Nombre</div>
+                                <div class="epp-detalle-fecha">
+                                    @if (item.Estado == "na")
+                                    {
+                                        <span>No aplica</span>
+                                    }
+                                    else if (item.DiasRestantes < 0)
+                                    {
+                                        <span style="color:#A32D2D">
+                                            Vencido hace @Math.Abs(item.DiasRestantes) días
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span>Vence en @item.DiasRestantes días</span>
+                                    }
+                                </div>
+                            </div>
+                            <div>@GetEppPill(item.Estado)</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Estado UI ──────────────────────────────────────────────
+    private string SearchTerm = "";
+    private string TabActivo = "trabajador";
+    private int PaginaActual = 1;
+    private const int PerPage = 8;
+    private TrabajadorEPP? TrabajadorDetalle;
+
+    private bool MostrarPanelFiltros = false;
+    private string FiltroCuadrilla = "";
+    private string FiltroEstadoGeneral = "";
+    private string FiltroTipoEPP = "";
+    private bool _puedeCrear = false;
+    private bool _puedeEditar = false;
+
+    // ── Tabs ───────────────────────────────────────────────────
+    private List<TabItem> Tabs => new()
+    {
+        new("trabajador", "Por trabajador",  ListaTrabajadores.Count),
+        new("tipo",       "Por tipo de EPP", 0),
+        new("alertas",    "Alertas",         TrabajadoresVencidos.Count + VencenProximo),
+        new("historial",  "Historial",       0),
+    };
+
+    // ── Métricas ───────────────────────────────────────────────
+    private int TotalStock => 248;
+    private int VencenProximo => ListaTrabajadores.Count(t => TieneVencimientoProximo(t));
+    private int TrabajadoresCubiertos => ListaTrabajadores.Count;
+    private int ArticulosPorReponer => StockPorTipo.Count(e => e.Disponibles < 5);
+
+    private List<TrabajadorEPP> TrabajadoresVencidos =>
+        ListaTrabajadores.Where(t => t.Casco == "vencido" ||
+                                     t.Chaleco == "vencido" ||
+                                     t.Botas == "vencido").ToList();
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeCrear = await Permisos.PuedeCrear("EPP");
+        _puedeEditar = await Permisos.PuedeEditar("EPP");
+
+        try
+        {
+            var resultado = await Http
+                .GetFromJsonAsync<List<EntregaEPPListDto>>(
+                    "api/epp");
+
+            if (resultado is not null)
+            {
+                ListaTrabajadores = resultado.Select(x => new TrabajadorEPP
+                {
+                    Id = x.Id,
+                    Nombre = x.NombreTrabajador,
+                    Iniciales = string.Concat(
+                    x.NombreTrabajador.Split(' ')
+                     .Take(2).Select(p => p[0].ToString()))
+                     .ToUpper(),
+                    Cargo = x.Cargo,
+                    Cuadrilla = x.Cuadrilla,
+                    Casco = MapearEstado(x.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Casco de seguridad")),
+                    Chaleco = MapearEstado(x.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Chaleco reflectivo")),
+                    Botas = MapearEstado(x.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Botas de seguridad")),
+                    Guantes = MapearEstado(x.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Guantes")),
+                    Arnes = MapearEstado(x.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Arnés de seguridad")),
+                }).ToList();
+
+                // Alertas
+                AlertasEPP = await Http
+                    .GetFromJsonAsync<List<AlertaEPPDto>>(
+                        "api/epp/alertas") ?? new();
+
+                // Historial
+                HistorialEPP = await Http
+                    .GetFromJsonAsync<List<HistorialEPPDto>>(
+                        "api/epp/historial") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando EPP: {ex.Message}");
+        }
+    }
+
+    private static string MapearEstado(ArticuloEPPDto? art)
+    {
+        if (art is null) return "na";
+        return art.Estado switch
+        {
+            "Vigente" => "ok",
+            "Vencido" => "Vencido",
+            _ => art.Estado
+        };
+    }
+
+    private async Task DescargarPDFEPP(TrabajadorEPP t)
+    {
+        var response = await Http.GetAsync($"api/epp/{t.Id}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"EPP_{t.Nombre.Replace(" ", "_")}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "application/pdf");
+        }
+    }
+
+    private async Task ExportarCSV()
+    {
+        var response = await Http.GetAsync("api/epp/export");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"EPP_{DateTime.Now:yyyyMMdd}.csv";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "text/csv");
+        }
+    }
+
+    private void VerDetalleEPP(TrabajadorEPP t) =>
+    Nav.NavigateTo($"/epp/{t.Id}");
+
+    // ── Filtrado y paginación ──────────────────────────────────
+    private IEnumerable<TrabajadorEPP> TrabajadoresFiltrados =>
+    ListaTrabajadores.Where(t =>
+        (string.IsNullOrWhiteSpace(SearchTerm) ||
+         t.Nombre.Contains(SearchTerm,
+             StringComparison.OrdinalIgnoreCase) ||
+         t.Cargo.Contains(SearchTerm,
+             StringComparison.OrdinalIgnoreCase) ||
+         t.Cuadrilla.Contains(SearchTerm,
+             StringComparison.OrdinalIgnoreCase))
+        &&
+        (string.IsNullOrEmpty(FiltroCuadrilla) ||
+         t.Cuadrilla == FiltroCuadrilla)
+        &&
+        (string.IsNullOrEmpty(FiltroEstadoGeneral) ||
+         GetEstadoGeneralTexto(t) == FiltroEstadoGeneral));
+
+    private IEnumerable<TrabajadorEPP> TrabajadoresPaginados =>
+        TrabajadoresFiltrados.Skip((PaginaActual - 1) * PerPage).Take(PerPage);
+
+    private int TotalPaginas => Math.Max(1,
+        (int)Math.Ceiling(TrabajadoresFiltrados.Count() / (double)PerPage));
+    private int PaginaDesde => TrabajadoresFiltrados.Any()
+        ? (PaginaActual - 1) * PerPage + 1 : 0;
+    private int PaginaHasta => Math.Min(
+        PaginaActual * PerPage, TrabajadoresFiltrados.Count());
+
+    private void TogglePanelFiltros() =>
+MostrarPanelFiltros = !MostrarPanelFiltros;
+
+    private void LimpiarFiltros()
+    {
+        FiltroCuadrilla = "";
+        FiltroEstadoGeneral = "";
+        FiltroTipoEPP = "";
+        PaginaActual = 1;
+    }
+
+    private void AplicarFiltros()
+    {
+        PaginaActual = 1;
+        MostrarPanelFiltros = false;
+    }
+
+    private int FiltrosActivos =>
+        (string.IsNullOrEmpty(FiltroCuadrilla) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroEstadoGeneral) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroTipoEPP) ? 0 : 1);
+
+    private static string GetEstadoGeneralTexto(TrabajadorEPP t)
+    {
+        var items = new[] { t.Casco, t.Chaleco, t.Botas, t.Guantes, t.Arnes }
+            .Where(x => x != "na").ToList();
+        if (items.Any(x => x == "Vencido")) return "Requiere acción";
+        if (items.Any(x => x == "Por vencer")) return "Por vencer";
+        return "Al día";
+    }
+
+    private List<string> CuadrillasUnicas =>
+        ListaTrabajadores.Select(t => t.Cuadrilla)
+            .Distinct().OrderBy(x => x).ToList();
+
+    // ── Acciones ───────────────────────────────────────────────
+    private void AsignarEPP() => Nav.NavigateTo("/epp/asignar");
+    private void CambiarTab(string t) { TabActivo = t; PaginaActual = 1; }
+    private void IrAPagina(int p) => PaginaActual = p;
+    private void PaginaAnterior() { if (PaginaActual > 1) PaginaActual--; }
+    private void PaginaSiguiente() { if (PaginaActual < TotalPaginas) PaginaActual++; }
+    
+    private void EditarEPP(TrabajadorEPP t) => Nav.NavigateTo($"/epp/{t.Id}/editar");
+    private void CerrarDetalle() => TrabajadorDetalle = null;
+
+    // ── Helpers de pills ───────────────────────────────────────
+    private RenderFragment GetEppPill(string estado) => estado switch
+    {
+        "ok" => @<span class="pill pill-ok"><i class="ti ti-check"></i> Vigente</span>,
+        "vencido" => @<span class="pill pill-danger"><i class="ti ti-alert-triangle"></i> Vencido</span>,
+        "na" => @<span class="pill pill-gray">N/A</span>,
+        _ => @<span class="pill pill-warn">@estado días</span>,
+    };
+
+    private RenderFragment GetEstadoGeneralPill(TrabajadorEPP t)
+    {
+        var items = new[] { t.Casco, t.Chaleco, t.Botas, t.Guantes, t.Arnes }
+            .Where(x => x != "na").ToList();
+
+        if (items.Any(x => x == "vencido"))
+            return @<span class="pill pill-danger"><i class="ti ti-x"></i> Requiere acción</span>;
+
+        if (items.Any(x => int.TryParse(x, out int d) && d <= 15))
+            return @<span class="pill pill-warn"><i class="ti ti-clock"></i> Por vencer</span>;
+
+        return @<span class="pill pill-ok"><i class="ti ti-check"></i> Al día</span>;
+    }
+
+    private static string GetEppClass(string estado) => estado switch
+    {
+        "ok" => "epp-ok",
+        "vencido" => "epp-vencido",
+        "na" => "epp-na",
+        _ => "epp-warn",
+    };
+
+    private static bool TieneVencimientoProximo(TrabajadorEPP t)
+    {
+        var items = new[] { t.Casco, t.Chaleco, t.Botas, t.Guantes, t.Arnes };
+        return items.Any(x => x == "vencido" ||
+                              (int.TryParse(x, out int d) && d <= 30));
+    }
+
+    private List<EppDetalleItem> GetEppItems(TrabajadorEPP t) => new()
+    {
+        new("ti-hardhat",    "Casco de seguridad",  t.Casco,    t.Casco == "ok" ? 45  : int.TryParse(t.Casco, out int d1) ? d1 : -1),
+        new("ti-shirt",      "Chaleco reflectivo",  t.Chaleco,  t.Chaleco == "ok" ? 60 : int.TryParse(t.Chaleco, out int d2) ? d2 : -1),
+        new("ti-shoe",       "Botas de seguridad",  t.Botas,    t.Botas == "ok" ? 90   : int.TryParse(t.Botas, out int d3) ? d3 : -1),
+        new("ti-hand-stop",  "Guantes",             t.Guantes,  t.Guantes == "ok" ? 30 : int.TryParse(t.Guantes, out int d4) ? d4 : -1),
+        new("ti-ripple",     "Arnés de seguridad",  t.Arnes,    t.Arnes == "ok" ? 180  : int.TryParse(t.Arnes, out int d5) ? d5 : -1),
+    };
+
+    // ── Datos de ejemplo ───────────────────────────────────────
+    private List<TrabajadorEPP> ListaTrabajadores = new();
+    // {
+    //     new() { Id=1, Nombre="Juan Pérez",    Iniciales="JP", Cargo="Albañil",       Cuadrilla="Cuadrilla A", Casco="vencido", Chaleco="ok",    Botas="ok",    Guantes="5",  Arnes="na",  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+    //     new() { Id=2, Nombre="M. López",      Iniciales="ML", Cargo="Carpintero",    Cuadrilla="Cuadrilla A", Casco="ok",      Chaleco="ok",    Botas="ok",    Guantes="ok", Arnes="na",  AvatarBg="#EAF3DE", AvatarColor="#3B6D11" },
+    //     new() { Id=3, Nombre="C. Ramírez",    Iniciales="CR", Cargo="Ayudante",      Cuadrilla="Cuadrilla A", Casco="vencido", Chaleco="12",    Botas="ok",    Guantes="ok", Arnes="8",   AvatarBg="#FAEEDA", AvatarColor="#854F0B" },
+    //     new() { Id=4, Nombre="D. Martínez",   Iniciales="DM", Cargo="Electricista",  Cuadrilla="Cuadrilla B", Casco="ok",      Chaleco="ok",    Botas="ok",    Guantes="ok", Arnes="ok",  AvatarBg="#EAF3DE", AvatarColor="#3B6D11" },
+    //     new() { Id=5, Nombre="R. Paulino",    Iniciales="RP", Cargo="Albañil",       Cuadrilla="Cuadrilla B", Casco="18",      Chaleco="ok",    Botas="22",    Guantes="ok", Arnes="na",  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+    //     new() { Id=6, Nombre="L. Valdez",     Iniciales="LV", Cargo="Plomero",       Cuadrilla="Cuadrilla A", Casco="vencido", Chaleco="ok",    Botas="ok",    Guantes="25", Arnes="na",  AvatarBg="#FAEEDA", AvatarColor="#854F0B" },
+    //     new() { Id=7, Nombre="P. Sánchez",    Iniciales="PS", Cargo="Operador",      Cuadrilla="Cuadrilla B", Casco="ok",      Chaleco="ok",    Botas="ok",    Guantes="ok", Arnes="ok",  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+    //     new() { Id=8, Nombre="E. Méndez",     Iniciales="EM", Cargo="Soldador",      Cuadrilla="Cuadrilla B", Casco="ok",      Chaleco="7",     Botas="ok",    Guantes="ok", Arnes="ok",  AvatarBg="#EAF3DE", AvatarColor="#3B6D11" },
+    // };
+
+    private List<StockEPP> StockPorTipo = new()
+    {
+        new() { Nombre="Casco de seguridad",  Categoria="Protección craneal",  Icono="ti-hardhat",   IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=45, EnUso=38, Disponibles=7,  VencenProximo=4 },
+        new() { Nombre="Chaleco reflectivo",  Categoria="Visibilidad",         Icono="ti-shirt",     IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=50, EnUso=38, Disponibles=12, VencenProximo=2 },
+        new() { Nombre="Botas de seguridad",  Categoria="Protección de pies",  Icono="ti-shoe",      IconoBg="#FAEEDA", IconoColor="#854F0B", StockTotal=40, EnUso=38, Disponibles=2,  VencenProximo=1 },
+        new() { Nombre="Guantes",             Categoria="Protección de manos", Icono="ti-hand-stop", IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=60, EnUso=30, Disponibles=30, VencenProximo=3 },
+        new() { Nombre="Arnés de seguridad",  Categoria="Trabajo en altura",   Icono="ti-ripple",    IconoBg="#FCEBEB", IconoColor="#A32D2D", StockTotal=20, EnUso=15, Disponibles=5,  VencenProximo=2 },
+        new() { Nombre="Gafas de seguridad",  Categoria="Protección ocular",   Icono="ti-eyeglass",  IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=33, EnUso=20, Disponibles=13, VencenProximo=0 },
+    };
+
+    private List<AlertaEPPDto> AlertasEPP = new();
+    // {
+    //     new("JP","Juan Pérez",  "Albañil","Cuadrilla A","Casco de seguridad", -5,  "#E6F1FB","#185FA5"),
+    //     new("CR","C. Ramírez",  "Ayudante","Cuadrilla A","Casco de seguridad",-2,  "#FAEEDA","#854F0B"),
+    //     new("LV","L. Valdez",   "Plomero","Cuadrilla A", "Casco de seguridad",-1,  "#FAEEDA","#854F0B"),
+    //     new("CR","C. Ramírez",  "Ayudante","Cuadrilla A","Chaleco reflectivo", 12, "#FAEEDA","#854F0B"),
+    //     new("RP","R. Paulino",  "Albañil","Cuadrilla B", "Casco de seguridad", 18, "#E6F1FB","#185FA5"),
+    //     new("EM","E. Méndez",   "Soldador","Cuadrilla B","Chaleco reflectivo",  7, "#EAF3DE","#3B6D11"),
+    // };
+
+    private List<HistorialEPPDto> HistorialEPP = new();
+// {
+//     new("JP","Juan Pérez",  "JP","Casco de seguridad","MSA V-Gard",  new DateTime(2025,1,3), new DateTime(2025,6,3), "R. Gómez","#E6F1FB","#185FA5"),
+//     new("ML","M. López",    "ML","Casco de seguridad","MSA V-Gard",  new DateTime(2025,1,3), new DateTime(2026,1,3), "R. Gómez","#EAF3DE","#3B6D11"),
+//     new("DM","D. Martínez", "DM","Arnés de seguridad","3M DBI-SALA", new DateTime(2025,2,10),new DateTime(2026,2,10),"R. Gómez","#EAF3DE","#3B6D11"),
+//     new("CR","C. Ramírez",  "CR","Chaleco reflectivo","3M Hi-Vis",   new DateTime(2025,3,5), new DateTime(2025,9,5), "M. Santos","#FAEEDA","#854F0B"),
+//     new("RP","R. Paulino",  "RP","Botas de seguridad","Caterpillar", new DateTime(2025,1,15),new DateTime(2025,7,15),"M. Santos","#E6F1FB","#185FA5"),
+// };
+
+    // public class AlertaEPPItem
+    // {
+    //     public string Iniciales { get; set; }
+    //     public string Nombre { get; set; }
+    //     public string Cargo { get; set; }
+    //     public string Cuadrilla { get; set; }
+    //     public string TipoEPP { get; set; }
+    //     public int DiasRestantes { get; set; }
+    //     public string AvatarBg { get; set; }
+    //     public string AvatarColor { get; set; }
+    //     public AlertaEPPItem(string ini, string nom, string cargo,
+    //         string cua, string tipo, int dias, string bg, string color)
+    //     {
+    //         Iniciales = ini; Nombre = nom; Cargo = cargo; Cuadrilla = cua;
+    //         TipoEPP = tipo; DiasRestantes = dias; AvatarBg = bg; AvatarColor = color;
+    //     }
+    // }
+
+    // public class HistorialEPPItem
+    // {
+    //     public string Iniciales { get; set; }
+    //     public string Nombre { get; set; }
+    //     public string NombreCorto { get; set; }
+    //     public string TipoEPP { get; set; }
+    //     public string Marca { get; set; }
+    //     public DateTime FechaEntrega { get; set; }
+    //     public DateTime FechaVencimiento { get; set; }
+    //     public string EntregadoPor { get; set; }
+    //     public string AvatarBg { get; set; }
+    //     public string AvatarColor { get; set; }
+    //     public HistorialEPPItem(string ini, string nom, string corto,
+    //         string tipo, string marca, DateTime entrega,
+    //         DateTime vence, string por, string bg, string color)
+    //     {
+    //         Iniciales = ini; Nombre = nom; NombreCorto = corto; TipoEPP = tipo;
+    //         Marca = marca; FechaEntrega = entrega; FechaVencimiento = vence;
+    //         EntregadoPor = por; AvatarBg = bg; AvatarColor = color;
+    //     }
+    // }
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class TrabajadorEPP
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Iniciales { get; set; } = "";
+        public string Cargo { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public string Casco { get; set; } = "ok";
+        public string Chaleco { get; set; } = "ok";
+        public string Botas { get; set; } = "ok";
+        public string Guantes { get; set; } = "ok";
+        public string Arnes { get; set; } = "na";
+        public string AvatarBg { get; set; } = "#E6F1FB";
+        public string AvatarColor { get; set; } = "#185FA5";
+    }
+
+    public class StockEPP
+    {
+        public string Nombre { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public string Icono { get; set; } = "";
+        public string IconoBg { get; set; } = "";
+        public string IconoColor { get; set; } = "";
+        public int StockTotal { get; set; }
+        public int EnUso { get; set; }
+        public int Disponibles { get; set; }
+        public int VencenProximo { get; set; }
+    }
+
+    public record EppDetalleItem(
+        string Icono, string Nombre,
+        string Estado, int DiasRestantes);
+
+    public record TabItem(string Key, string Label, int Count);
+}

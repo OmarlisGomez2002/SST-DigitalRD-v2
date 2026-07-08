@@ -1,0 +1,87 @@
+@using SSTDigitalRD.Shared.DTOs
+
+<div class="dashboard-card alertas-panel">
+    <div class="card-header">
+        <span class="card-title">Alertas activas</span>
+        <a href="/incidentes" class="card-link">Ver todas</a>
+    </div>
+
+    @if (!Alertas.Any())
+    {
+        <div class="alertas-empty">
+            <i class="ti ti-shield-check" aria-hidden="true"></i>
+            <span>Sin alertas activas</span>
+        </div>
+    }
+    else
+    {
+        <div class="alertas-list">
+            @foreach (var alerta in Alertas)
+            {
+                <div class="alerta-item">
+                    <div class="alerta-dot
+                                 @(alerta.Tipo == "danger" ? "dot-danger" : "dot-warn")">
+                    </div>
+                    <div class="alerta-content">
+                        <div class="alerta-titulo">@alerta.Titulo</div>
+                        <div class="alerta-desc">@alerta.Descripcion</div>
+                        <div class="alerta-tiempo">@alerta.Tiempo</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<DashboardAlertaDto> Alertas { get; set; } = new();
+}
+@* <div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Alertas activas</span>
+        <a href="/incidentes" class="card-link">Ver todas</a>
+    </div>
+
+    <div class="alert-list">
+        @* @foreach (var alerta in Alertas)
+        {
+            <div class="alert-item @alerta.Nivel">
+                <div class="alert-dot"></div>
+                <div class="alert-content">
+                    <div class="alert-title">@alerta.Titulo</div>
+                    <div class="alert-sub">@alerta.Descripcion</div>
+                    <div class="alert-time">@alerta.Tiempo</div>
+                </div>
+            </div>
+        } *
+        @foreach (var alerta in Datos.AlertasActivas)
+        {
+            <div class="alerta-item @(alerta.Tipo == "danger" ? "alerta-danger" : "alerta-warn")">
+                <div class="alerta-dot"></div>
+                <div class="alerta-content">
+                    <div class="alerta-titulo">@alerta.Titulo</div>
+                    <div class="alerta-desc">@alerta.Descripcion</div>
+                    <div class="alerta-tiempo">@alerta.Tiempo</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<AlertaDto> Alertas = new()
+    {
+        new() { Titulo = "Casco vence en 5 días", Descripcion = "Juan Pérez · Piso 3", Tiempo = "Hace 20 min", Nivel = "danger" },
+        new() { Titulo = "Sin charla registrada hoy", Descripcion = "Cuadrilla B · 14 empleados", Tiempo = "Hace 1 hora", Nivel = "warning" },
+        new() { Titulo = "Zona de alto riesgo detectada", Descripcion = "IA predictiva · Área 4-B", Tiempo = "Hace 3 horas", Nivel = "warning" },
+    };
+
+    public class AlertaDto
+    {
+        public string Titulo { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public string Tiempo { get; set; } = "";
+        public string Nivel { get; set; } = "warning";
+    }
+} *@

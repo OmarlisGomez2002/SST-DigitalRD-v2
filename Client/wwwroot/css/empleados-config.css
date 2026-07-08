@@ -1,0 +1,52 @@
+﻿/* ============================================
+   Módulos: Empleados + Configuración
+   ============================================ */
+
+/* Layout de configuración */
+.cfg-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+/* Fila de notificación */
+.cfg-noti-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--border);
+}
+
+    .cfg-noti-row:last-child {
+        border-bottom: none;
+    }
+
+/* Botón sm */
+.btn-sm {
+    height: 32px;
+    font-size: 12px;
+    padding: 0 12px;
+}
+
+@media (max-width: 900px) {
+    .cfg-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Detalle empleado */
+.detalle-emp-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .detalle-emp-layout {
+        grid-template-columns: 1fr;
+    }
+}

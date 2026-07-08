@@ -1,0 +1,383 @@
+﻿/* ============================================
+   Módulo: Inventario EPP
+   ============================================ */
+
+/* Alerta de vencidos */
+.epp-alert-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--red-50);
+    border: 0.5px solid #F09595;
+    border-radius: var(--radius-md);
+}
+
+    .epp-alert-strip > i {
+        font-size: 20px;
+        color: var(--red-600);
+        flex-shrink: 0;
+    }
+
+.epp-alert-text {
+    flex: 1;
+}
+
+.epp-alert-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #791F1F;
+}
+
+.epp-alert-sub {
+    font-size: 11px;
+    color: var(--red-600);
+    margin-top: 2px;
+}
+
+/* Tipo de EPP cell */
+.epp-tipo-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.epp-tipo-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+    .epp-tipo-icon i {
+        font-size: 18px;
+    }
+
+/* Barra de stock */
+.stock-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stock-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-muted);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.stock-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.stock-pct {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-sec);
+    white-space: nowrap;
+    min-width: 30px;
+}
+
+/* Modal */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 520px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.125rem 1.25rem;
+    border-bottom: 0.5px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+}
+
+.modal-body {
+    padding: 1.125rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Grid de detalle EPP en modal */
+.epp-detalle-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.epp-detalle-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+}
+
+    .epp-detalle-item.epp-ok {
+        border-color: #3B6D11;
+        background: var(--green-50);
+    }
+
+    .epp-detalle-item.epp-vencido {
+        border-color: #A32D2D;
+        background: var(--red-50);
+    }
+
+    .epp-detalle-item.epp-warn {
+        border-color: #854F0B;
+        background: var(--amber-50);
+    }
+
+    .epp-detalle-item.epp-na {
+        background: var(--bg-muted);
+        opacity: 0.7;
+    }
+
+.epp-detalle-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+    .epp-detalle-icon i {
+        font-size: 17px;
+    }
+
+.epp-detalle-info {
+    flex: 1;
+}
+
+.epp-detalle-nombre {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.epp-detalle-fecha {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 2px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .modal-card {
+        max-width: 100%;
+    }
+}
+
+/* ── Asignar EPP ── */
+.asignar-epp-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 12px;
+    align-items: start;
+}
+
+.asignar-epp-left {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.asignar-epp-right {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.worker-selected-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0.5px solid var(--blue-600);
+    border-radius: var(--radius-md);
+    background: var(--blue-50);
+    margin-top: 4px;
+}
+
+.worker-selected-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.worker-selected-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #0C447C;
+}
+
+.worker-selected-role {
+    font-size: 11px;
+    color: var(--blue-600);
+}
+
+.epp-asignar-header {
+    display: grid;
+    grid-template-columns: 36px 1fr 120px 120px 36px;
+    gap: 10px;
+    padding: 0 4px 6px;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+}
+
+.epp-asignar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.epp-asignar-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 120px 120px 36px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+    .epp-asignar-row.active {
+        border-color: var(--blue-600);
+        background: var(--blue-50);
+    }
+
+    .epp-asignar-row input[type="text"],
+    .epp-asignar-row input[type="date"] {
+        height: 30px;
+        font-size: 12px;
+        padding: 0 8px;
+        border: 0.5px solid var(--border-mid);
+        border-radius: var(--radius-md);
+        font-family: inherit;
+        color: var(--text-primary);
+        background: var(--bg-surface);
+        width: 100%;
+        outline: none;
+    }
+
+        .epp-asignar-row input[type="text"]:focus,
+        .epp-asignar-row input[type="date"]:focus {
+            border-color: var(--blue-400);
+            box-shadow: 0 0 0 3px rgba(24,95,165,0.12);
+        }
+
+.input-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.epp-asignar-nombre {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.epp-asignar-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--bg-muted);
+    border-radius: var(--radius-md);
+}
+
+    .epp-asignar-hint i {
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+.epp-resumen-card {
+    background: var(--bg-muted);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.epp-resumen-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+    .epp-resumen-row.total {
+        font-size: 13px;
+        border-top: 0.5px solid var(--border);
+        padding-top: 8px;
+        margin-top: 2px;
+    }
+
+.epp-resumen-label {
+    color: var(--text-sec);
+}
+
+.epp-resumen-val {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+    .asignar-epp-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .epp-asignar-header {
+        display: none;
+    }
+
+    .epp-asignar-row {
+        grid-template-columns: 32px 1fr 36px;
+    }
+
+        .epp-asignar-row input {
+            display: none;
+        }
+}

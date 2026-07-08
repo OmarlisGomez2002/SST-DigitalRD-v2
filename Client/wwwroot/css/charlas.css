@@ -1,0 +1,253 @@
+﻿/* ============================================
+   Módulo: Charlas SST
+   ============================================ */
+
+.charlas-split {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 12px;
+}
+
+.charla-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.charla-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+    .charla-item:hover {
+        background: var(--bg-muted);
+    }
+
+    .charla-item.active {
+        border-color: var(--blue-600);
+        background: var(--blue-50);
+    }
+
+.charla-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+    .charla-icon i {
+        font-size: 18px;
+    }
+
+.charla-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.charla-titulo {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.charla-sub {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 2px;
+}
+
+.charla-badges {
+    display: flex;
+    gap: 5px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+/* Detalle */
+.charla-detalle {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.charla-detalle-empty {
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: var(--text-hint);
+    font-size: 13px;
+    gap: 8px;
+}
+
+    .charla-detalle-empty i {
+        font-size: 28px;
+        color: var(--gray-200);
+    }
+
+.detalle-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detalle-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-hint);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding-bottom: 5px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 2px;
+}
+
+.detalle-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detalle-label {
+    font-size: 11px;
+    color: var(--text-sec);
+}
+
+.detalle-val {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Asistencia */
+.asist-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.asist-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+}
+
+.asist-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.asist-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.asist-mas {
+    font-size: 11px;
+    color: var(--text-hint);
+    text-align: center;
+    margin-top: 4px;
+}
+
+/* Firma preview */
+.firma-preview-ok,
+.firma-preview-pending {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 70px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    font-size: 12px;
+}
+
+.firma-preview-ok {
+    background: var(--green-50);
+    color: #27500A;
+}
+
+.firma-preview-pending {
+    background: var(--bg-muted);
+    color: var(--text-hint);
+}
+
+    .firma-preview-ok i,
+    .firma-preview-pending i {
+        font-size: 20px;
+    }
+
+/* Hash SHA-256 */
+.hash-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg-muted);
+    border-radius: var(--radius-md);
+}
+
+    .hash-box i {
+        font-size: 16px;
+        color: var(--blue-600);
+        flex-shrink: 0;
+    }
+
+.hash-text {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-sec);
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+/* Pill adicional */
+.pill-gray {
+    background: var(--bg-muted);
+    color: var(--text-sec);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .charlas-split {
+        grid-template-columns: 1fr;
+    }
+}
+
+.detalle-charla-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .detalle-charla-layout {
+        grid-template-columns: 1fr;
+    }
+}

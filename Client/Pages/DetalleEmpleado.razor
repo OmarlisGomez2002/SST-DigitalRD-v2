@@ -1,0 +1,229 @@
+﻿@page "/empleados/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@using SSTDigitalRD.Shared.DTOs
+
+<PageTitle>Detalle empleado · SST-Digital RD</PageTitle>
+
+<div class="form-page-header">
+    <button class="btn-back"
+            @onclick='() => Nav.NavigateTo("/empleados")'>
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a empleados
+    </button>
+    <div class="form-page-title">
+        <h1>@Empleado.Nombre</h1>
+        <span class="form-page-sub">
+            @Empleado.Cargo · @Empleado.Cuadrilla
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary"
+                @onclick='() => Nav.NavigateTo($"/empleados/{Id}/editar")'>
+            <i class="ti ti-edit" aria-hidden="true"></i>
+            Editar
+        </button>
+    </div>
+</div>
+
+<div class="detalle-charla-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Perfil -->
+        <div class="dashboard-card"
+             style="display:flex;flex-direction:column;
+                    align-items:center;gap:10px;padding:1.5rem">
+            <div style="width:64px;height:64px;border-radius:50%;
+                        background:#E6F1FB;color:#185FA5;
+                        font-size:22px;font-weight:500;
+                        display:flex;align-items:center;
+                        justify-content:center">
+                @GenerarIniciales(Empleado.Nombre)
+            </div>
+            <div style="text-align:center">
+                <div style="font-size:16px;font-weight:500;
+                            color:var(--text-primary)">
+                    @Empleado.Nombre
+                </div>
+                <div class="text-hint">
+                    @Empleado.Cargo · @Empleado.Cuadrilla
+                </div>
+            </div>
+            <span class="pill @(Empleado.Estado == "Activo"
+                                  ? "pill-ok" : "pill-gray")">
+                @Empleado.Estado
+            </span>
+        </div>
+
+        <!-- Datos personales -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-user" aria-hidden="true"></i>
+                    Datos personales
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposPersonales())
+                {
+                    <div style="display:flex;flex-direction:column;
+                                    gap:2px;padding:7px 0;
+                                    border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                         color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Datos laborales -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-briefcase" aria-hidden="true"></i>
+                    Datos laborales
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposLaborales())
+                {
+                    <div style="display:flex;flex-direction:column;
+                                    gap:2px;padding:7px 0;
+                                    border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                         color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Resumen SST -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-check" aria-hidden="true"></i>
+                    Estado SST
+                </span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;
+                        gap:10px">
+                <div style="text-align:center;padding:14px 10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:11px;color:var(--text-sec);
+                                margin-bottom:6px">
+                        EPP
+                    </div>
+                    <span class="pill pill-ok">Al día</span>
+                </div>
+                <div style="text-align:center;padding:14px 10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:11px;color:var(--text-sec);
+                                margin-bottom:6px">
+                        Charlas
+                    </div>
+                    <span class="pill pill-ok">Al día</span>
+                </div>
+                <div style="text-align:center;padding:14px 10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:11px;color:var(--text-sec);
+                                margin-bottom:6px">
+                        Incidentes
+                    </div>
+                    <span class="pill pill-gray">0 reportados</span>
+                </div>
+                <div style="text-align:center;padding:14px 10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:11px;color:var(--text-sec);
+                                margin-bottom:6px">
+                        Inspecciones
+                    </div>
+                    <span class="pill pill-info">Participante</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private EmpleadoDetalleDto Empleado = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<EmpleadoDetalleDto>(
+                    $"api/empleados/{Id}");
+            if (dto is not null)
+                Empleado = dto;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando empleado: {ex.Message}");
+        }
+    }
+
+    private List<(string Label, string Valor)> CamposPersonales()
+    {
+        return new List<(string, string)>
+        {
+            ("Cédula",           Empleado.Cedula),
+            ("Fecha nacimiento", Empleado.FechaNacimiento
+                                    .ToString("dd/MM/yyyy")),
+            ("Teléfono",         string.IsNullOrEmpty(Empleado.Telefono)
+                                    ? "—" : Empleado.Telefono),
+            ("Correo",           string.IsNullOrEmpty(Empleado.Correo)
+                                    ? "—" : Empleado.Correo),
+            ("Dirección",        string.IsNullOrEmpty(Empleado.Direccion)
+                                    ? "—" : Empleado.Direccion),
+        };
+    }
+
+    private List<(string Label, string Valor)> CamposLaborales()
+    {
+        return new List<(string, string)>
+        {
+            ("Cargo",           Empleado.Cargo),
+            ("Cuadrilla",       Empleado.Cuadrilla),
+            ("Obra",            Empleado.Obra ?? "—"),
+            ("Fecha ingreso",   Empleado.FechaIngreso
+                                    .ToString("dd/MM/yyyy")),
+            ("Tipo contrato",   Empleado.TipoContrato ?? "—"),
+            ("Número TSS",      string.IsNullOrEmpty(Empleado.NumeroTSS)
+                                    ? "—" : Empleado.NumeroTSS),
+        };
+    }
+
+    private static string GenerarIniciales(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return "??";
+        var partes = nombre.Split(' ',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+            return partes[0].Length > 0
+                ? partes[0][0].ToString().ToUpper() : "?";
+        return string.Concat(partes[0][0], partes[1][0]).ToUpper();
+    }
+}

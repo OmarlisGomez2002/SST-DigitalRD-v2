@@ -1,0 +1,96 @@
+﻿/* ============================================
+   Módulo: Gemelo Digital
+   ============================================ */
+
+.gemelo-layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 12px;
+    align-items: start;
+}
+
+.gemelo-pisos {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.gemelo-piso-btn {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border-mid);
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--bg-surface);
+    color: var(--text-sec);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .gemelo-piso-btn:hover {
+        background: var(--bg-muted);
+    }
+
+    .gemelo-piso-btn.active {
+        background: var(--blue-600);
+        color: #fff;
+        border-color: var(--blue-600);
+    }
+
+.gemelo-plano-wrap {
+    width: 100%;
+    height: 340px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #F8F8F7;
+    margin-bottom: 10px;
+}
+
+.gemelo-canvas {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    display: block;
+}
+
+.gemelo-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.gemelo-leg-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-sec);
+}
+
+.gemelo-leg-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.gemelo-leg-hint {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-left: auto;
+}
+
+@media (max-width: 900px) {
+    .gemelo-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .gemelo-leg-hint {
+        display: none;
+    }
+}

@@ -1,0 +1,675 @@
+﻿@page "/incidentes"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Incidentes · SST-Digital RD</PageTitle>
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="search-box">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text"
+               placeholder="Buscar incidente, área..."
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+    </div>
+    <div class="toolbar-filters">
+
+        <!-- Filtrar -->
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn" @onclick="TogglePanelFiltros">
+                <i class="ti ti-filter" aria-hidden="true"></i>
+                Filtrar
+                @if (FiltrosActivos > 0)
+                {
+                    <span class="filter-badge">@FiltrosActivos</span>
+                }
+            </button>
+            @if (MostrarPanelFiltros)
+            {
+                <div class="filtros-panel">
+                    <div class="filtros-panel-header">
+                        <span>Filtros avanzados</span>
+                        <button class="icon-action" @onclick="TogglePanelFiltros">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body">
+                        <div class="form-field">
+                            <label>Tipo de incidente</label>
+                            <select @bind="FiltroTipo">
+                                <option value="">Todos</option>
+                                <option>Accidente grave</option>
+                                <option>Accidente leve</option>
+                                <option>Cuasi-accidente</option>
+                                <option>Condición insegura</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Estado</label>
+                            <select @bind="FiltroEstado">
+                                <option value="">Todos</option>
+                                <option>En seguimiento</option>
+                                <option>Cerrado</option>
+                                <option>Notificado MTRAB</option>
+                            </select>
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-field">
+                                <label>Desde</label>
+                                <input type="date" @bind="FiltroFechaDesde" />
+                            </div>
+                            <div class="form-field">
+                                <label>Hasta</label>
+                                <input type="date" @bind="FiltroFechaHasta" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filtros-panel-footer">
+                        <button class="btn-secondary btn-sm"
+                                @onclick="LimpiarFiltros">
+                            Limpiar
+                        </button>                        
+                        <button class="btn-primary btn-sm"
+                                @onclick="AplicarFiltros">
+                            Aplicar filtros
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Exportar -->
+        <button class="filter-btn" @onclick="ExportarCSV">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Exportar
+        </button>
+    </div>
+    @if (_puedeCrear)
+    {
+        <button class="btn-primary" @onclick="NuevoIncidente">
+            <i class="ti ti-plus" aria-hidden="true"></i>
+            Registrar incidente
+        </button>
+    }
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Incidentes este mes</span>
+        <span class="insp-stat-val">@ListaIncidentes.Count <small>reportados</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Accidentes con lesión</span>
+        <span class="insp-stat-val" style="color:#A32D2D">
+            @ListaIncidentes.Count(x => x.Tipo == "Accidente grave" || x.Tipo == "Accidente leve")
+            <small>casos</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Días perdidos</span>
+        <span class="insp-stat-val" style="color:#854F0B">
+            @ListaIncidentes.Sum(x => x.DiasPerdidos) <small>días</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Tasa de frecuencia</span>
+        <span class="insp-stat-val">3.2 <small>por 100 trab.</small></span>
+    </div>
+</div>
+
+<!-- ===== PANEL DIVIDIDO ===== -->
+<div class="charlas-split">
+
+    <!-- Lista izquierda -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                Incidentes recientes
+            </span>
+            <a class="card-link">Ver todos →</a>
+        </div>
+        <div class="charla-list">
+            @foreach (var inc in IncidentesFiltrados)
+            {
+                <div class="charla-item @(IncidenteSeleccionado?.Id == inc.Id ? "active" : "")"
+                     @onclick="() => SeleccionarIncidente(inc)">
+                    <div class="charla-icon" style="background:@inc.IconoBg">
+                        <i class="ti @inc.Icono" style="color:@inc.IconoColor"
+                           aria-hidden="true"></i>
+                    </div>
+                    <div class="charla-meta">
+                        <div class="charla-titulo">@inc.Descripcion</div>
+                        <div class="charla-sub">
+                            @inc.Fecha.ToString("dd/MM/yyyy") · @inc.Hora · @inc.Inspector
+                        </div>
+                        <div class="charla-badges">
+                            <span class="pill @GetTipoPill(inc.Tipo)">@inc.Tipo</span>
+                            @if (inc.GpsCapturado)
+                            {
+                                <span class="pill pill-info">
+                                    <i class="ti ti-map-pin" aria-hidden="true"></i> GPS
+                                </span>
+                            }
+                            @if (inc.Firmado)
+                            {
+                                <span class="pill pill-ok">
+                                    <i class="ti ti-shield-lock" aria-hidden="true"></i> SHA-256
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Detalle derecha -->
+    @if (IncidenteSeleccionado is not null)
+    {
+        <div class="dashboard-card charla-detalle">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-file-description" aria-hidden="true"></i>
+                    Detalle
+                </span>
+                <span class="pill @GetTipoPill(IncidenteSeleccionado.Tipo)">
+                    @IncidenteSeleccionado.Tipo
+                </span>
+            </div>
+
+            <div class="detalle-section">
+                <div class="detalle-section-title">Información general</div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Descripción</span>
+                    <span class="detalle-val">@IncidenteSeleccionado.Descripcion</span>
+                </div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Trabajador afectado</span>
+                    <span class="detalle-val">
+                        @(string.IsNullOrEmpty(IncidenteSeleccionado.Afectado)
+                                            ? "Sin afectado directo"
+                                            : IncidenteSeleccionado.Afectado)
+                </span>
+            </div>
+            <div class="detalle-field">
+                <span class="detalle-label">Área</span>
+                <span class="detalle-val">@IncidenteSeleccionado.Area</span>
+            </div>
+            <div class="detalle-field">
+                <span class="detalle-label">Días perdidos</span>
+                <span class="detalle-val">@IncidenteSeleccionado.DiasPerdidos días</span>
+            </div>
+            <div class="detalle-field">
+                <span class="detalle-label">Inspector</span>
+                <span class="detalle-val">@IncidenteSeleccionado.Inspector</span>
+            </div>
+        </div>
+
+            <div class="detalle-section">
+                <div class="detalle-section-title">Ubicación GPS</div>
+                <div class="gps-badge-inc">
+                    <i class="ti ti-map-pin" aria-hidden="true"></i>
+                    <span class="gps-coords">
+                        @IncidenteSeleccionado.Latitud.ToString("F6"),
+                        @IncidenteSeleccionado.Longitud.ToString("F6")
+                    </span>
+                </div>
+            </div>
+
+            <div class="detalle-section">
+                <div class="detalle-section-title">
+                    Fotografías de evidencia (@IncidenteSeleccionado.Fotos)
+                </div>
+                <div class="foto-grid-inc">
+                @for (int i = 0; i < IncidenteSeleccionado.Fotos; i++)
+                    {
+                        var idx = i + 1;
+                        <div class="foto-thumb-inc">
+                            <i class="ti ti-camera" aria-hidden="true"></i>
+                            <span>Foto @idx</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="detalle-section">
+                <div class="detalle-section-title">Acciones correctivas</div>
+                <div class="accion-box">
+                    <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+                    <span>@IncidenteSeleccionado.AccionCorrectiva</span>
+                </div>
+            </div>
+
+            @if (IncidenteSeleccionado.Firmado)
+            {
+                <div class="detalle-section">
+                    <div class="detalle-section-title">Evidencia inmutable</div>
+                    <div class="hash-box">
+                        <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                        <span class="hash-text">SHA-256: @IncidenteSeleccionado.HashSha256</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-card charla-detalle charla-detalle-empty">
+            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+            <span>Selecciona un incidente para ver el detalle</span>
+        </div>
+    }
+</div>
+
+<!-- ===== TABLA HISTORIAL ===== -->
+<div class="table-card">
+    <table class="insp-table">
+        <thead>
+            <tr>
+                <th>Descripción</th>
+                <th>Tipo</th>
+                <th>Área</th>
+                <th>Afectado</th>
+                <th>Fecha</th>
+                <th>Días perdidos</th>
+                <th>Estado</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!IncidentesPaginados.Any())
+            {
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                        <span>No se encontraron incidentes</span>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var inc in IncidentesPaginados)
+                {
+                    <tr>
+                        <td style="font-weight:500">@inc.Descripcion</td>
+                        <td>
+                            <span class="pill @GetTipoPill(inc.Tipo)">
+                                @GetTipoCorto(inc.Tipo)
+                            </span>
+                        </td>
+                        <td>@inc.Area</td>
+                        <td>@(string.IsNullOrEmpty(inc.Afectado) ? "—" : inc.Afectado)</td>
+                        <td>@inc.Fecha.ToString("dd/MM/yyyy")</td>
+                        <td>@inc.DiasPerdidos</td>
+                        <td>
+                            <span class="pill @GetEstadoPill(inc.Estado)">
+                                @inc.Estado
+                            </span>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                @* <button class="icon-action"
+                                        title="Ver detalle"
+                                        @onclick="() => SeleccionarIncidente(inc)">
+                                    <i class="ti ti-eye" aria-hidden="true"></i>
+                                </button> *@
+                                <button class="icon-action" title="Ver detalle"
+                                        @onclick='() => Nav.NavigateTo($"/incidentes/{inc.Id}")'>
+                                    <i class="ti ti-eye" aria-hidden="true"></i>
+                                </button>
+                                <button class="icon-action" title="Descargar PDF"
+                                        @onclick="() => DescargarPDF(inc)">
+                                    <i class="ti ti-download" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="pagination-bar">
+        <span class="page-info">
+            Mostrando @PaginaDesde–@PaginaHasta
+            de @IncidentesFiltrados.Count() incidentes
+        </span>
+        <div class="page-btns">
+            <button class="page-btn"
+                    @onclick="PaginaAnterior"
+                    disabled="@(PaginaActual == 1)">
+                <i class="ti ti-chevron-left" aria-hidden="true"></i>
+            </button>
+            @for (int i = 1; i <= TotalPaginas; i++)
+            {
+                var p = i;
+                <button class="page-btn @(PaginaActual == p ? "active" : "")"
+                        @onclick="() => IrAPagina(p)">
+                    @p
+                </button>
+            }
+            <button class="page-btn"
+                    @onclick="PaginaSiguiente"
+                    disabled="@(PaginaActual == TotalPaginas)">
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ── Estado UI ──────────────────────────────────────────────
+    private string SearchTerm = "";
+    private string FechaFiltro = "Mayo 2025";
+    private int PaginaActual = 1;
+    private const int PerPage = 8;
+    private IncidenteViewModel? IncidenteSeleccionado;
+
+    private bool MostrarPanelFiltros = false;
+    private string FiltroTipo = "";
+    private string FiltroEstado = "";
+    private DateTime? FiltroFechaDesde = null;
+    private DateTime? FiltroFechaHasta = null;
+    private bool _puedeCrear = false;
+
+    private int FiltrosActivos =>
+        (string.IsNullOrEmpty(FiltroTipo) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroEstado) ? 0 : 1) +
+        (FiltroFechaDesde is null ? 0 : 1) +
+        (FiltroFechaHasta is null ? 0 : 1);
+
+    private void TogglePanelFiltros() =>
+        MostrarPanelFiltros = !MostrarPanelFiltros;
+
+    private void LimpiarFiltros()
+    {
+        FiltroTipo = "";
+        FiltroEstado = "";
+        FiltroFechaDesde = null;
+        FiltroFechaHasta = null;
+        PaginaActual = 1;
+    }
+
+    private void AplicarFiltros()
+    {
+        PaginaActual = 1;
+        MostrarPanelFiltros = false;
+    }
+
+    private async Task DescargarPDF(IncidenteViewModel inc)
+    {
+        var response = await Http.GetAsync($"api/incidentes/{inc.Id}/pdf");
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Incidente_{inc.Tipo.Replace(" ", "_")}.pdf";
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "application/pdf");
+        }
+    }
+
+    private async Task ExportarCSV()
+    {
+        var query = string.IsNullOrEmpty(FiltroTipo)
+            ? "" : $"?tipo={Uri.EscapeDataString(FiltroTipo)}";
+        var response = await Http.GetAsync($"api/incidentes/export{query}");
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                $"Incidentes_{DateTime.Now:yyyyMMdd}.csv",
+                base64, "text/csv");
+        }
+    }
+
+    // ── Filtrado y paginación ──────────────────────────────────
+    private IEnumerable<IncidenteViewModel> IncidentesFiltrados =>
+    ListaIncidentes
+        .Where(x => string.IsNullOrWhiteSpace(SearchTerm) ||
+                    x.Descripcion.Contains(SearchTerm,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    x.Area.Contains(SearchTerm,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    x.Afectado.Contains(SearchTerm,
+                        StringComparison.OrdinalIgnoreCase))
+        .Where(x => string.IsNullOrEmpty(FiltroTipo) ||
+                    x.Tipo == FiltroTipo)
+        .Where(x => string.IsNullOrEmpty(FiltroEstado) ||
+                    x.Estado == FiltroEstado)
+        .Where(x => FiltroFechaDesde == null ||
+                    x.Fecha.Date >= FiltroFechaDesde.Value.Date)
+        .Where(x => FiltroFechaHasta == null ||
+                    x.Fecha.Date <= FiltroFechaHasta.Value.Date);
+
+    // private IEnumerable<IncidenteViewModel> IncidentesFiltrados =>
+    //     ListaIncidentes.Where(x =>
+    //         string.IsNullOrWhiteSpace(SearchTerm) ||
+    //         x.Descripcion.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+    //         x.Area.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+    //         x.Afectado.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<IncidenteViewModel> IncidentesPaginados =>
+        IncidentesFiltrados.Skip((PaginaActual - 1) * PerPage).Take(PerPage);
+
+    private int TotalPaginas => Math.Max(1,
+        (int)Math.Ceiling(IncidentesFiltrados.Count() / (double)PerPage));
+    private int PaginaDesde => IncidentesFiltrados.Any()
+        ? (PaginaActual - 1) * PerPage + 1 : 0;
+    private int PaginaHasta => Math.Min(
+        PaginaActual * PerPage, IncidentesFiltrados.Count());
+
+    // ── Acciones ───────────────────────────────────────────────
+    [Inject] private NavigationManager NavManager { get; set; } = default!;
+
+    private void NuevoIncidente() => Nav.NavigateTo("/incidentes/nuevo");
+    private void SeleccionarIncidente(IncidenteViewModel inc) =>
+        IncidenteSeleccionado = inc;
+    private void IrAPagina(int p) => PaginaActual = p;
+    private void PaginaAnterior() { if (PaginaActual > 1) PaginaActual--; }
+    private void PaginaSiguiente() { if (PaginaActual < TotalPaginas) PaginaActual++; }
+
+    // ── Helpers ────────────────────────────────────────────────
+    private static string GetTipoPill(string tipo) => tipo switch
+    {
+        "Accidente grave" => "pill-danger",
+        "Accidente leve" => "pill-warn",
+        "Cuasi-accidente" => "pill-warn",
+        "Condición insegura" => "pill-info",
+        _ => "pill-gray"
+    };
+
+    private static string GetTipoCorto(string tipo) => tipo switch
+    {
+        "Accidente grave" => "Grave",
+        "Accidente leve" => "Leve",
+        "Cuasi-accidente" => "Cuasi",
+        "Condición insegura" => "Condición",
+        _ => tipo
+    };
+
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "Cerrado" => "pill-ok",
+        "En seguimiento" => "pill-warn",
+        "Notificado MTRAB" => "pill-info",
+        _ => "pill-gray"
+    };
+
+    //protected override void OnInitialized() => IncidenteSeleccionado = ListaIncidentes.FirstOrDefault();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeCrear = await Permisos.PuedeCrear("Incidentes");
+        try
+        {
+            var resultado = await Http
+                .GetFromJsonAsync<List<IncidenteListDto>>(
+                    "api/incidentes");
+
+            if (resultado is not null)
+            {
+                ListaIncidentes = resultado.Select(x => new IncidenteViewModel
+                {
+                    Id = x.Id,
+                    Descripcion = x.Descripcion,
+                    Tipo = x.Tipo,
+                    Area = x.Area,
+                    Afectado = x.Afectado ?? "",
+                    Inspector = x.Inspector,
+                    Fecha = x.Fecha,
+                    Hora = x.Fecha.ToString("hh:mm tt"),
+                    DiasPerdidos = x.DiasPerdidos,
+                    GpsCapturado = x.GpsCapturado,
+                    Firmado = x.Firmado,
+                    Estado = x.Estado,
+                    HashSha256 = x.HashSha256 ?? "",
+                    Icono = GetIconoPorTipo(x.Tipo),
+                    IconoBg = GetIconoBgPorTipo(x.Tipo),
+                    IconoColor = GetIconoColorPorTipo(x.Tipo)
+                }).ToList();
+
+                IncidenteSeleccionado = ListaIncidentes.FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando incidentes: {ex.Message}");
+        }
+    }
+
+    private static string GetIconoPorTipo(string tipo) => tipo switch
+    {
+        "Accidente grave" => "ti-first-aid-kit",
+        "Accidente leve" => "ti-bandage",
+        "Cuasi-accidente" => "ti-flame",
+        "Condición insegura" => "ti-eye-off",
+        _ => "ti-alert-triangle"
+    };
+
+    private static string GetIconoBgPorTipo(string tipo) => tipo switch
+    {
+        "Accidente grave" => "#FCEBEB",
+        "Accidente leve" => "#FAEEDA",
+        "Cuasi-accidente" => "#FAEEDA",
+        "Condición insegura" => "#E6F1FB",
+        _ => "#FAEEDA"
+    };
+
+    private static string GetIconoColorPorTipo(string tipo) => tipo switch
+    {
+        "Accidente grave" => "#A32D2D",
+        "Accidente leve" => "#854F0B",
+        "Cuasi-accidente" => "#854F0B",
+        "Condición insegura" => "#185FA5",
+        _ => "#854F0B"
+    };
+
+
+
+    // ── Datos de ejemplo ───────────────────────────────────────
+    private List<IncidenteViewModel> ListaIncidentes = new();
+    // {
+    //     new()
+    //     {
+    //         Id=1, Descripcion="Caída desde andamio — Piso 4",
+    //         Tipo="Accidente grave", Area="Piso 4 · Fachada Norte",
+    //         Afectado="C. Ramírez", Inspector="R. Gómez",
+    //         Fecha=new DateTime(2025,5,3), Hora="9:20 AM",
+    //         DiasPerdidos=3, Estado="En seguimiento",
+    //         GpsCapturado=true, Firmado=true,
+    //         Latitud=18.473621, Longitud=-69.931215,
+    //         Fotos=2,
+    //         AccionCorrectiva="Reforzar anclaje de andamios en pisos 3-5. Responsable: R. Gómez. Fecha límite: 10/05/2025.",
+    //         HashSha256="e8f2a1c3d4b56790f1e2d3c4b5a67890f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6",
+    //         Icono="ti-first-aid-kit", IconoBg="#FCEBEB", IconoColor="#A32D2D"
+    //     },
+    //     new()
+    //     {
+    //         Id=2, Descripcion="Conato de incendio — Almacén",
+    //         Tipo="Cuasi-accidente", Area="Almacén · Planta baja",
+    //         Afectado="", Inspector="M. Santos",
+    //         Fecha=new DateTime(2025,5,2), Hora="2:45 PM",
+    //         DiasPerdidos=0, Estado="Cerrado",
+    //         GpsCapturado=true, Firmado=true,
+    //         Latitud=18.473100, Longitud=-69.930800,
+    //         Fotos=1,
+    //         AccionCorrectiva="Revisión del sistema eléctrico del almacén. Extintores recargados. Responsable: M. Santos.",
+    //         HashSha256="b3d4e5f6a7c8b9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4",
+    //         Icono="ti-flame", IconoBg="#FAEEDA", IconoColor="#854F0B"
+    //     },
+    //     new()
+    //     {
+    //         Id=3, Descripcion="Golpe con herramienta — Taller",
+    //         Tipo="Accidente leve", Area="Taller · Sótano",
+    //         Afectado="J. Pérez", Inspector="L. Herrera",
+    //         Fecha=new DateTime(2025,5,1), Hora="11:10 AM",
+    //         DiasPerdidos=1, Estado="Cerrado",
+    //         GpsCapturado=true, Firmado=true,
+    //         Latitud=18.472900, Longitud=-69.931000,
+    //         Fotos=1,
+    //         AccionCorrectiva="Capacitación sobre manejo seguro de herramientas manuales. Dotación de guantes adicionales.",
+    //         HashSha256="c4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5",
+    //         Icono="ti-hand-off", IconoBg="#FAEEDA", IconoColor="#854F0B"
+    //     },
+    //     new()
+    //     {
+    //         Id=4, Descripcion="Exposición a polvo — Piso 2",
+    //         Tipo="Condición insegura", Area="Piso 2 · Área de corte",
+    //         Afectado="", Inspector="R. Gómez",
+    //         Fecha=new DateTime(2025,4,30), Hora="3:00 PM",
+    //         DiasPerdidos=0, Estado="En seguimiento",
+    //         GpsCapturado=true, Firmado=true,
+    //         Latitud=18.473400, Longitud=-69.931100,
+    //         Fotos=2,
+    //         AccionCorrectiva="Instalación de sistema de extracción de polvo. Dotación de mascarillas N95 para el área de corte.",
+    //         HashSha256="d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6",
+    //         Icono="ti-eye-off", IconoBg="#E6F1FB", IconoColor="#185FA5"
+    //     },
+    //     new()
+    //     {
+    //         Id=5, Descripcion="Derrame de material químico",
+    //         Tipo="Cuasi-accidente", Area="Piso 1 · Depósito",
+    //         Afectado="", Inspector="M. Santos",
+    //         Fecha=new DateTime(2025,4,28), Hora="8:30 AM",
+    //         DiasPerdidos=0, Estado="Cerrado",
+    //         GpsCapturado=true, Firmado=true,
+    //         Latitud=18.473200, Longitud=-69.930900,
+    //         Fotos=3,
+    //         AccionCorrectiva="Revisión del almacenamiento de materiales. Señalización de área de riesgo químico actualizada.",
+    //         HashSha256="f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7",
+    //         Icono="ti-droplet", IconoBg="#FAEEDA", IconoColor="#854F0B"
+    //     },
+    // };
+
+    // ── Modelo ─────────────────────────────────────────────────
+    public class IncidenteViewModel
+    {
+        public int Id { get; set; }
+        public string Descripcion { get; set; } = "";
+        public string Tipo { get; set; } = "";
+        public string Area { get; set; } = "";
+        public string Afectado { get; set; } = "";
+        public string Inspector { get; set; } = "";
+        public DateTime Fecha { get; set; }
+        public string Hora { get; set; } = "";
+        public int DiasPerdidos { get; set; }
+        public string Estado { get; set; } = "";
+        public bool GpsCapturado { get; set; }
+        public bool Firmado { get; set; }
+        public double Latitud { get; set; }
+        public double Longitud { get; set; }
+        public int Fotos { get; set; }
+        public string AccionCorrectiva { get; set; } = "";
+        public string HashSha256 { get; set; } = "";
+        public string Icono { get; set; } = "ti-alert-triangle";
+        public string IconoBg { get; set; } = "#FAEEDA";
+        public string IconoColor { get; set; } = "#854F0B";
+    }
+}

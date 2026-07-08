@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="MLModels\**" />
+    <Content Remove="MLModels\**" />
+    <EmbeddedResource Remove="MLModels\**" />
+    <None Remove="MLModels\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="7.0.20" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="7.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="7.0.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="7.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="7.0.20" />
+    <!--<PackageReference Include="Microsoft.ML" Version="3.0.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.16.3" />
+    <PackageReference Include="Microsoft.ML.OnnxTransformer" Version="3.0.1" />-->
+    <PackageReference Include="QuestPDF" Version="2026.6.0" />
+    <!--<PackageReference Include="SixLabors.ImageSharp" Version="4.0.0" />-->
+	  <!--<PackageReference Include="SixLabors.ImageSharp" Version="2.1.9" />-->
+	  <!--<PackageReference Include="SixLabors.ImageSharp" Version="3.1.5" />-->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.3" />
+    <!--<PackageReference Include="System.Drawing.Common" Version="7.0.0" />-->
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Client\SSTDigitalRD.Client.csproj" />
+    <ProjectReference Include="..\SSTDigitalRD.Shared\SSTDigitalRD.Shared.csproj" />
+  </ItemGroup>
+	
+    <!--<ItemGroup>
+	    <None Update="MLModels\yolov4.onnx">
+		    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	    </None>
+    </ItemGroup>-->
+	
+	
+
+</Project>

@@ -1,0 +1,97 @@
+<div class="metric-card">
+    <div class="metric-header">
+        <div class="metric-icon @IconColor">
+            <i class="ti @IconoFinal" aria-hidden="true"></i>
+        </div>
+        <span class="metric-trend @(TendenciaPositiva ? "up" : "down")">
+            <i class="ti @(TendenciaPositiva ? "ti-trending-up" : "ti-trending-down")"
+               aria-hidden="true"></i>
+            @TendFinal
+        </span>
+    </div>
+    <div class="metric-value">
+        @ValorFinal
+        @if (!string.IsNullOrEmpty(Unit))
+        {
+            <span class="metric-unit">@Unit</span>
+        }
+    </div>
+    <div class="metric-label">@TituloFinal</div>
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Valor { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Tendencia { get; set; } = "";
+    [Parameter] public string Trend { get; set; } = "";
+    [Parameter] public bool TendenciaPositiva { get; set; } = true;
+    [Parameter] public bool? TrendUp { get; set; } = null;
+    [Parameter] public string Icono { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public string IconColor { get; set; } = "blue";
+
+    private string TituloFinal => !string.IsNullOrEmpty(Titulo) ? Titulo : Label;
+    private string ValorFinal => !string.IsNullOrEmpty(Valor) ? Valor : Value;
+    private string TendFinal => !string.IsNullOrEmpty(Tendencia) ? Tendencia : Trend;
+    private string IconoFinal => !string.IsNullOrEmpty(Icono) ? Icono : Icon;
+}
+@* <div class="metric-card">
+    <div class="metric-header">
+        <div class="metric-icon @IconColor">
+            <i class="ti @Icon"></i>
+        </div>
+        @if (TrendUp.HasValue)
+        {
+            <span class="metric-trend @(TrendUp.Value ? "up" : "down")">
+                <i class="ti @(TrendUp.Value ? "ti-trending-up" : "ti-trending-down")"></i>
+                @Trend
+            </span>
+        }
+        else
+        {
+            <span class="metric-trend neutral">@Trend</span>
+        }
+    </div>
+    <div class="metric-value">
+        @Value
+        @if (!string.IsNullOrEmpty(Unit))
+        {
+            <span class="metric-unit">@Unit</span>
+        }
+    </div>
+    <div class="metric-label">@Label</div>
+</div>
+
+@* @code {
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string IconColor { get; set; } = "blue";
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Trend { get; set; } = "";
+    [Parameter] public bool? TrendUp { get; set; } = null;
+} *
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Valor { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string Tendencia { get; set; } = "";
+    [Parameter] public string Trend { get; set; } = "";
+    [Parameter] public bool TendenciaPositiva { get; set; } = true;
+    [Parameter] public bool? TrendUp { get; set; } = null;
+    [Parameter] public string Icono { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public string IconColor { get; set; } = "";
+
+    private string TituloFinal => !string.IsNullOrEmpty(Titulo) ? Titulo : Label;
+    private string ValorFinal => !string.IsNullOrEmpty(Valor) ? Valor : Value;
+    private string TendFinal => !string.IsNullOrEmpty(Tendencia) ? Tendencia : Trend;
+    private string IconoFinal => !string.IsNullOrEmpty(Icono) ? Icono : Icon;
+    //private bool TendPositiva => TendenciaPositiva || TrendUp;
+} *@

@@ -1,0 +1,414 @@
+﻿@page "/inspecciones/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Detalle inspección · SST-Digital RD</PageTitle>
+
+<div class="form-page-header">
+    <button class="btn-back" @onclick="VolverALista">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a inspecciones
+    </button>
+    <div class="form-page-title">
+        <h1>@Inspeccion.Area</h1>
+        <span class="form-page-sub">
+            @Inspeccion.Obra · @Inspeccion.Fecha.ToString("dd/MM/yyyy") @Inspeccion.Hora
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary" @onclick="DescargarPDF">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Descargar PDF
+        </button>
+        @if (_puedeEditar)
+        {
+            <button class="btn-primary" @onclick="IrAEditar">
+                <i class="ti ti-edit" aria-hidden="true"></i>
+                Editar
+            </button>
+        }
+        
+    </div>
+</div>
+
+<div class="detalle-insp-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-info-circle" aria-hidden="true"></i>
+                    Información general
+                </span>
+                <span class="pill @GetEstadoPill(Inspeccion.Estado)"
+                      style="margin-left:auto">
+                    @Inspeccion.Estado
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposGenerales)
+                {
+                    <div style="display:flex;flex-direction:column;gap:2px;
+                                    padding:7px 0;
+                                    border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                         color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-checklist" aria-hidden="true"></i>
+                    Lista de verificación
+                </span>
+                <span class="pill pill-info" style="margin-left:auto">
+                    @Inspeccion.Items.Count(x => x.Resultado == "ok") /
+                    @Inspeccion.Items.Count(x => x.Resultado != "na") cumplidos
+                </span>
+            </div>
+            @foreach (var grupo in Inspeccion.Items.GroupBy(x => x.Categoria))
+            {
+                <div style="font-size:10px;font-weight:500;
+                                color:var(--text-hint);text-transform:uppercase;
+                                letter-spacing:.06em;padding:8px 0 4px;
+                                border-bottom:0.5px solid var(--border);
+                                margin-bottom:4px">
+                    @grupo.Key
+                </div>
+                @foreach (var item in grupo)
+                {
+                    <div style="display:flex;align-items:flex-start;
+                                        justify-content:space-between;gap:10px;
+                                        padding:7px 4px;
+                                        border-bottom:0.5px solid var(--border)">
+                        <div style="flex:1">
+                            <div style="font-size:12px;color:var(--text-primary)">
+                                @item.Descripcion
+                            </div>
+                            @if (!string.IsNullOrEmpty(item.Observacion))
+                            {
+                                <div class="text-hint" style="margin-top:2px">
+                                    Obs: @item.Observacion
+                                </div>
+                            }
+                        </div>
+                        <span class="pill @GetItemPill(item.Resultado)"
+                              style="flex-shrink:0">
+                            @GetItemLabel(item.Resultado)
+                        </span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-map-pin" aria-hidden="true"></i>
+                    Geolocalización
+                </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;
+                        padding:10px 12px;background:#EAF3DE;
+                        border-radius:var(--radius-md)">
+                <i class="ti ti-map-pin"
+                   style="font-size:16px;color:#3B6D11;flex-shrink:0"
+                   aria-hidden="true"></i>
+                <div>
+                    <div style="font-size:12px;font-weight:500;color:#27500A">
+                        Coordenadas capturadas
+                    </div>
+                    <div style="font-size:11px;font-family:var(--font-mono);
+                                color:#3B6D11;margin-top:1px">
+                        @Inspeccion.Latitud.ToString("F6"),
+                        @Inspeccion.Longitud.ToString("F6")
+                        · ±@Inspeccion.PrecisionGps.ToString("F0")m
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-photo" aria-hidden="true"></i>
+                    Fotografías (@Inspeccion.Fotos)
+                </span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+                @for (int i = 1; i <= Inspeccion.Fotos; i++)
+                {
+                    var idx = i;
+                    <div style="height:64px;border-radius:var(--radius-md);
+                                    background:var(--bg-muted);
+                                    border:0.5px solid var(--border);
+                                    display:flex;align-items:center;
+                                    justify-content:center;
+                                    flex-direction:column;gap:3px">
+                        <i class="ti ti-photo"
+                           style="font-size:18px;color:var(--text-hint)"
+                           aria-hidden="true"></i>
+                        <span style="font-size:10px;color:var(--text-hint)">
+                            Foto @idx
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-writing" aria-hidden="true"></i>
+                    Firma digital
+                </span>
+            </div>
+            @if (Inspeccion.Firmado)
+            {
+                <div style="height:60px;border:0.5px solid var(--border);
+                                border-radius:var(--radius-md);display:flex;
+                                align-items:center;justify-content:center;
+                                gap:8px;background:#EAF3DE;
+                                font-size:12px;color:#27500A">
+                    <i class="ti ti-check"
+                       style="font-size:16px" aria-hidden="true"></i>
+                    Firma capturada · @Inspeccion.HoraFirma
+                </div>
+            }
+            else
+            {
+                <div style="height:60px;border:0.5px solid var(--border);
+                                border-radius:var(--radius-md);display:flex;
+                                align-items:center;justify-content:center;
+                                gap:8px;background:var(--bg-muted);
+                                font-size:12px;color:var(--text-hint)">
+                    <i class="ti ti-writing" aria-hidden="true"></i>
+                    Firma pendiente
+                </div>
+            }
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Evidencia inmutable
+                </span>
+            </div>
+            <div class="hash-box">
+                <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                <span class="hash-text">SHA-256: @Inspeccion.HashSha256</span>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Inspeccion.PlanAccion))
+        {
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+                        Plan de acción
+                    </span>
+                </div>
+                <div style="font-size:12px;color:var(--text-primary);
+                                padding:10px 12px;background:var(--bg-muted);
+                                border-radius:var(--radius-md);line-height:1.6">
+                    @Inspeccion.PlanAccion
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private InspeccionDetalle Inspeccion = new();
+    private bool _puedeEditar = false;
+
+    private void VolverALista() => Nav.NavigateTo("/inspecciones");
+    private void IrAEditar() => Nav.NavigateTo($"/inspecciones/{Id}/editar");
+    
+    private async Task DescargarPDF()
+    {
+        var url = $"api/inspecciones/{Id}/pdf";
+        var response = await Http.GetAsync(url);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Inspeccion_{Inspeccion.Area.Replace(" ", "_")}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo", fileName, base64, "application/pdf");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeEditar = await Permisos.PuedeEditar("Inspecciones");
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<InspeccionDetalleDto>(
+                    $"api/inspecciones/{Id}");
+
+            if (dto is not null)
+            {
+                Inspeccion = new InspeccionDetalle
+                {
+                    Id = dto.Id,
+                    Area = dto.Area,
+                    Obra = dto.Obra,
+                    Tipo = dto.TipoInspeccion,
+                    Inspector = dto.Inspector,
+                    Fecha = dto.FechaInspeccion,
+                    Hora = dto.FechaInspeccion.ToString("hh:mm tt"),
+                    HoraFirma = dto.HoraFirma ?? "",
+                    Trabajadores = dto.CantidadTrabajadores,
+                    Estado = dto.Estado,
+                    Firmado = dto.Firmado,
+                    GpsCapturado = dto.GpsCapturado,
+                    Latitud = dto.Latitud,
+                    Longitud = dto.Longitud,
+                    PrecisionGps = dto.PrecisionGps,
+                    Fotos = dto.CantidadFotos,
+                    HashSha256 = dto.HashSha256 ?? "",
+                    PlanAccion = dto.PlanAccion,
+                    Items = dto.Items.Select(i =>
+                        new ChecklistItemDetalle(
+                            i.Categoria, i.Descripcion,
+                            i.Resultado, i.Observacion)
+                        ).ToList()
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando inspección: {ex.Message}");
+        }
+    }
+
+    // protected override void OnInitialized()
+    // {
+    //     // TODO: GET /api/inspecciones/{Id}
+    //     Inspeccion = new()
+    //     {
+    //         Id = Id,
+    //         Area = "Piso 8 — Estructura metálica",
+    //         Obra = "Torre Piantini IV · Obra principal",
+    //         Tipo = "Inspección de rutina",
+    //         Inspector = "Ramón Gómez · Prevencionista",
+    //         Fecha = new DateTime(2025, 5, 3),
+    //         Hora = "9:14 AM",
+    //         HoraFirma = "9:22 AM",
+    //         Trabajadores = 14,
+    //         Estado = "Conforme",
+    //         Firmado = true,
+    //         GpsCapturado = true,
+    //         Latitud = 18.473621,
+    //         Longitud = -69.931215,
+    //         PrecisionGps = 4,
+    //         Fotos = 3,
+    //         HashSha256 = "a3f8c2d1e94b760f2c31a8e4d7b09c5f1a2e3d4b5c6f7a8b9c0d1e2f3a4b5c6",
+    //         PlanAccion = "Abastecer guantes en sector B. Responsable: R. Gómez. Fecha límite: 10/05/2025.",
+    //         Items = new()
+    //         {
+    //             new("EPP",              "Todo el personal usa casco de seguridad",         "ok",   ""),
+    //             new("EPP",              "Todo el personal usa chaleco reflectivo",          "ok",   ""),
+    //             new("EPP",              "Botas de seguridad en uso",                        "ok",   ""),
+    //             new("EPP",              "Guantes disponibles donde se requiere",            "warn", "Faltan guantes en sector B"),
+    //             new("Andamios",         "Andamios debidamente amarrados y nivelados",       "ok",   ""),
+    //             new("Andamios",         "Uso correcto de arnés en trabajos a más de 1.8m",  "ok",   ""),
+    //             new("Orden y limpieza", "Área libre de materiales apilados incorrectamente","ok",   ""),
+    //             new("Orden y limpieza", "Pasillos y salidas despejadas",                    "ok",   ""),
+    //             new("Eléctrico",        "Cables sin daños ni empalmes improvisados",        "ok",   ""),
+    //             new("Señalización",     "Señales de seguridad visibles",                    "ok",   ""),
+    //             new("Señalización",     "Extintores accesibles y vigentes",                 "ok",   ""),
+    //         }
+    //     };
+    // }
+
+    private List<(string Label, string Valor)> CamposGenerales => new()
+    {
+        ("Área",                  Inspeccion.Area),
+        ("Obra",                  Inspeccion.Obra),
+        ("Tipo",                  Inspeccion.Tipo),
+        ("Inspector",             Inspeccion.Inspector),
+        ("Fecha y hora",          $"{Inspeccion.Fecha:dd/MM/yyyy} · {Inspeccion.Hora}"),
+        ("Trabajadores presentes",$"{Inspeccion.Trabajadores} personas"),
+    };
+
+    private static string GetEstadoPill(string e) => e switch
+    {
+        "Conforme" => "pill-ok",
+        "Observación" => "pill-warn",
+        "No conforme" => "pill-danger",
+        _ => "pill-info"
+    };
+
+    private static string GetItemPill(string r) => r switch
+    {
+        "ok" => "pill-ok",
+        "warn" => "pill-warn",
+        "no" => "pill-danger",
+        _ => "pill-gray"
+    };
+
+    private static string GetItemLabel(string r) => r switch
+    {
+        "ok" => "Cumple",
+        "warn" => "Observación",
+        "no" => "No cumple",
+        _ => "N/A"
+    };
+
+    public class InspeccionDetalle
+    {
+        public int Id { get; set; }
+        public string Area { get; set; } = "";
+        public string Obra { get; set; } = "";
+        public string Tipo { get; set; } = "";
+        public string Inspector { get; set; } = "";
+        public DateTime Fecha { get; set; }
+        public string Hora { get; set; } = "";
+        public string HoraFirma { get; set; } = "";
+        public int Trabajadores { get; set; }
+        public string Estado { get; set; } = "";
+        public bool Firmado { get; set; }
+        public bool GpsCapturado { get; set; }
+        public double Latitud { get; set; }
+        public double Longitud { get; set; }
+        public double PrecisionGps { get; set; }
+        public int Fotos { get; set; }
+        public string HashSha256 { get; set; } = "";
+        public string PlanAccion { get; set; } = "";
+        public List<ChecklistItemDetalle> Items { get; set; } = new();
+    }
+
+    public class ChecklistItemDetalle
+    {
+        public string Categoria { get; set; }
+        public string Descripcion { get; set; }
+        public string Resultado { get; set; }
+        public string Observacion { get; set; }
+        public ChecklistItemDetalle(string c, string d, string r, string o)
+        { Categoria = c; Descripcion = d; Resultado = r; Observacion = o; }
+    }
+}

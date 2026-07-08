@@ -1,0 +1,62 @@
+@inherits LayoutComponentBase
+@inject SSTAuthStateProvider Auth
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components.Authorization
+
+@if (Verificado)
+{
+    @if (Autenticado)
+    {
+        <div class="app-layout">
+            <SidebarNav />
+            <div class="main-content">
+                <TopBar />
+                <div class="page-body">
+                    @Body
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool Verificado = false;
+    private bool Autenticado = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        Autenticado = state.User.Identity?.IsAuthenticated == true;
+        Verificado = true;
+
+        if (!Autenticado)
+            Nav.NavigateTo("/login", forceLoad: false);
+    }
+}
+
+@* <CascadingAuthenticationState>
+    <AuthorizeView>
+        <Authorized>
+            <div class="app-layout">
+                <SidebarNav />
+                <div class="main-content">
+                    <TopBar />
+                    <div class="page-body">
+                        @Body
+                    </div>
+                </div>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</CascadingAuthenticationState> *@
+@* @inherits LayoutComponentBase
+
+<div class="app-layout">
+    <SidebarNav />
+    <div class="main-content">
+        <TopBar />
+        <div class="page-body">
+            @Body
+        </div>
+    </div>
+</div> *@

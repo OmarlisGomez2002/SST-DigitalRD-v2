@@ -1,0 +1,131 @@
+@using SSTDigitalRD.Shared.DTOs
+@inject NavigationManager Nav
+
+<div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Últimas inspecciones</span>
+        <a href="/inspecciones" class="card-link">Ver historial →</a>
+    </div>
+
+    <table class="insp-table">
+        <thead>
+            <tr>
+                <th>Área / Actividad</th>
+                <th>Inspector</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Inspecciones.Any())
+            {
+                <tr>
+                    <td colspan="4" class="empty-state">
+                        <i class="ti ti-clipboard" aria-hidden="true"></i>
+                        <span>Sin inspecciones registradas</span>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var insp in Inspecciones)
+                {
+                    <tr style="cursor:pointer"
+                        @onclick="() => VerDetalle(insp.Id)">
+                        <td style="font-weight:500">@insp.Area</td>
+                        <td>@insp.Inspector</td>
+                        <td>@insp.Fecha</td>
+                        <td>
+                            <span class="pill @GetEstadoPill(insp.Estado)">
+                                @insp.Estado
+                            </span>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public List<DashboardInspeccionRecienteDto> Inspecciones { get; set; } = new();
+
+    private void VerDetalle(int id) =>
+        Nav.NavigateTo($"/inspecciones/{id}");
+
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "Conforme" => "pill-ok",
+        "Observación" => "pill-warn",
+        "No conforme" => "pill-danger",
+        _ => "pill-info"
+    };
+}
+@* <div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Últimas inspecciones</span>
+        <a href="/inspecciones" class="card-link">Ver historial →</a>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Área</th>
+                <th>Inspector</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            @* @foreach (var item in Inspecciones)
+            {
+                <tr>
+                    <td>@item.Area</td>
+                    <td>@item.Inspector</td>
+                    <td>@item.Fecha</td>
+                    <td>
+                        <span class="status-pill @item.EstadoClass">
+                            @if (item.Estado == "Conforme") { <i class="ti ti-check"></i> }
+                            @item.Estado
+                        </span>
+                    </td>
+                </tr>
+            } 
+            @foreach (var insp in Datos.UltimasInspecciones)
+            {
+                <tr>
+                    <td>@insp.Area</td>
+                    <td>@insp.Inspector</td>
+                    <td>@insp.Fecha</td>
+                    <td>
+                        <span class="pill @GetEstadoPill(insp.Estado)">
+                            @insp.Estado
+                        </span>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<InspeccionItem> Inspecciones = new()
+    {
+        new() { Area = "Piso 8 - Estructura", Inspector = "R. Gómez", Fecha = "03/05", Estado = "Conforme", EstadoClass = "ok" },
+        new() { Area = "Área de carga", Inspector = "M. Santos", Fecha = "02/05", Estado = "Observación", EstadoClass = "warn" },
+        new() { Area = "Andamios Norte", Inspector = "R. Gómez", Fecha = "01/05", Estado = "No conforme", EstadoClass = "danger" },
+        new() { Area = "Almacén EPP", Inspector = "L. Herrera", Fecha = "30/04", Estado = "Conforme", EstadoClass = "ok" },
+    };
+
+    public class InspeccionItem
+    {
+        public string Area { get; set; } = "";
+        public string Inspector { get; set; } = "";
+        public string Fecha { get; set; } = "";
+        public string Estado { get; set; } = "";
+        public string EstadoClass { get; set; } = "";
+    }
+} *@
+
+

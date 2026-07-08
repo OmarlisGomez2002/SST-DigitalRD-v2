@@ -1,0 +1,328 @@
+﻿@page "/empleados"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Empleados · SST-Digital RD</PageTitle>
+
+@if (!_tieneAcceso)
+{
+    <AccesoRestringido />
+    return;
+}
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="search-box">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text"
+               placeholder="Buscar por nombre, cargo, cédula..."
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+    </div>
+    <div class="toolbar-filters">
+        <select class="filter-btn" style="cursor:pointer"
+                @bind="CuadrillaFiltro">
+            <option value="">Todas las cuadrillas</option>
+            @foreach (var c in CuadrillasDisponibles)
+            {
+                <option value="@c.Nombre">@c.Nombre</option>
+            }
+        </select>
+        <select class="filter-btn" style="cursor:pointer"
+                @bind="EstadoFiltro">
+            <option value="">Todos los estados</option>
+            <option>Activo</option>
+            <option>Inactivo</option>
+        </select>
+    </div>
+    @if (_puedeCrear)
+    {
+        <button class="btn-primary" @onclick="NuevoEmpleado">
+            <i class="ti ti-user-plus" aria-hidden="true"></i>
+            Nuevo empleado
+        </button>
+    }
+
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Total empleados</span>
+        <span class="insp-stat-val">
+            @ListaEmpleados.Count <small>registrados</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Activos hoy</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @ListaEmpleados.Count(e => e.Estado == "Activo")
+            <small>en obra</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Con EPP al día</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @ListaEmpleados.Count(e => e.EstadoEPP == "Al día")
+            <small>trabajadores</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Capacitados este mes</span>
+        <span class="insp-stat-val">
+            @ListaEmpleados.Count(e => e.EstadoCharlas == "Al día")
+            <small>personas</small>
+        </span>
+    </div>
+</div>
+
+<!-- ===== TABLA ===== -->
+<div class="table-card">
+    <table class="insp-table">
+        <thead>
+            <tr>
+                <th>Trabajador</th>
+                <th>Cargo</th>
+                <th>Cuadrilla</th>
+                <th>EPP</th>
+                <th>Charlas</th>
+                <th>Estado</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!EmpleadosFiltrados.Any())
+            {
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="ti ti-users" aria-hidden="true"></i>
+                        <span>No se encontraron empleados</span>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var emp in EmpleadosPaginados)
+                {
+                    <tr>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar"
+                                     style="background:@emp.AvatarBg;
+                                                    color:@emp.AvatarColor">
+                                    @emp.Iniciales
+                                </div>
+                                <div>
+                                    <div style="font-weight:500">@emp.Nombre</div>
+                                    <div class="text-hint">
+                                        Cédula: @emp.Cedula
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@emp.Cargo</td>
+                        <td>
+                            <span class="pill pill-info">@emp.Cuadrilla</span>
+                        </td>
+                        <td>
+                            <span class="pill @GetEppPill(emp.EstadoEPP)">
+                                @emp.EstadoEPP
+                            </span>
+                        </td>
+                        <td>
+                            <span class="pill @GetCharlasPill(emp.EstadoCharlas)">
+                                @emp.EstadoCharlas
+                            </span>
+                        </td>
+                        <td>
+                            <span class="pill @(emp.Estado == "Activo" ? "pill-ok" : "pill-gray")">
+                                @emp.Estado
+                            </span>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="icon-action"
+                                        title="Ver detalle"
+                                        @onclick="() => VerDetalle(emp)">
+                                    <i class="ti ti-eye" aria-hidden="true"></i>
+                                </button>
+                                <button class="icon-action"
+                                        title="Editar"
+                                        @onclick="() => EditarEmpleado(emp)">
+                                    <i class="ti ti-edit" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="pagination-bar">
+        <span class="page-info">
+            Mostrando @PaginaDesde–@PaginaHasta
+            de @EmpleadosFiltrados.Count() empleados
+        </span>
+        <div class="page-btns">
+            <button class="page-btn"
+                    @onclick="PaginaAnterior"
+                    disabled="@(PaginaActual == 1)">
+                <i class="ti ti-chevron-left" aria-hidden="true"></i>
+            </button>
+            @for (int i = 1; i <= TotalPaginas; i++)
+            {
+                var p = i;
+                <button class="page-btn @(PaginaActual == p ? "active" : "")"
+                        @onclick="() => IrAPagina(p)">
+                    @p
+                </button>
+            }
+            <button class="page-btn"
+                    @onclick="PaginaSiguiente"
+                    disabled="@(PaginaActual == TotalPaginas)">
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string SearchTerm = "";
+    private string CuadrillaFiltro = "";
+    private string EstadoFiltro = "";
+    private int PaginaActual = 1;
+    private const int PerPage = 10;
+    private List<CuadrillaDto> CuadrillasDisponibles = new();
+    private bool _tieneAcceso = true;
+    private bool _puedeCrear = false;
+
+    private IEnumerable<EmpleadoItem> EmpleadosFiltrados =>
+        ListaEmpleados.Where(e =>
+            (string.IsNullOrEmpty(CuadrillaFiltro) || e.Cuadrilla == CuadrillaFiltro) &&
+            (string.IsNullOrEmpty(EstadoFiltro) || e.Estado == EstadoFiltro) &&
+            (string.IsNullOrWhiteSpace(SearchTerm) ||
+             e.Nombre.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+             e.Cargo.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+             e.Cedula.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)));
+
+    private IEnumerable<EmpleadoItem> EmpleadosPaginados =>
+        EmpleadosFiltrados.Skip((PaginaActual - 1) * PerPage).Take(PerPage);
+
+    private int TotalPaginas => Math.Max(1,
+        (int)Math.Ceiling(EmpleadosFiltrados.Count() / (double)PerPage));
+    private int PaginaDesde => EmpleadosFiltrados.Any()
+        ? (PaginaActual - 1) * PerPage + 1 : 0;
+    private int PaginaHasta => Math.Min(
+        PaginaActual * PerPage, EmpleadosFiltrados.Count());
+
+    private void NuevoEmpleado() => Nav.NavigateTo("/empleados/nuevo");
+    private void VerDetalle(EmpleadoItem e) => Nav.NavigateTo($"/empleados/{e.Id}");
+    private void EditarEmpleado(EmpleadoItem e) => Nav.NavigateTo($"/empleados/{e.Id}/editar");
+    private void IrAPagina(int p) => PaginaActual = p;
+    private void PaginaAnterior() { if (PaginaActual > 1) PaginaActual--; }
+    private void PaginaSiguiente() { if (PaginaActual < TotalPaginas) PaginaActual++; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tieneAcceso = await Permisos.TieneAcceso("Empleados");
+        _puedeCrear = await Permisos.PuedeCrear("Empleados");
+        if (!_tieneAcceso) return;
+
+        try
+        {
+            var cuadrillas = await Http
+            .GetFromJsonAsync<List<CuadrillaDto>>(
+                "api/configuracion/cuadrillas");
+            if (cuadrillas is not null)
+                CuadrillasDisponibles = cuadrillas;
+
+            var resultado = await Http
+                .GetFromJsonAsync<List<EmpleadoListDto>>(
+                    "api/empleados");
+
+            if (resultado is not null)
+            {
+                ListaEmpleados = resultado.Select(x => new EmpleadoItem(
+                    x.Id,
+                    x.Nombre,
+                    string.Concat(
+                        x.Nombre.Split(' ')
+                         .Take(2)
+                         .Select(p => p[0].ToString()))
+                         .ToUpper(),
+                    x.Cedula,
+                    x.Cargo,
+                    x.Cuadrilla,
+                    "Al día",
+                    "Al día",
+                    x.Estado,
+                    "#E6F1FB",
+                    "#185FA5"
+                )).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando empleados: {ex.Message}");
+        }
+    }
+
+    private static string GetEppPill(string estado) => estado switch
+    {
+        "Al día" => "pill-ok",
+        "Por vencer" => "pill-warn",
+        "Vencido" => "pill-danger",
+        _ => "pill-gray"
+    };
+
+    private static string GetCharlasPill(string estado) => estado switch
+    {
+        "Al día" => "pill-ok",
+        "Pendiente" => "pill-warn",
+        _ => "pill-gray"
+    };
+
+    private List<EmpleadoItem> ListaEmpleados = new();
+    // {
+    //     new(1,"Juan Pérez",    "JP","001-0000001-1","Albañil",      "Cuadrilla A","Vencido",   "Al día",   "Activo","#E6F1FB","#185FA5"),
+    //     new(2,"M. López",      "ML","001-0000002-2","Carpintero",   "Cuadrilla A","Al día",    "Al día",   "Activo","#EAF3DE","#3B6D11"),
+    //     new(3,"C. Ramírez",    "CR","001-0000003-3","Ayudante",     "Cuadrilla A","Vencido",   "Pendiente","Activo","#FAEEDA","#854F0B"),
+    //     new(4,"D. Martínez",   "DM","001-0000004-4","Electricista", "Cuadrilla B","Al día",    "Al día",   "Activo","#EAF3DE","#3B6D11"),
+    //     new(5,"R. Paulino",    "RP","001-0000005-5","Albañil",      "Cuadrilla B","Por vencer","Al día",   "Activo","#E6F1FB","#185FA5"),
+    //     new(6,"L. Valdez",     "LV","001-0000006-6","Plomero",      "Cuadrilla A","Vencido",   "Pendiente","Activo","#FAEEDA","#854F0B"),
+    //     new(7,"P. Sánchez",    "PS","001-0000007-7","Operador",     "Cuadrilla B","Al día",    "Al día",   "Activo","#E6F1FB","#185FA5"),
+    //     new(8,"E. Méndez",     "EM","001-0000008-8","Soldador",     "Cuadrilla B","Al día",    "Al día",   "Activo","#EAF3DE","#3B6D11"),
+    //     new(9,"M. Torres",     "MT","001-0000009-9","Electricista", "Cuadrilla C","Al día",    "Al día",   "Activo","#E6F1FB","#185FA5"),
+    //     new(10,"F. García",    "FG","001-0000010-0","Ayudante",     "Cuadrilla C","Al día",    "Pendiente","Activo","#EAF3DE","#3B6D11"),
+    //     new(11,"N. Arias",     "NA","001-0000011-1","Albañil",      "Cuadrilla C","Por vencer","Al día",   "Inactivo","#FAEEDA","#854F0B"),
+    //     new(12,"O. Castro",    "OC","001-0000012-2","Carpintero",   "Cuadrilla D","Al día",    "Al día",   "Activo","#E6F1FB","#185FA5"),
+    // };
+
+    public class EmpleadoItem
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+        public string Iniciales { get; set; }
+        public string Cedula { get; set; }
+        public string Cargo { get; set; }
+        public string Cuadrilla { get; set; }
+        public string EstadoEPP { get; set; }
+        public string EstadoCharlas { get; set; }
+        public string Estado { get; set; }
+        public string AvatarBg { get; set; }
+        public string AvatarColor { get; set; }
+
+        public EmpleadoItem(int id, string nombre, string ini,
+            string cedula, string cargo, string cuadrilla,
+            string epp, string charlas, string estado,
+            string bg, string color)
+        {
+            Id = id; Nombre = nombre; Iniciales = ini; Cedula = cedula;
+            Cargo = cargo; Cuadrilla = cuadrilla; EstadoEPP = epp;
+            EstadoCharlas = charlas; Estado = estado;
+            AvatarBg = bg; AvatarColor = color;
+        }
+    }
+}

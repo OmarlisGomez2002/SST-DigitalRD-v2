@@ -1,0 +1,186 @@
+﻿/* ============================================
+   Módulo: Visión en obra
+   ============================================ */
+
+.vision-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 12px;
+    align-items: start;
+}
+
+/* Feed de cámara */
+.vision-feed-wrap {
+    position: relative;
+    width: 100%;
+    height: 260px;
+    background: #1A1A19;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.vision-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+}
+
+    .vision-video.active {
+        display: block;
+    }
+
+.vision-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.vision-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+    .vision-placeholder i {
+        font-size: 40px;
+        color: #444441;
+    }
+
+    .vision-placeholder span {
+        font-size: 12px;
+        color: #888780;
+    }
+
+    .vision-placeholder small {
+        font-size: 11px;
+        color: #5F5E5A;
+    }
+
+/* Overlays */
+.vision-overlay-tl {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    gap: 6px;
+}
+
+.vision-overlay-tr {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.vision-cam-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+    .vision-cam-badge.live {
+        background: rgba(26,26,25,0.85);
+        color: #1D9E75;
+    }
+
+    .vision-cam-badge.model {
+        background: rgba(26,26,25,0.85);
+        color: #E6F1FB;
+    }
+
+    .vision-cam-badge.alert {
+        background: rgba(163,45,45,0.9);
+        color: #FCEBEB;
+    }
+
+/* Punto verde parpadeante */
+.vision-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #1D9E75;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+/* Grid de detección EPP */
+.vision-det-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.vision-det-box {
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    text-align: center;
+}
+
+.vision-det-pct {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.vision-det-name {
+    font-size: 11px;
+    color: var(--text-sec);
+    margin-top: 2px;
+}
+
+.vision-det-bar {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-muted);
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+/* Botón de peligro */
+.btn-danger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-md);
+    background: #A32D2D;
+    color: #FCEBEB;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+
+    .btn-danger:hover {
+        background: #791F1F;
+    }
+
+    .btn-danger i {
+        font-size: 16px;
+    }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .vision-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .vision-det-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

@@ -1,0 +1,536 @@
+@page "/inspecciones"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Inspecciones · SST-Digital RD</PageTitle>
+
+<!-- ===== BARRA SUPERIOR ===== -->
+<div class="page-toolbar">
+    <div class="search-box">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text"
+               placeholder="Buscar por área, inspector..."
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+    </div>
+    <div class="toolbar-filters">
+                
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn" @onclick="TogglePanelFiltros">
+                <i class="ti ti-filter" aria-hidden="true"></i>
+                Filtrar
+                @if (FiltrosActivos > 0)
+                {
+                    <span class="filter-badge">@FiltrosActivos</span>
+                }
+            </button>
+
+            @if (MostrarPanelFiltros)
+            {
+                <div class="filtros-panel">
+                    <div class="filtros-panel-header">
+                        <span>Filtros avanzados</span>
+                        <button class="icon-action" @onclick="TogglePanelFiltros">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <div class="filtros-panel-body">
+                        <div class="form-field">
+                            <label>Inspector</label>
+                            <select @bind="FiltroInspector">
+                                <option value="">Todos</option>
+                                @foreach (var insp in InspectoresDisponibles)
+                                {
+                                    <option value="@insp">@insp</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label>GPS capturado</label>
+                            <select @bind="FiltroGps">
+                                <option value="">Todos</option>
+                                <option value="si">Capturado</option>
+                                <option value="no">Sin GPS</option>
+                            </select>
+                        </div>
+
+                        <div class="form-field">
+                            <label>Firma</label>
+                            <select @bind="FiltroFirmado">
+                                <option value="">Todos</option>
+                                <option value="si">Firmado</option>
+                                <option value="no">Pendiente</option>
+                            </select>
+                        </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-field">
+                                <label>Desde</label>
+                                <input type="date" @bind="FiltroFechaDesde" />
+                            </div>
+                            <div class="form-field">
+                                <label>Hasta</label>
+                                <input type="date" @bind="FiltroFechaHasta" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filtros-panel-footer">
+                        <button class="btn-secondary btn-sm" @onclick="LimpiarFiltros">
+                            Limpiar
+                        </button>
+                        <button class="btn-primary btn-sm" @onclick="AplicarFiltros">
+                            Aplicar filtros
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+        <button class="filter-btn" @onclick="ExportarCSV">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Exportar
+        </button>
+    </div>
+    @if (_puedeCrear)
+    {        
+        <button class="btn-primary" @onclick="NuevaInspeccion">
+            <i class="ti ti-plus" aria-hidden="true"></i>
+            Nueva inspección
+        </button>        }
+
+</div>
+
+<!-- ===== TABS ===== -->
+<div class="tabs-bar">
+    @foreach (var tab in Tabs)
+    {
+        <button class="tab @(TabActivo == tab.Key ? "active" : "")"
+                @onclick="() => CambiarTab(tab.Key)">
+            @tab.Label (@tab.Count)
+        </button>
+    }
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Total este mes</span>
+        <span class="insp-stat-val">@TotalInspecciones <small>inspecciones</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Tasa de cumplimiento</span>
+        <span class="insp-stat-val">@TasaCumplimiento<small>%</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Promedio de cierre</span>
+        <span class="insp-stat-val">@PromedioCierre<small>días</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">No conformes abiertas</span>
+        <span class="insp-stat-val">@NoConformesAbiertas <small>pendientes</small></span>
+    </div>
+</div>
+
+<!-- ===== TABLA ===== -->
+<div class="table-card">
+    <table class="insp-table">
+        <thead>
+            <tr>
+                <th style="width:40px">
+                    <input type="checkbox" @onchange="ToggleSeleccionarTodos" />
+                </th>
+                <th>Área / Actividad</th>
+                <th>Inspector</th>
+                <th>Fecha</th>
+                <th>GPS</th>
+                <th>Estado</th>
+                <th>Firma</th>
+                <th style="width:90px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!InspeccionesFiltradas.Any())
+            {
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <i class="ti ti-clipboard-x" aria-hidden="true"></i>
+                        <span>No se encontraron inspecciones</span>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var item in InspeccionesPaginadas)
+                {
+                    <tr class="@(item.Seleccionado ? "row-selected" : "")">
+                        <td>
+                            <input type="checkbox"
+                                   checked="@item.Seleccionado"
+                                   @onchange="() => ToggleFila(item)" />
+                        </td>
+                        <td>
+                            <div class="area-cell">
+                                <span class="area-main">@item.Area</span>
+                                <span class="area-sub">@item.Obra</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inspector-cell">
+                                <div class="mini-avatar" style="background:@item.AvatarBg; color:@item.AvatarColor">
+                                    @item.InspectorIniciales
+                                </div>
+                                @item.Inspector
+                            </div>
+                        </td>
+                        <td>
+                            @item.Fecha.ToString("dd/MM/yyyy")
+                            <br />
+                            <small class="text-hint">@item.Fecha.ToString("hh:mm tt")</small>
+                        </td>
+                        <td>
+                            @if (item.GpsCapturado)
+                            {
+                                <span class="pill pill-ok">
+                                    <i class="ti ti-map-pin" aria-hidden="true"></i> Capturado
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-warn">
+                                    <i class="ti ti-map-pin-off" aria-hidden="true"></i> Sin GPS
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <span class="pill @GetEstadoClass(item.Estado)">
+                                <span class="dot" style="background:@GetEstadoDotColor(item.Estado)"></span>
+                                @item.Estado
+                            </span>
+                        </td>
+                        <td>
+                            @if (item.Firmado)
+                            {
+                                <span class="pill pill-ok">
+                                    <i class="ti ti-check" aria-hidden="true"></i> Firmado
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-warn">Pendiente</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="icon-action" title="Ver detalle"
+                                        @onclick="() => VerDetalle(item.Id)">
+                                    <i class="ti ti-eye" aria-hidden="true"></i>
+                                </button>
+                                <button class="icon-action" title="Descargar PDF"
+                                        @onclick="() => AccionSecundaria(item)">
+                                    <i class="ti ti-download" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <!-- PAGINACIÓN -->
+    <div class="pagination-bar">
+        <span class="page-info">
+            Mostrando @PaginaDesde–@PaginaHasta de @InspeccionesFiltradas.Count() inspecciones
+        </span>
+        <div class="page-btns">
+            <button class="page-btn" @onclick="PaginaAnterior" disabled="@(PaginaActual == 1)">
+                <i class="ti ti-chevron-left" aria-hidden="true"></i>
+            </button>
+            @for (int i = 1; i <= TotalPaginas; i++)
+            {
+                var pagina = i;
+                <button class="page-btn @(PaginaActual == pagina ? "active" : "")"
+                        @onclick="() => IrAPagina(pagina)">
+                    @pagina
+                </button>
+            }
+            <button class="page-btn" @onclick="PaginaSiguiente" disabled="@(PaginaActual == TotalPaginas)">
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    // ── Estado UI ──────────────────────────────────────────────
+    private string SearchTerm = "";
+    private string TabActivo = "todas";
+    private int PaginaActual = 1;
+    private const int ItemsPorPagina = 8;
+
+    private bool MostrarPanelFiltros = false;
+    private string FiltroInspector = "";
+    private string FiltroGps = "";  // "", "si", "no"
+    private string FiltroFirmado = "";  // "", "si", "no"
+    private DateTime? FiltroFechaDesde = null;
+    private DateTime? FiltroFechaHasta = null;
+    private bool _puedeCrear = false;
+
+    // ── Tabs ───────────────────────────────────────────────────
+    private List<TabItem> Tabs => new()
+    {
+        new("todas",        "Todas",        ListaInspecciones .Count),
+        new("conforme",     "Conformes",    ListaInspecciones .Count(x => x.Estado == "Conforme")),
+        new("observacion",  "Observación",  ListaInspecciones .Count(x => x.Estado == "Observación")),
+        new("no-conforme",  "No conformes", ListaInspecciones .Count(x => x.Estado == "No conforme")),        
+    };
+
+    // ── Métricas ───────────────────────────────────────────────
+    private int TotalInspecciones => ListaInspecciones.Count;
+    private int TasaCumplimiento => ListaInspecciones.Count == 0 ? 0 :
+        (int)Math.Round(ListaInspecciones.Count(x => x.Estado == "Conforme") * 100.0 / ListaInspecciones.Count);
+    private double PromedioCierre => 2.4;
+    private int NoConformesAbiertas => ListaInspecciones.Count(x => x.Estado == "No conforme");
+
+    // ── Paginación ─────────────────────────────────────────────
+    private IEnumerable<InspeccionViewModel> InspeccionesFiltradas =>
+    ListaInspecciones
+        .Where(x => TabActivo == "todas" || GetTabKey(x.Estado) == TabActivo)
+        .Where(x => string.IsNullOrWhiteSpace(SearchTerm) ||
+                    x.Area.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    x.Inspector.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase))
+        .Where(x => string.IsNullOrEmpty(FiltroInspector) ||
+                    x.Inspector == FiltroInspector)
+        .Where(x => FiltroGps == "" ||
+                    (FiltroGps == "si" && x.GpsCapturado) ||
+                    (FiltroGps == "no" && !x.GpsCapturado))
+        .Where(x => FiltroFirmado == "" ||
+                    (FiltroFirmado == "si" && x.Firmado) ||
+                    (FiltroFirmado == "no" && !x.Firmado))
+        .Where(x => FiltroFechaDesde == null ||
+                    x.Fecha.Date >= FiltroFechaDesde.Value.Date)
+        .Where(x => FiltroFechaHasta == null ||
+                    x.Fecha.Date <= FiltroFechaHasta.Value.Date);
+
+    private List<string> InspectoresDisponibles =>
+    ListaInspecciones
+        .Select(x => x.Inspector)
+        .Distinct()
+        .OrderBy(x => x)
+        .ToList();
+
+    private void TogglePanelFiltros() =>
+    MostrarPanelFiltros = !MostrarPanelFiltros;
+
+    private void LimpiarFiltros()
+    {
+        FiltroInspector = "";
+        FiltroGps = "";
+        FiltroFirmado = "";
+        FiltroFechaDesde = null;
+        FiltroFechaHasta = null;
+        PaginaActual = 1;
+    }
+
+    private void AplicarFiltros()
+    {
+        PaginaActual = 1;
+        MostrarPanelFiltros = false;
+    }
+
+    private int FiltrosActivos =>
+        (string.IsNullOrEmpty(FiltroInspector) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroGps) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroFirmado) ? 0 : 1) +
+        (FiltroFechaDesde is null ? 0 : 1) +
+        (FiltroFechaHasta is null ? 0 : 1);
+
+    private IEnumerable<InspeccionViewModel> InspeccionesPaginadas =>
+        InspeccionesFiltradas.Skip((PaginaActual - 1) * ItemsPorPagina).Take(ItemsPorPagina);
+
+    private int TotalPaginas => Math.Max(1, (int)Math.Ceiling(InspeccionesFiltradas.Count() / (double)ItemsPorPagina));
+    private int PaginaDesde  => InspeccionesFiltradas.Any() ? (PaginaActual - 1) * ItemsPorPagina + 1 : 0;
+    private int PaginaHasta  => Math.Min(PaginaActual * ItemsPorPagina, InspeccionesFiltradas.Count());
+
+    // ── Acciones ───────────────────────────────────────────────
+    private void NuevaInspeccion()    => Nav.NavigateTo("/inspecciones/nueva");
+    private void VerDetalle(int id)   => Nav.NavigateTo($"/inspecciones/{id}");
+    private void CambiarTab(string t) { TabActivo = t; PaginaActual = 1; }
+    private void IrAPagina(int p)     => PaginaActual = p;
+    private void PaginaAnterior()     { if (PaginaActual > 1) PaginaActual--; }
+    private void PaginaSiguiente()    { if (PaginaActual < TotalPaginas) PaginaActual++; }
+
+    private void ToggleSeleccionarTodos(ChangeEventArgs e)
+    {
+        var val = (bool)(e.Value ?? false);
+        foreach (var i in InspeccionesPaginadas) i.Seleccionado = val;
+    }
+
+    private void ToggleFila(InspeccionViewModel item) => item.Seleccionado = !item.Seleccionado;
+
+    private async Task AccionSecundaria(InspeccionViewModel item)
+    {
+        // Descargar PDF directamente desde la tabla
+        var response = await Http.GetAsync($"api/inspecciones/{item.Id}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Inspeccion_{item.Area.Replace(" ", "_")}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo", fileName, base64, "application/pdf");
+        }
+    }
+
+    private async Task ExportarCSV()
+    {
+        var query = TabActivo == "todas"
+            ? "" : $"?estado={Uri.EscapeDataString(GetEstadoPorTab(TabActivo))}";
+
+        var response = await Http.GetAsync($"api/inspecciones/export{query}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Inspecciones_{DateTime.Now:yyyyMMdd}.csv";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "text/csv");
+        }
+    }
+
+    private static string GetEstadoPorTab(string tab) => tab switch
+    {
+        "conforme" => "Conforme",
+        "observacion" => "Observación",
+        "no-conforme" => "No conforme",        
+        _ => ""
+    };
+
+    // ── Helpers ────────────────────────────────────────────────
+    private static string GetTabKey(string estado) => estado switch
+    {
+        "Conforme"    => "conforme",
+        "Observación" => "observacion",
+        "No conforme" => "no-conforme",        
+        _             => "todas"
+    };
+
+    private static string GetEstadoClass(string estado) => estado switch
+    {
+        "Conforme"    => "pill-ok",
+        "Observación" => "pill-warn",
+        "No conforme" => "pill-danger",        
+        _             => "pill-info"
+    };
+
+    private static string GetEstadoDotColor(string estado) => estado switch
+    {
+        "Conforme"    => "#27500A",
+        "Observación" => "#633806",
+        "No conforme" => "#791F1F",        
+        _             => "#888780"
+    };
+
+
+
+    // ── Datos de ejemplo (se reemplazarán con llamadas API) ────
+
+    // private List<InspeccionViewModel> ListaInspecciones = new()
+
+    // {
+
+    //     new() { Id=1, Area="Piso 8 — Estructura metálica",    Obra="Torre Piantini IV · Obra principal", Inspector="R. Gómez",  InspectorIniciales="RG", Fecha=new DateTime(2025,5,3,9,14,0),  GpsCapturado=true,  Estado="Conforme",    Firmado=true,  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+
+    //     new() { Id=2, Area="Área de carga y descarga",         Obra="Torre Piantini IV · Planta baja",    Inspector="M. Santos", InspectorIniciales="MS", Fecha=new DateTime(2025,5,2,14,30,0), GpsCapturado=true,  Estado="Observación", Firmado=true,  AvatarBg="#FAEEDA", AvatarColor="#633806" },
+
+    //     new() { Id=3, Area="Andamios Norte — Fachada",         Obra="Torre Piantini IV · Exterior",       Inspector="R. Gómez",  InspectorIniciales="RG", Fecha=new DateTime(2025,5,1,11,5,0),  GpsCapturado=true,  Estado="No conforme", Firmado=true,  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+
+    //     new() { Id=4, Area="Almacén EPP — Revisión mensual",   Obra="Torre Piantini IV · Sótano",         Inspector="L. Herrera",InspectorIniciales="LH", Fecha=new DateTime(2025,4,30,8,0,0),  GpsCapturado=true,  Estado="Conforme",    Firmado=true,  AvatarBg="#EAF3DE", AvatarColor="#27500A" },
+
+    //     new() { Id=5, Area="Instalaciones eléctricas",         Obra="Torre Piantini IV · Piso 3-5",       Inspector="M. Santos", InspectorIniciales="MS", Fecha=new DateTime(2025,4,29,15,45,0),GpsCapturado=false, Estado="En proceso",  Firmado=false, AvatarBg="#FAEEDA", AvatarColor="#633806" },
+
+    //     new() { Id=6, Area="Escaleras de emergencia",          Obra="Torre Piantini IV · Todos los pisos",Inspector="R. Gómez",  InspectorIniciales="RG", Fecha=new DateTime(2025,4,28,10,0,0), GpsCapturado=true,  Estado="Conforme",    Firmado=true,  AvatarBg="#E6F1FB", AvatarColor="#185FA5" },
+
+    //     new() { Id=7, Area="Zona de excavación Sur",           Obra="Torre Piantini IV · Perímetro",      Inspector="L. Herrera",InspectorIniciales="LH", Fecha=new DateTime(2025,4,27,7,30,0), GpsCapturado=true,  Estado="No conforme", Firmado=true,  AvatarBg="#EAF3DE", AvatarColor="#27500A" },
+
+    //     new() { Id=8, Area="Sistemas contra incendio",         Obra="Torre Piantini IV · Sótano-Piso 2",  Inspector="M. Santos", InspectorIniciales="MS", Fecha=new DateTime(2025,4,26,13,0,0), GpsCapturado=true,  Estado="Observación", Firmado=true,  AvatarBg="#FAEEDA", AvatarColor="#633806" },
+
+    // };
+
+    private List<InspeccionViewModel> ListaInspecciones = new();
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeCrear = await Permisos.PuedeCrear("Inspecciones");
+        try
+        {
+            var resultado = await Http.GetFromJsonAsync<List<InspeccionListDto>>("api/inspecciones");
+
+            if (resultado is not null)
+            {
+                ListaInspecciones = resultado.Select(x => new InspeccionViewModel
+                {
+                    Id = x.Id,
+                    Area = x.Area,
+                    SubArea = "",
+                    Obra = x.Obra,
+                    Inspector = x.Inspector,
+                    //InspectorIniciales = x.Inspector.Length >= 2 ? string.Concat(x.Inspector.Split(' ').Take(2).Select(p => p[0].ToString())).ToUpper() : x.Inspector[..1].ToUpper(),
+                    InspectorIniciales = GenerarIniciales(x.Inspector),
+                    Fecha = x.Fecha,
+                    Hora = x.Fecha.ToString("hh:mm tt"),
+                    Estado = x.Estado,
+                    GpsCapturado = x.GpsCapturado,
+                    Firmado = x.Firmado,
+                    AvatarBg = "#E6F1FB",
+                    AvatarColor = "#185FA5",
+                    HashSha256 = ""
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando inspecciones: {ex.Message}");
+        }
+    }
+
+    private static string GenerarIniciales(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return "??";
+        var partes = nombre.Split(' ',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+            return partes[0].Length > 0
+                ? partes[0][0].ToString().ToUpper() : "?";
+        return $"{partes[0][0]}{partes[1][0]}".ToUpper();
+    }
+
+    // ── View Models ────────────────────────────────────────────
+    public class InspeccionViewModel
+    {
+        public int Id { get; set; }
+        public string Area { get; set; } = "";
+        public string SubArea { get; set; } = "";
+        public string Obra { get; set; } = "";
+        public string Inspector { get; set; } = "";
+        public string InspectorIniciales { get; set; } = "";
+        public DateTime Fecha { get; set; }
+        public string Hora { get; set; } = "";
+        public bool GpsCapturado { get; set; }
+        public string Estado { get; set; } = "";
+        public bool Firmado { get; set; }
+        public string AvatarBg { get; set; } = "#E6F1FB";
+        public string AvatarColor { get; set; } = "#185FA5";
+        public bool Seleccionado { get; set; }
+        public string HashSha256 { get; set; } = "";
+    }
+
+    public record TabItem(string Key, string Label, int Count);
+}

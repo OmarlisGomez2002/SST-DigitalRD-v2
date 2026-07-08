@@ -1,0 +1,306 @@
+﻿@page "/epp/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using SSTDigitalRD.Shared.DTOs
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Detalle EPP · SST-Digital RD</PageTitle>
+
+<div class="form-page-header">
+    <button class="btn-back" @onclick="VolverAInventario">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a inventario
+    </button>
+    <div class="form-page-title">
+        <h1>EPP — @Entrega.NombreTrabajador</h1>
+        <span class="form-page-sub">
+            @Entrega.Cargo · @Entrega.Cuadrilla ·
+            @Entrega.FechaEntrega.ToString("dd/MM/yyyy")
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary" @onclick="DescargarPDF">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Descargar PDF
+        </button>
+        @if (_puedeEditar)
+        {
+            <button class="btn-primary" @onclick="IrAEditar">
+                <i class="ti ti-edit" aria-hidden="true"></i>
+                Editar EPP
+            </button>
+        }
+        
+    </div>
+</div>
+
+<div class="detalle-charla-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Perfil del trabajador -->
+        <div class="dashboard-card"
+             style="display:flex;flex-direction:column;
+                    align-items:center;gap:10px;padding:1.5rem">
+            <div style="width:56px;height:56px;border-radius:50%;
+                        background:#E6F1FB;color:#185FA5;
+                        font-size:18px;font-weight:500;
+                        display:flex;align-items:center;
+                        justify-content:center">
+                @GenerarIniciales(Entrega.NombreTrabajador)
+            </div>
+            <div style="text-align:center">
+                <div style="font-size:15px;font-weight:500;
+                            color:var(--text-primary)">
+                    @Entrega.NombreTrabajador
+                </div>
+                <div class="text-hint">
+                    @Entrega.Cargo · @Entrega.Cuadrilla
+                </div>
+            </div>
+            <span class="pill @GetEstadoPill(EstadoGeneral)">
+                @EstadoGeneral
+            </span>
+        </div>
+
+        <!-- Datos de entrega -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+                    Datos de entrega
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposEntrega())
+                {
+                    <div style="display:flex;flex-direction:column;
+                                gap:2px;padding:7px 0;
+                                border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                     color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Evidencia inmutable -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Evidencia inmutable
+                </span>
+            </div>
+            <div class="hash-box">
+                <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                <span class="hash-text">
+                    SHA-256: @(string.IsNullOrEmpty(Entrega.HashSha256)
+                        ? "—" : Entrega.HashSha256)
+                </span>
+            </div>
+            <div class="text-hint" style="margin-top:6px;font-size:11px">
+                Firmado: @(Entrega.Firmado ? "Sí" : "No")
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA — Artículos EPP ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-hardhat" aria-hidden="true"></i>
+                Artículos de EPP
+            </span>
+            <span class="pill pill-info" style="margin-left:auto">
+                @Entrega.Articulos.Count artículos
+            </span>
+        </div>
+
+        @if (!Entrega.Articulos.Any())
+        {
+            <div class="charla-detalle-empty" style="min-height:100px">
+                <i class="ti ti-hardhat"
+                   style="color:#E2E1DC" aria-hidden="true"></i>
+                <span>Sin artículos registrados</span>
+            </div>
+        }
+        else
+        {
+            <div style="display:flex;flex-direction:column">
+                @foreach (var art in Entrega.Articulos)
+                {
+                    <div style="display:flex;align-items:center;
+                                gap:12px;padding:10px 0;
+                                border-bottom:0.5px solid var(--border)">
+                        <div style="width:36px;height:36px;
+                                    border-radius:var(--radius-md);
+                                    background:#E6F1FB;
+                                    display:flex;align-items:center;
+                                    justify-content:center;flex-shrink:0">
+                            <i class="ti ti-hardhat"
+                               style="font-size:18px;color:#185FA5"
+                               aria-hidden="true"></i>
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-size:13px;font-weight:500;
+                                        color:var(--text-primary)">
+                                @art.TipoEPP
+                            </div>
+                            <div class="text-hint">
+                                @art.Marca ·
+                                Vence: @art.FechaVencimiento
+                                    .ToString("dd/MM/yyyy")
+                            </div>
+                        </div>
+                        <span class="pill @GetArticuloPill(art.Estado)">
+                            @art.Estado
+                        </span>
+                    </div>
+                }
+            </div>
+
+            <!-- Resumen -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);
+                        gap:8px;margin-top:14px;padding-top:14px;
+                        border-top:0.5px solid var(--border)">
+                <div style="text-align:center;padding:10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:20px;font-weight:500;
+                                color:#3B6D11">
+                        @Entrega.Articulos.Count(a => a.Estado == "Vigente")
+                    </div>
+                    <div class="text-hint" style="font-size:11px">
+                        Vigentes
+                    </div>
+                </div>
+                <div style="text-align:center;padding:10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:20px;font-weight:500;
+                                color:#A32D2D">
+                        @Entrega.Articulos.Count(a => a.Estado == "Vencido")
+                    </div>
+                    <div class="text-hint" style="font-size:11px">
+                        Vencidos
+                    </div>
+                </div>
+                <div style="text-align:center;padding:10px;
+                            background:var(--bg-muted);
+                            border-radius:var(--radius-md)">
+                    <div style="font-size:20px;font-weight:500;
+                                color:var(--text-primary)">
+                        @Entrega.Articulos.Count
+                    </div>
+                    <div class="text-hint" style="font-size:11px">
+                        Total
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private EntregaEPPDetalleDto Entrega = new();
+    private bool _puedeEditar = false;
+
+    private void VolverAInventario() => Nav.NavigateTo("/epp");
+    private void IrAEditar() =>
+        Nav.NavigateTo($"/epp/{Id}/editar");
+
+    private string EstadoGeneral =>
+        Entrega.Articulos.Any(a => a.Estado == "Vencido")
+            ? "Requiere acción"
+            : Entrega.Articulos.Any(a =>
+                a.FechaVencimiento <= DateTime.Now.AddDays(30)
+                && a.Estado == "Vigente")
+            ? "Por vencer"
+            : "Al día";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeEditar = await Permisos.PuedeEditar("EPP");
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<EntregaEPPDetalleDto>(
+                    $"api/epp/{Id}");
+
+            if (dto is not null)
+                Entrega = dto;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando EPP: {ex.Message}");
+        }
+    }
+
+    private async Task DescargarPDF()
+    {
+        var response = await Http.GetAsync($"api/epp/{Id}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes    = await response.Content.ReadAsByteArrayAsync();
+            var base64   = Convert.ToBase64String(bytes);
+            var nombre   = Entrega.NombreTrabajador.Replace(" ", "_");
+            var fileName = $"EPP_{nombre}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "application/pdf");
+        }
+    }
+
+    private List<(string Label, string Valor)> CamposEntrega()
+    {
+        return new List<(string, string)>
+        {
+            ("Trabajador",     Entrega.NombreTrabajador),
+            ("Cédula",         Entrega.CedulaTrabajador),
+            ("Cargo",          Entrega.Cargo),
+            ("Cuadrilla",      Entrega.Cuadrilla),
+            ("Obra",           Entrega.Obra),
+            ("Fecha entrega",  Entrega.FechaEntrega
+                               .ToString("dd/MM/yyyy")),
+            ("Entregado por",  Entrega.EntregadoPor),
+        };
+    }
+
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "Al día"          => "pill-ok",
+        "Por vencer"      => "pill-warn",
+        "Requiere acción" => "pill-danger",
+        _                 => "pill-gray"
+    };
+
+    private static string GetArticuloPill(string estado) => estado switch
+    {
+        "Vigente" => "pill-ok",
+        "Vencido" => "pill-danger",
+        "Dañado"  => "pill-warn",
+        _         => "pill-gray"
+    };
+
+    private static string GenerarIniciales(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return "??";
+        var partes = nombre.Split(' ',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+            return partes[0].Length > 0
+                ? partes[0][0].ToString().ToUpper() : "?";
+        return string.Concat(partes[0][0], partes[1][0]).ToUpper();
+    }
+}

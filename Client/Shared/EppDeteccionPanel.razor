@@ -1,0 +1,97 @@
+@using SSTDigitalRD.Shared.DTOs
+@inject NavigationManager Nav
+
+<div class="dashboard-card epp-panel">
+    <div class="card-header">
+        <span class="card-title">Detección EPP en obra</span>
+        <a href="/vision-obra" class="card-link">Ver cámaras →</a>
+    </div>
+
+    <div class="epp-camara-badge">
+        <div class="epp-camara-dot"></div>
+        <span>
+            YOLOv4-Tiny · En vivo —
+            Cámara Área 2-A · Actualizado hace 12s
+        </span>
+    </div>
+
+    <div class="epp-stats-grid">
+        <div class="epp-stat">
+            <div class="epp-stat-val">@PctCascos<small>%</small></div>
+            <div class="epp-stat-label">Cascos</div>
+            <div class="epp-bar-track">
+                <div class="epp-bar-fill epp-bar-blue"
+                     style="width:@PctCascos%">
+                </div>
+            </div>
+        </div>
+        <div class="epp-stat">
+            <div class="epp-stat-val">@PctChalecos<small>%</small></div>
+            <div class="epp-stat-label">Chalecos</div>
+            <div class="epp-bar-track">
+                <div class="epp-bar-fill epp-bar-green"
+                     style="width:@PctChalecos%">
+                </div>
+            </div>
+        </div>
+        <div class="epp-stat">
+            <div class="epp-stat-val">@PctBotas<small>%</small></div>
+            <div class="epp-stat-label">Botas</div>
+            <div class="epp-bar-track">
+                <div class="epp-bar-fill epp-bar-amber"
+                     style="width:@PctBotas%">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int PctCascos { get; set; } = 92;
+    [Parameter] public int PctChalecos { get; set; } = 85;
+    [Parameter] public int PctBotas { get; set; } = 78;
+}
+@* <div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Detección EPP en obra</span>
+        <a href="/vision-obra" class="card-link">Ver cámaras →</a>
+    </div>
+
+    <div class="camera-badge">
+        <i class="ti ti-camera"></i>
+        <div>
+            <div class="cam-title">YOLOv4-Tiny · En vivo</div>
+            <div class="cam-sub">Cámara Área 2-A · Actualizado hace 12s</div>
+        </div>
+        <span class="live-dot"></span>
+    </div>
+
+    <div class="epp-grid">
+        @foreach (var epp in EppItems)
+        {
+            <div class="epp-item">
+                <div class="epp-pct">@epp.Porcentaje<span>%</span></div>
+                <div class="epp-name">@epp.Nombre</div>
+                <div class="epp-bar">
+                    <div class="epp-fill" style="width: @(epp.Porcentaje)%; background: @epp.Color;"></div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<EppItem> EppItems = new()
+    {
+        new() { Nombre = "Cascos",   Porcentaje = 92, Color = "#185FA5" },
+        new() { Nombre = "Chalecos", Porcentaje = 85, Color = "#1D9E75" },
+        new() { Nombre = "Botas",    Porcentaje = 78, Color = "#EF9F27" },
+    };
+
+    public class EppItem
+    {
+        public string Nombre { get; set; } = "";
+        public int Porcentaje { get; set; }
+        public string Color { get; set; } = "#185FA5";
+    }
+} *@

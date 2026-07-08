@@ -1,0 +1,897 @@
+﻿@page "/dossier"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Dossier MTRAB · SST-Digital RD</PageTitle>
+
+@if (!_tieneAcceso)
+{
+    <AccesoRestringido />
+    return;
+}
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="toolbar-filters">
+
+        <!-- Filtro empresa/obra -->
+        <button class="filter-btn">
+            <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+            @(ObraActual ?? "Cargando...")
+        </button>
+
+        <!-- Filtro período -->
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn"
+                    @onclick="() => MostrarSelectorPeriodo =
+                    !MostrarSelectorPeriodo">
+                <i class="ti ti-calendar" aria-hidden="true"></i>
+                @PeriodoActual
+            </button>
+
+            @if (MostrarSelectorPeriodo)
+            {
+                <div class="filtros-panel" style="width:200px">
+                    <div class="filtros-panel-header">
+                        <span>Período</span>
+                        <button class="icon-action"
+                                @onclick="() => MostrarSelectorPeriodo = false">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body" style="padding:6px 8px">
+                        @foreach (var p in PeriodosDisponibles)
+                        {
+                            var periodo = p;
+                            <div style="padding:7px 8px;cursor:pointer;
+                                            border-radius:var(--radius-md);
+                                            font-size:13px;
+                                            background:@(PeriodoActual == periodo
+                                                                         ? "var(--color-background-info)"
+                                                                         : "transparent");
+                                    color:@(PeriodoActual == periodo
+                                                                 ? "var(--color-text-info)"
+                                                                 : "var(--color-text-primary)")"
+                         @onclick="() => CambiarPeriodo(periodo)">
+                        @periodo
+                    </div>
+                                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+    @* <button class="btn-primary" style="margin-left:auto"
+            @onclick="GenerarDossierCompleto">
+        <i class="ti ti-file-certificate" aria-hidden="true"></i>
+        Generar dossier completo
+    </button> *@
+    <button class="btn-primary" style="margin-left:auto"
+            @onclick="GenerarDossierCompleto"
+            disabled="@GenerandoCompleto">
+        @if (GenerandoCompleto)
+        {
+            <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+            <span>Generando...</span>
+        }
+        else
+        {
+            <i class="ti ti-file-certificate" aria-hidden="true"></i>
+            <span>Generar dossier completo</span>
+        }
+    </button>
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Reportes generados</span>
+        <span class="insp-stat-val">
+            @Reportes.Count(r => r.Estado == "generado")
+            <small>de @Reportes.Count</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Completitud dossier</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @PorcentajeCompletitud<small>%</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Última generación</span>
+        <span class="insp-stat-val" style="font-size:16px">
+            @UltimaGeneracion.ToString("dd/MM")
+            <small>@UltimaGeneracion.Year</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Próxima entrega MTRAB</span>
+        <span class="insp-stat-val" style="color:#854F0B">
+            @DiasProximaEntrega <small>días</small>
+        </span>
+    </div>
+</div>
+
+<!-- ===== CUERPO PRINCIPAL ===== -->
+<div class="dossier-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA — Lista de reportes ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-files" aria-hidden="true"></i>
+                Reportes reglamentarios — Reg. 522-06
+            </span>
+            @if (Reportes.Any(r => r.Estado == "urgente"))
+            {
+                <span class="pill pill-danger" style="margin-left:auto">
+                    @Reportes.Count(r => r.Estado == "urgente") urgente(s)
+                </span>
+            }
+            else if (Reportes.Any(r => r.Estado == "pendiente"))
+            {
+                <span class="pill pill-warn" style="margin-left:auto">
+                    @Reportes.Count(r => r.Estado == "pendiente") pendiente(s)
+                </span>
+            }
+            else
+            {
+                <span class="pill pill-ok" style="margin-left:auto">
+                    <i class="ti ti-check" aria-hidden="true"></i> Completo
+                </span>
+            }
+        </div>
+
+        <div class="dossier-rep-list">
+            @foreach (var rep in Reportes)
+            {
+                var r = rep;
+                <div class="dossier-rep-item @(ReporteSeleccionado?.Letra == r.Letra ? "active" : "")"
+                     @onclick="() => SeleccionarReporte(r)">
+
+                    <div class="dossier-rep-icon" style="background:@r.IconoBg">
+                        <i class="ti @r.Icono" style="color:@r.IconoColor;font-size:18px"
+                           aria-hidden="true"></i>
+                    </div>
+
+                    <div class="dossier-rep-meta">
+                        <div class="dossier-rep-titulo">@r.Letra — @r.Titulo</div>
+                        <div class="dossier-rep-sub">
+                            @r.BaseLegal · @r.Frecuencia · @r.Detalle
+                        </div>
+                        <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
+                            <span class="pill @GetEstadoPill(r.Estado)">
+                                @GetEstadoLabel(r.Estado)
+                            </span>
+                            @if (r.Completitud < 100)
+                            {
+                                <span class="pill pill-gray">
+                                    @r.Completitud% completo
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:6px;flex-shrink:0">
+                        @if (r.Estado == "generado")
+                        {
+                            <button class="icon-action" title="Ver reporte"
+                                    @onclick:stopPropagation="true"
+                                    @onclick='() => Nav.NavigateTo($"/dossier/{r.Letra}")'>
+                                <i class="ti ti-eye" aria-hidden="true"></i>
+                            </button>
+                            <button class="icon-action"
+                                    style="background:#185FA5;border-color:#185FA5"
+                                    title="Descargar PDF"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => DescargarPDF(r)" >
+                                <i class="ti ti-download"
+                                   style="color:#fff" aria-hidden="true"></i>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="icon-action" title="Generar reporte"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => GenerarReporte(r)">
+                                <i class="ti ti-refresh" aria-hidden="true"></i>
+                            </button>
+                            <button class="icon-action" title="Ver datos"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => SeleccionarReporte(r)">
+                                <i class="ti ti-eye" aria-hidden="true"></i>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Completitud -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-chart-pie" aria-hidden="true"></i>
+                    Completitud del dossier
+                </span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+                @foreach (var rep in Reportes)
+                {
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:12px;font-weight:500;
+                                         color:var(--text-primary);width:16px;
+                                         flex-shrink:0">
+                            @rep.Letra
+                        </span>
+                        <div style="flex:1;height:6px;border-radius:999px;
+                                        background:#F0EFEC;overflow:hidden">
+                            <div style="height:100%;border-radius:999px;
+                                            width:@(rep.Completitud)%;
+                                            background:@GetCompletitudColor(rep.Completitud);
+                                            transition:width 0.5s ease">
+                            </div>
+                        </div>
+                        <span style="font-size:11px;font-weight:500;min-width:34px;
+                                         text-align:right;
+                                         color:@GetCompletitudColor(rep.Completitud)">
+                            @rep.Completitud%
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Detalle del reporte seleccionado -->
+        @if (ReporteSeleccionado is not null)
+        {
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="ti ti-file-certificate" aria-hidden="true"></i>
+                        @ReporteSeleccionado.Letra — @ReporteSeleccionado.Titulo
+                    </span>
+                </div>
+
+                <div class="detalle-section">
+                    <div class="detalle-section-title">Identificación</div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Empresa</span>
+                        <span class="detalle-val">@(EmpresaNombre ?? "—")</span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Período</span>
+                        <span class="detalle-val">@ReporteSeleccionado.Periodo</span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Base legal</span>
+                        <span class="detalle-val">@ReporteSeleccionado.BaseLegal</span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Registros incluidos</span>
+                        <span class="detalle-val">
+                            @ReporteSeleccionado.RegistrosIncluidos
+                        </span>
+                    </div>
+                </div>
+
+                @if (ReporteSeleccionado.Estado == "generado")
+                {
+                    <div class="hash-box" style="margin-bottom:12px">
+                        <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                        <span class="hash-text">
+                            SHA-256: @ReporteSeleccionado.HashSha256
+                        </span>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div style="display:flex;flex-direction:column;gap:8px">
+
+                        <button class="dossier-dl-btn"
+                                @onclick="() => DescargarPDF(ReporteSeleccionado)">
+                            <i class="ti ti-file-download" aria-hidden="true"></i>
+                            <div>
+                                <div class="dossier-dl-title">Descargar PDF oficial</div>
+                                <div class="dossier-dl-sub">
+                                    Listo para entregar al MTRAB
+                                </div>
+                            </div>
+                        </button>
+
+                        <button class="dossier-dl-btn"
+                                @onclick="() => EnviarPorCorreo(ReporteSeleccionado)"
+                                style="background:var(--color-background-secondary)">
+                            <i class="ti ti-mail" aria-hidden="true"></i>
+                            <div>
+                                <div class="dossier-dl-title">Enviar por correo</div>
+                                <div class="dossier-dl-sub">
+                                    Al correo del Responsable SST
+                                </div>
+                            </div>
+                        </button>
+
+                       
+                    </div>
+                }
+                else
+                {
+                    <div class="alert-banner @(ReporteSeleccionado.Estado == "urgente"
+                                 ? "danger" : "warn")" style="margin-bottom:12px">
+                        <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                        @ReporteSeleccionado.MensajePendiente
+                    </div>
+                    <button class="btn-primary"
+                            style="width:100%;margin-top:10px;justify-content:center"
+                            @onclick="() => GenerarReporte(ReporteSeleccionado)">
+                        <i class="ti ti-refresh" aria-hidden="true"></i>
+                        Generar ahora
+                    </button>
+                }
+
+                @* @if (ReporteSeleccionado.Estado == "generado")
+                {
+                    <div class="hash-box" style="margin-bottom:12px">
+                        <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                        <span class="hash-text">
+                            SHA-256: @ReporteSeleccionado.HashSha256
+                        </span>
+                    </div>
+
+                    <button class="dossier-dl-btn"
+                            @onclick="() => DescargarPDF(ReporteSeleccionado)">
+                        <i class="ti ti-file-download" aria-hidden="true"></i>
+                        <div>
+                            <div class="dossier-dl-title">Descargar PDF oficial</div>
+                            <div class="dossier-dl-sub">
+                                Listo para entregar al MTRAB
+                            </div>
+                        </div>
+                    </button>
+                }
+                else
+                {
+                    <div class="alert-banner @(ReporteSeleccionado.Estado == "urgente" ? "danger" : "warn")">
+                        <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                        @ReporteSeleccionado.MensajePendiente
+                    </div>
+                    <button class="btn-primary"
+                            style="width:100%;margin-top:10px;
+                                           justify-content:center"
+                            @onclick="() => GenerarReporte(ReporteSeleccionado)">
+                        <i class="ti ti-refresh" aria-hidden="true"></i>
+                        Generar ahora
+                    </button>
+                } *@
+            </div>
+        }
+        else
+        {
+            <div class="dashboard-card"
+                 style="display:flex;flex-direction:column;
+                            align-items:center;justify-content:center;
+                            min-height:160px;gap:8px;
+                            color:var(--text-hint);font-size:13px">
+                <i class="ti ti-file-certificate"
+                   style="font-size:28px;color:#E2E1DC"
+                   aria-hidden="true"></i>
+                <span>Selecciona un reporte para ver el detalle</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // ── Estado UI ──────────────────────────────────────────
+    private string PeriodoActual = DateTime.Now.ToString("MMMM yyyy");
+    private int DiasProximaEntrega = 18;
+    private ReporteItem? ReporteSeleccionado;
+    private bool Cargando = true;
+
+    // ── Lista de reportes ──────────────────────────────────
+    private List<ReporteItem> Reportes = new();
+
+    // ── Métricas ───────────────────────────────────────────
+    private int PorcentajeCompletitud =>
+        Reportes.Count == 0 ? 0 :
+        (int)Math.Round(Reportes.Average(r => r.Completitud));
+
+    private DateTime UltimaGeneracion = DateTime.Now;
+    private string? ObraActual;
+    private string? EmpresaNombre;
+
+    private bool MostrarSelectorPeriodo = false;
+    private List<string> PeriodosDisponibles = new();
+    private bool _tieneAcceso = true;
+
+    private void GenerarPeriodos()
+    {
+        var periodos = new List<string>();
+        var fecha = DateTime.Now;
+        for (int i = 0; i < 12; i++)
+        {
+            periodos.Add(fecha.AddMonths(-i).ToString("MMMM yyyy"));
+        }
+        PeriodosDisponibles = periodos;
+    }
+
+    private async Task CambiarPeriodo(string periodo)
+    {
+        PeriodoActual = periodo;
+        MostrarSelectorPeriodo = false;
+        // Recargar el dossier con el período seleccionado
+        await CargarDossier();
+    }
+
+    private async Task EnviarPorCorreo(ReporteItem r)
+    {
+        // Primero descargar el PDF
+        var response = await Http.GetAsync($"api/dossier/{r.Letra}/pdf");
+        if (!response.IsSuccessStatusCode) return;
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"Dossier_{r.Letra}_{r.Titulo.Replace(" ", "_")}.pdf";
+
+        // Descargar el PDF y abrir el cliente de correo
+        await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+            fileName, base64, "application/pdf");
+
+        // Abrir cliente de correo con asunto precompletado
+        var asunto = Uri.EscapeDataString(
+            $"Reporte {r.Letra} — {r.Titulo} · SST-Digital RD");
+        var cuerpo = Uri.EscapeDataString(
+            $"Adjunto el {r.Titulo} del período {r.Periodo} " +
+            $"generado por SST-Digital RD.\n\n" +
+            $"SHA-256: {r.HashSha256}");
+
+        await JS.InvokeVoidAsync("open",
+            $"mailto:?subject={asunto}&body={cuerpo}");
+    }
+
+    // private async Task ImprimirReporte(ReporteItem r)
+    // {
+    //     // Descargar el PDF y luego disparar window.print()
+    //     var response = await Http.GetAsync($"api/dossier/{r.Letra}/pdf");
+    //     if (!response.IsSuccessStatusCode) return;
+
+    //     var bytes = await response.Content.ReadAsByteArrayAsync();
+    //     var base64 = Convert.ToBase64String(bytes);
+
+    //     // Abrir el PDF en una nueva pestaña para imprimir
+    //     await JS.InvokeVoidAsync("SSTUtil.abrirPdfParaImprimir", base64);
+    // }
+
+    private async Task CargarDossier()
+    {
+        try
+        {
+            var url = $"api/dossier?periodo={Uri.EscapeDataString(PeriodoActual)}";
+            var resumen = await Http.GetFromJsonAsync<DossierResumenDto>(url);
+
+            if (resumen is not null)
+            {
+                DiasProximaEntrega = resumen.DiasProximaEntrega;
+                Reportes = resumen.Reportes.Select(r => new ReporteItem
+            {
+                Letra              = r.Letra,
+                Titulo             = r.Titulo,
+                BaseLocal          = r.BaseLegal,
+                Frecuencia         = r.Frecuencia,
+                Detalle            = r.Detalle,
+                Periodo            = r.Periodo,
+                RegistrosIncluidos = r.RegistrosIncluidos,
+                Estado             = r.Estado,
+                Completitud        = r.Completitud,
+                HashSha256         = r.HashSha256,
+                MensajePendiente   = r.MensajePendiente,
+                FechaGeneracion    = r.FechaGeneracion,
+                Icono              = GetIconoPorLetra(r.Letra),
+                IconoBg            = GetIconoBgPorLetra(r.Letra),
+                IconoColor         = GetIconoColorPorLetra(r.Letra)
+            }).ToList();
+
+                ReporteSeleccionado = Reportes.FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando dossier: {ex.Message}");
+        }
+    }
+
+    // ── Carga desde API ────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        _tieneAcceso = await Permisos.TieneAcceso("Dossier");
+        if (!_tieneAcceso) return;
+
+        GenerarPeriodos();
+
+        try
+        {
+            var obra = await Http
+        .GetFromJsonAsync<ObraActivaDto>(
+            "api/configuracion/obra");
+            ObraActual = obra?.Nombre;
+
+            var empresa = await Http
+        .GetFromJsonAsync<ConfiguracionEmpresaDto>(
+            "api/configuracion/empresa");
+            EmpresaNombre = empresa?.RazonSocial;
+
+            await CargarDossier();
+            Cargando = false;
+
+            // var resumen = await Http
+            //     .GetFromJsonAsync<DossierResumenDto>("api/dossier");
+
+            // if (resumen is not null)
+            // {
+            //     DiasProximaEntrega = resumen.DiasProximaEntrega;
+
+            //     Reportes = resumen.Reportes.Select(r => new ReporteItem
+            //     {
+            //         Letra = r.Letra,
+            //         Titulo = r.Titulo,
+            //         BaseLocal = r.BaseLegal,
+            //         Frecuencia = r.Frecuencia,
+            //         Detalle = r.Detalle,
+            //         Periodo = r.Periodo,
+            //         RegistrosIncluidos = r.RegistrosIncluidos,
+            //         Estado = r.Estado,
+            //         Completitud = r.Completitud,
+            //         HashSha256 = r.HashSha256,
+            //         MensajePendiente = r.MensajePendiente,
+            //         Icono = GetIconoPorLetra(r.Letra),
+            //         IconoBg = GetIconoBgPorLetra(r.Letra),
+            //         IconoColor = GetIconoColorPorLetra(r.Letra)
+            //     }).ToList();
+
+            //     ReporteSeleccionado = Reportes.FirstOrDefault();
+            // }
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando dossier: {ex.Message}");
+        }
+        finally { Cargando = false; }
+    }
+
+    // ── Acciones ───────────────────────────────────────────
+    private void SeleccionarReporte(ReporteItem r) =>
+        ReporteSeleccionado = r;
+
+    private async Task GenerarReporte(ReporteItem r)
+    {
+        var response = await Http.PostAsJsonAsync(
+            "api/dossier/generar",
+            new GenerarReporteDto { Letra = r.Letra });
+
+        if (response.IsSuccessStatusCode)
+        {
+            r.Estado = "generado";
+            r.Completitud = 100;
+            r.HashSha256 = GenerarHash();
+
+            // Si era el seleccionado, refrescar la vista
+            if (ReporteSeleccionado?.Letra == r.Letra)
+                ReporteSeleccionado = r;
+
+            StateHasChanged();
+        }
+    }
+    private bool GenerandoCompleto = false;
+
+    // private void GenerarDossierCompleto()
+    // {
+    //     foreach (var r in Reportes.Where(r => r.Estado != "generado"))
+    //         _ = GenerarReporte(r);
+    // }
+    private async Task GenerarDossierCompleto()
+    {
+        GenerandoCompleto = true;
+        StateHasChanged();
+
+        // Obtener lista de pendientes antes del loop
+        var pendientes = Reportes
+            .Where(r => r.Estado != "generado")
+            .ToList();
+        foreach (var r in pendientes)
+            await GenerarReporte(r);
+
+        // Recargar desde la API para sincronizar
+        await CargarDossier();
+
+        // foreach (var r in Reportes.Where(r => r.Estado != "generado").ToList())
+        //     await GenerarReporte(r);
+
+        GenerandoCompleto = false;
+        StateHasChanged();
+    }
+
+    private void VerReporte(ReporteItem r) =>
+        Nav.NavigateTo($"/dossier/{r.Letra}");
+
+    private async Task DescargarPDF(ReporteItem r)
+    {
+        var response = await Http.GetAsync($"api/dossier/{r.Letra}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Dossier_{r.Letra}_{r.Titulo.Replace(" ", "_")}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",fileName, base64, "application/pdf");
+        }
+    }
+    
+
+    // ── Helpers de estado ──────────────────────────────────
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "generado" => "pill-ok",
+        "pendiente" => "pill-warn",
+        "urgente" => "pill-danger",
+        _ => "pill-gray"
+    };
+
+    private static string GetEstadoLabel(string estado) => estado switch
+    {
+        "generado" => "Generado",
+        "pendiente" => "Pendiente",
+        "urgente" => "Urgente",
+        _ => estado
+    };
+
+    private static string GetCompletitudColor(int pct) => pct switch
+    {
+        100 => "#3B6D11",
+        >= 50 => "#EF9F27",
+        _ => "#E24B4A"
+    };
+
+    // ── Helpers de íconos ──────────────────────────────────
+    private static string GetIconoPorLetra(string letra) => letra switch
+    {
+        "A" => "ti-file-text",
+        "B" => "ti-alert-triangle",
+        "C" => "ti-users",
+        "D" => "ti-speakerphone",
+        "E" => "ti-hardhat",
+        "F" => "ti-alert-circle",
+        _ => "ti-file"
+    };
+
+    private static string GetIconoBgPorLetra(string letra) => letra switch
+    {
+        "A" => "#EAF3DE",
+        "B" => "#FCEBEB",
+        "C" => "#FAEEDA",
+        "D" => "#E6F1FB",
+        "E" => "#FAEEDA",
+        "F" => "#FCEBEB",
+        _ => "#E6F1FB"
+    };
+
+    private static string GetIconoColorPorLetra(string letra) => letra switch
+    {
+        "A" => "#3B6D11",
+        "B" => "#A32D2D",
+        "C" => "#854F0B",
+        "D" => "#185FA5",
+        "E" => "#854F0B",
+        "F" => "#A32D2D",
+        _ => "#185FA5"
+    };
+
+    private static string GenerarHash()
+    {
+        var chars = "abcdef0123456789";
+        var rng = new Random();
+        return new string(
+            Enumerable.Range(0, 64)
+                      .Select(_ => chars[rng.Next(chars.Length)])
+                      .ToArray());
+    }
+
+    // ── Modelo local ───────────────────────────────────────
+    public class ReporteItem
+    {
+        public string Letra { get; set; } = "";
+        public string Titulo { get; set; } = "";
+        public string BaseLocal { get; set; } = "";
+        public string BaseLegal => BaseLocal;
+        public string Frecuencia { get; set; } = "";
+        public string Detalle { get; set; } = "";
+        public string Periodo { get; set; } = "";
+        public string RegistrosIncluidos { get; set; } = "";
+        public string Estado { get; set; } = "pendiente";
+        public int Completitud { get; set; }
+        public string Icono { get; set; } = "ti-file";
+        public string IconoBg { get; set; } = "#E6F1FB";
+        public string IconoColor { get; set; } = "#185FA5";
+        public string HashSha256 { get; set; } = "";
+        public string MensajePendiente { get; set; } = "";
+        public string FechaGeneracion { get; set; } = "";
+    }
+}
+
+@* @code {
+    private string PeriodoActual = "Mayo 2025";
+    private DateTime UltimaGeneracion = new DateTime(2025, 5, 3);
+    private int DiasProximaEntrega = 18;
+    private ReporteItem? ReporteSeleccionado;
+
+    private int PorcentajeCompletitud =>
+        Reportes.Count == 0 ? 0 :
+        (int)Math.Round(Reportes.Average(r => r.Completitud));
+
+    private void SeleccionarReporte(ReporteItem r) =>
+        Nav.NavigateTo($"/dossier/{r.Letra}"); //ReporteSeleccionado = r;
+
+    private void GenerarReporte(ReporteItem r)
+    {
+        r.Estado = "generado";
+        r.Completitud = 100;
+        r.HashSha256 = GenerarHash();
+        StateHasChanged();
+    }
+
+    private void DescargarPDF(ReporteItem r)
+    {
+        // TODO: POST /api/dossier/{r.Letra}/pdf
+    }
+
+    private void GenerarDossierCompleto()
+    {
+        foreach (var r in Reportes.Where(r => r.Estado != "generado"))
+            GenerarReporte(r);
+        StateHasChanged();
+    }
+
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "generado" => "pill-ok",
+        "pendiente" => "pill-warn",
+        "urgente" => "pill-danger",
+        _ => "pill-gray"
+    };
+
+    private static string GetEstadoLabel(string estado) => estado switch
+    {
+        "generado" => "Generado",
+        "pendiente" => "Pendiente",
+        "urgente" => "Urgente",
+        _ => estado
+    };
+
+    private static string GetCompletitudColor(int pct) => pct switch
+    {
+        100 => "#3B6D11",
+        >= 50 => "#EF9F27",
+        _ => "#E24B4A"
+    };
+
+    private static string GenerarHash()
+    {
+        var chars = "abcdef0123456789";
+        var rng = new Random();
+        return new string(
+            Enumerable.Range(0, 64)
+                      .Select(_ => chars[rng.Next(chars.Length)])
+                      .ToArray());
+    }
+
+    protected override void OnInitialized() =>
+        ReporteSeleccionado = Reportes.FirstOrDefault();
+
+    private List<ReporteItem> Reportes = new()
+    {
+        new()
+        {
+            Letra    = "A", Titulo = "Programa de SST",
+            BaseLocal = "Art. 8, Reg. 522-06",
+            Frecuencia = "Vigencia trienal",
+            Detalle  = "Actualizado: 01/01/2025",
+            Periodo  = "2025 — 2027",
+            RegistrosIncluidos = "Política SST, matriz de riesgos, plan de emergencias",
+            Estado   = "generado", Completitud = 100,
+            Icono = "ti-file-text", IconoBg = "#EAF3DE", IconoColor = "#3B6D11",
+            HashSha256 = "a3f8c2d1e94b760f2c31a8e4d7b09c5f1a2e3d4b5c6f7a8b9c0d1e2f3a4b5c6",
+            MensajePendiente = ""
+        },
+        new()
+        {
+            Letra    = "B", Titulo = "Registro de accidentes",
+            BaseLocal = "Art. 6.1.3, Reg. 522-06",
+            Frecuencia = "Generación inmediata",
+            Detalle  = "2 incidentes este mes",
+            Periodo  = "Mayo 2025",
+            RegistrosIncluidos = "2 incidentes con GPS, fotos y firma digital",
+            Estado   = "generado", Completitud = 100,
+            Icono = "ti-alert-triangle", IconoBg = "#FCEBEB", IconoColor = "#A32D2D",
+            HashSha256 = "b4e9d3c2f05a871e3d42b9f5e8c10d6a2b3f4e5d6c7a8b9a0e1f2a3b4c5d6e7",
+            MensajePendiente = ""
+        },
+        new()
+        {
+            Letra    = "C", Titulo = "Actas del Comité Mixto",
+            BaseLocal = "Res. 007-2011",
+            Frecuencia = "Mensual",
+            Detalle  = "Última reunión: 01/05/2025",
+            Periodo  = "Mayo 2025",
+            RegistrosIncluidos = "1 acta con asistencia firmada digitalmente",
+            Estado   = "generado", Completitud = 100,
+            Icono = "ti-users", IconoBg = "#FAEEDA", IconoColor = "#854F0B",
+            HashSha256 = "c5f0e4d3a16b982e4e53c0a6f9d11e7a3c4a5f6e7d8a9c0b1a2a3c4d5e6f7a8",
+            MensajePendiente = ""
+        },
+        new()
+        {
+            Letra    = "D", Titulo = "Registro de capacitaciones",
+            BaseLocal = "Art. 9.6, Reg. 522-06",
+            Frecuencia = "Continuo",
+            Detalle  = "18 charlas este mes",
+            Periodo  = "Mayo 2025",
+            RegistrosIncluidos = "18 charlas con asistencia, fotos y firma del instructor",
+            Estado   = "generado", Completitud = 100,
+            Icono = "ti-speakerphone", IconoBg = "#E6F1FB", IconoColor = "#185FA5",
+            HashSha256 = "d6a1f5e4a27c093e5f64d1a7a0e12f8a4d5a6a7f8e9a0d1c2a3a4d5e6f7a8a9",
+            MensajePendiente = ""
+        },
+        new()
+        {
+            Letra    = "E", Titulo = "Inventario de EPP",
+            BaseLocal = "Res. 04/2007",
+            Frecuencia = "Continuo",
+            Detalle  = "3 artículos vencidos sin reponer",
+            Periodo  = "Mayo 2025",
+            RegistrosIncluidos = "38 trabajadores — 3 registros de entrega pendientes",
+            Estado   = "pendiente", Completitud = 60,
+            Icono = "ti-hardhat", IconoBg = "#FAEEDA", IconoColor = "#854F0B",
+            HashSha256 = "",
+            MensajePendiente = "Hay 3 trabajadores con EPP vencido sin registro de reposición. Actualice el inventario antes de generar este reporte."
+        },
+        new()
+        {
+            Letra    = "F", Titulo = "Notificación accidente grave",
+            BaseLocal = "Art. 6, Código de Trabajo",
+            Frecuencia = "24-48h tras el evento",
+            Detalle  = "1 accidente grave pendiente de notificar",
+            Periodo  = "Mayo 2025",
+            RegistrosIncluidos = "Caída desde andamio — 03/05/2025 — Piso 4",
+            Estado   = "urgente", Completitud = 0,
+            Icono = "ti-alert-circle", IconoBg = "#FCEBEB", IconoColor = "#A32D2D",
+            HashSha256 = "",
+            MensajePendiente = "Este accidente requiere notificación al Ministerio de Trabajo dentro de las 48 horas. Genere este reporte de inmediato."
+        },
+    };
+
+    public class ReporteItem
+    {
+        public string Letra { get; set; } = "";
+        public string Titulo { get; set; } = "";
+        public string BaseLocal { get; set; } = "";
+        public string BaseLegal => BaseLocal;
+        public string Frecuencia { get; set; } = "";
+        public string Detalle { get; set; } = "";
+        public string Periodo { get; set; } = "";
+        public string RegistrosIncluidos { get; set; } = "";
+        public string Estado { get; set; } = "pendiente";
+        public int Completitud { get; set; }
+        public string Icono { get; set; } = "ti-file";
+        public string IconoBg { get; set; } = "#E6F1FB";
+        public string IconoColor { get; set; } = "#185FA5";
+        public string HashSha256 { get; set; } = "";
+        public string MensajePendiente { get; set; } = "";
+    }
+} *@

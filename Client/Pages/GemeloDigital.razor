@@ -1,0 +1,646 @@
+﻿@page "/gemelo-digital"
+@inject IJSRuntime JS
+@inject HttpClient Http
+
+<PageTitle>Gemelo Digital · SST-Digital RD</PageTitle>
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="toolbar-filters">
+
+        <button class="filter-btn">
+            <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+            @(ObraActual ?? "Cargando...")
+        </button>
+
+        <button class="filter-btn">
+            <i class="ti ti-layers" aria-hidden="true"></i>
+            Vista: Planta
+        </button>
+
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn"
+                    @onclick="() => MostrarSelectorObra =
+                    !MostrarSelectorObra">
+                <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+                @(ObraActual ?? "Cargando...")
+            </button>
+
+            @if (MostrarSelectorObra)
+            {
+                <div class="filtros-panel" style="width:220px">
+                    <div class="filtros-panel-header">
+                        <span>Proyecto / Obra</span>
+                        <button class="icon-action"
+                                @onclick="() => MostrarSelectorObra = false">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body" style="padding:6px 8px">
+                        @foreach (var obra in ObrasDisponibles)
+                        {
+                            var o = obra;
+                            <div style="padding:7px 8px;cursor:pointer;
+                                        border-radius:var(--radius-md);
+                                        font-size:13px;
+                                        background:@(ObraActual == o.Nombre
+                                                                     ? "var(--color-background-info)"
+                                                                     : "transparent");
+                                color:@(ObraActual == o.Nombre
+                                                             ? "var(--color-text-info)"
+                                                             : "var(--color-text-primary)")"
+                         @onclick="() => CambiarObra(o)">
+                        @o.Nombre
+                    </div>
+                                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <button class="btn-primary" style="margin-left:auto"
+            @onclick="Actualizar">
+        <i class="ti ti-refresh" aria-hidden="true"></i>
+        Actualizar
+    </button>
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Zonas monitoreadas</span>
+        <span class="insp-stat-val">@Zonas.Count <small>activas</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Zonas críticas</span>
+        <span class="insp-stat-val" style="color:#A32D2D">
+            @Zonas.Count(z => z.PorcentajeRiesgo >= 70) <small>zonas</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Incidentes acumulados</span>
+        <span class="insp-stat-val">
+            @Zonas.Sum(z => z.IncidentesAcumulados) <small>este mes</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Índice de seguridad</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @IndiceSeguridad<small>/100</small>
+        </span>
+    </div>
+</div>
+
+<!-- ===== CUERPO PRINCIPAL ===== -->
+<div class="gemelo-layout">
+
+    <!-- ══ MAPA DE CALOR ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+                Mapa de calor — @(ObraActual ?? "Torre Piantini IV")
+            </span>
+            <span class="pill pill-info" style="margin-left:auto">
+                @PisoActual · Planta
+            </span>
+        </div>
+
+        <!-- Selector de pisos -->
+        <div class="gemelo-pisos">
+            @foreach (var piso in Pisos)
+            {
+                var p = piso;
+                <button class="gemelo-piso-btn @(PisoActual == p ? "active" : "")"
+                        @onclick="() => CambiarPiso(p)">
+                    @p
+                </button>
+            }
+        </div>
+
+        <!-- Canvas del plano -->
+        <div class="gemelo-plano-wrap">
+            <canvas id="gemeloCanvas"
+                    class="gemelo-canvas"
+                    @onclick="OnCanvasClick">
+            </canvas>
+        </div>
+
+        <!-- Leyenda -->
+        <div class="gemelo-legend">
+            <div class="gemelo-leg-item">
+                <div class="gemelo-leg-dot" style="background:rgba(226,75,74,0.5)"></div>
+                Crítico (≥70%)
+            </div>
+            <div class="gemelo-leg-item">
+                <div class="gemelo-leg-dot" style="background:rgba(239,159,39,0.5)"></div>
+                Alto (50-69%)
+            </div>
+            <div class="gemelo-leg-item">
+                <div class="gemelo-leg-dot" style="background:rgba(99,153,34,0.4)"></div>
+                Bajo (&lt;50%)
+            </div>
+            <span class="gemelo-leg-hint">
+                El tamaño del círculo indica densidad de incidentes
+            </span>
+        </div>
+    </div>
+
+    <!-- ══ PANEL DERECHO ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Detalle de zona seleccionada -->
+        @if (ZonaSeleccionada is not null)
+        {
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="ti ti-map-pin" aria-hidden="true"></i>
+                        @ZonaSeleccionada.Nombre
+                    </span>
+                    <span class="pill @GetRiesgoPill(ZonaSeleccionada.PorcentajeRiesgo)"
+                          style="margin-left:auto">
+                        @GetRiesgoLabel(ZonaSeleccionada.PorcentajeRiesgo)
+                    </span>
+                </div>
+
+                <div class="detalle-section">
+                    <div class="detalle-section-title">Resumen</div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Nivel de riesgo</span>
+                        <span class="detalle-val"
+                              style="color:@GetRiesgoColor(ZonaSeleccionada.PorcentajeRiesgo)">
+                            @ZonaSeleccionada.PorcentajeRiesgo% —
+                            @GetRiesgoLabel(ZonaSeleccionada.PorcentajeRiesgo)
+                        </span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Incidentes acumulados</span>
+                        <span class="detalle-val">
+                            @ZonaSeleccionada.IncidentesAcumulados este mes
+                        </span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Trabajadores expuestos</span>
+                        <span class="detalle-val">
+                            @ZonaSeleccionada.TrabajadoresExpuestos personas
+                        </span>
+                    </div>
+                    <div class="detalle-field">
+                        <span class="detalle-label">Última inspección</span>
+                        <span class="detalle-val"
+                              style="color:@(ZonaSeleccionada.DiasUltimaInspeccion > 7 ? "#A32D2D" : "inherit")">
+                            Hace @ZonaSeleccionada.DiasUltimaInspeccion días
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Eventos recientes -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="ti ti-clock" aria-hidden="true"></i>
+                        Eventos recientes
+                    </span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    @foreach (var ev in ZonaSeleccionada.Eventos)
+                    {
+                        <div style="display:flex;align-items:flex-start;gap:8px;
+                                            padding:7px 9px;border-radius:var(--radius-md);
+                                            border:0.5px solid var(--border)">
+                            <div style="width:7px;height:7px;border-radius:50%;
+                                                margin-top:4px;flex-shrink:0;
+                                                background:@GetEventoColor(ev.Tipo)">
+                            </div>
+                            <div style="flex:1">
+                                <div style="font-size:12px;font-weight:500;
+                                                    color:var(--text-primary)">
+                                    @ev.Titulo
+                                </div>
+                                <div style="font-size:11px;color:var(--text-sec);
+                                                    margin-top:1px">
+                                    @ev.Descripcion
+                                </div>
+                                <div style="font-size:10px;color:var(--text-hint);
+                                                    margin-top:2px">
+                                    @ev.Fecha.ToString("dd/MM/yyyy")
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="dashboard-card"
+                 style="display:flex;flex-direction:column;
+                            align-items:center;justify-content:center;
+                            min-height:200px;gap:8px;
+                            color:var(--text-hint);font-size:13px">
+                <i class="ti ti-map-pin"
+                   style="font-size:28px;color:#E2E1DC"
+                   aria-hidden="true"></i>
+                <span>Haz clic en una zona del mapa</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // ── Estado ─────────────────────────────────────────────────
+    private string PeriodoActual = "Mayo 2025";
+    private string PisoActual = "Todo";
+    private ZonaGemelo? ZonaSeleccionada;
+
+    private string? ObraActual;
+    private bool MostrarSelectorPeriodo = false;
+    private List<string> PeriodosDisponibles = new();
+
+    private bool MostrarSelectorObra = false;
+    private List<ObraActivaDto> ObrasDisponibles = new();
+    private int ObraSeleccionadaId = 0;
+
+    private List<string> Pisos = new()
+    {
+        "Todo","Sótano", "Piso 1", "Piso 2", "Piso 3",
+        "Piso 4", "Piso 5", "Piso 6-8"
+    };
+
+    private void GenerarPeriodos()
+    {
+        var periodos = new List<string>();
+        var fecha = DateTime.Now;
+        for (int i = 0; i < 12; i++)
+            periodos.Add(fecha.AddMonths(-i).ToString("MMMM yyyy"));
+        PeriodosDisponibles = periodos;
+    }
+
+    private async Task CambiarPeriodo(string periodo)
+    {
+        PeriodoActual = periodo;
+        MostrarSelectorPeriodo = false;
+        await CargarDatosReales();
+        ZonaSeleccionada = ZonasFiltradas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        await RenderizarMapa();
+        StateHasChanged();
+    }
+
+    private int IndiceSeguridad =>
+        Zonas.Any()
+        ? 100 - (int)Math.Round(Zonas.Average(z => z.PorcentajeRiesgo))
+        : 100;
+
+    private List<ZonaGemelo> ZonasFiltradas =>
+    PisoActual == "Todo"
+        ? Zonas
+        : Zonas.Where(z =>
+            z.Nombre.Contains(PisoActual,
+                StringComparison.OrdinalIgnoreCase))
+              .ToList();
+
+    // ── Acciones ───────────────────────────────────────────────
+    private void CambiarPiso(string piso)
+    {
+        PisoActual = piso;
+        ZonaSeleccionada = ZonasFiltradas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        StateHasChanged();
+        _ = RenderizarMapa();
+    }
+
+    private async Task Actualizar()
+    {
+        await CargarDatosReales();
+        ZonaSeleccionada = Zonas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        await RenderizarMapa();
+        StateHasChanged();
+    }
+    //private void Actualizar() => _ = RenderizarMapa();
+
+    private async Task OnCanvasClick(MouseEventArgs e)
+    {
+        var nombreZona = await JS.InvokeAsync<string?>(
+            "SSTGemelo.getZonaEnPunto",
+            "gemeloCanvas", e.ClientX, e.ClientY);
+
+        if (!string.IsNullOrEmpty(nombreZona))
+        {
+            ZonaSeleccionada = ZonasFiltradas
+                .FirstOrDefault(z => z.Nombre == nombreZona)
+                ?? ZonasFiltradas.OrderByDescending(z => z.PorcentajeRiesgo)
+                        .First();
+            StateHasChanged();
+        }
+    }
+
+    // ── Chart ──────────────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Esperamos que el DOM termine de pintar el contenedor
+            await Task.Delay(150);
+            await RenderizarMapa();
+        }
+    }
+
+    private async Task RenderizarMapa()
+    {
+        var zonaData = ZonasFiltradas.Select(z => new
+        {
+            nombre = z.Nombre,
+            riesgo = z.PorcentajeRiesgo,
+            x = z.CanvasX,
+            y = z.CanvasY,
+            w = z.CanvasW,
+            h = z.CanvasH,
+            incidentes = z.IncidentesAcumulados
+        }).ToArray();
+
+        await JS.InvokeVoidAsync(
+            "SSTGemelo.renderMapa", "gemeloCanvas", zonaData);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────
+    private static string GetRiesgoColor(int pct) => pct switch
+    {
+        >= 70 => "#A32D2D",
+        >= 50 => "#854F0B",
+        _ => "#3B6D11"
+    };
+
+    private static string GetRiesgoPill(int pct) => pct switch
+    {
+        >= 70 => "pill-danger",
+        >= 50 => "pill-warn",
+        _ => "pill-ok"
+    };
+
+    private static string GetRiesgoLabel(int pct) => pct switch
+    {
+        >= 70 => "Crítico",
+        >= 50 => "Alto",
+        _ => "Bajo"
+    };
+
+    private static string GetEventoColor(string tipo) => tipo switch
+    {
+        "incidente" => "#E24B4A",
+        "inspeccion" => "#EF9F27",
+        "epp" => "#EF9F27",
+        "charla" => "#3B6D11",
+        _ => "#888780"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        GenerarPeriodos();
+        try
+        {
+            var obras = await Http
+        .GetFromJsonAsync<List<ObraActivaDto>>(
+            "api/configuracion/obras");
+            if (obras is not null)
+            {
+                ObrasDisponibles = obras;
+                var primera = obras.FirstOrDefault();
+                ObraActual = primera?.Nombre;
+                ObraSeleccionadaId = primera?.Id ?? 0;
+            }
+        }
+        catch { }
+
+        await CargarDatosReales();
+        ZonaSeleccionada = ZonasFiltradas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+    }
+
+    private async Task CambiarObra(ObraActivaDto obra)
+    {
+        ObraActual = obra.Nombre;
+        ObraSeleccionadaId = obra.Id;
+        MostrarSelectorObra = false;
+        await CargarDatosReales();
+        ZonaSeleccionada = ZonasFiltradas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        await RenderizarMapa();
+        StateHasChanged();
+    }
+
+    private async Task CargarDatosReales()
+    {
+        try
+        {
+            // Cargar todos los incidentes sin filtrar por obra
+            var incidentes = await Http
+                .GetFromJsonAsync<List<IncidenteListDto>>(
+                    "api/incidentes") ?? new();
+
+            var inspecciones = await Http
+                .GetFromJsonAsync<List<InspeccionListDto>>(
+                    "api/inspecciones") ?? new();
+
+            var ahora = DateTime.Now;
+
+            var areaGroups = incidentes
+                .Where(x => !string.IsNullOrEmpty(x.Area))
+                .GroupBy(x => x.Area)
+                .ToList();
+
+            if (areaGroups.Any())
+            {
+                var posiciones = new Dictionary<int,
+                    (double x, double y, double w, double h)>
+                {
+                    [0] = (40, 40, 230, 120),
+                    [1] = (290, 40, 230, 120),
+                    [2] = (40, 180, 110, 120),
+                    [3] = (170, 180, 200, 120),
+                    [4] = (390, 180, 130, 120),
+                };
+
+                var nuevasZonas = new List<ZonaGemelo>();
+
+                for (int i = 0; i < areaGroups.Count; i++)
+                {
+                    var grupo = areaGroups[i];
+                    var area = grupo.Key;
+                    var incs = grupo.ToList();
+                    var tieneGrave = incs.Any(x => x.Tipo == "Accidente grave");
+                    var numIncs = incs.Count;
+
+                    var score = 0;
+                    score += Math.Min(numIncs * 15, 40);
+                    score += tieneGrave ? 20 : 0;
+                    score += 20;
+                    score = Math.Min(score, 100);
+
+                    var ultimaInsp = inspecciones
+                        .Where(x => x.Area == area || x.Obra == area)
+                        .OrderByDescending(x => x.Fecha)
+                        .FirstOrDefault();
+
+                    var diasInsp = ultimaInsp is null ? 30
+                        : (int)(ahora - ultimaInsp.Fecha).TotalDays;
+
+                    var pos = posiciones.ContainsKey(i)
+                        ? posiciones[i]
+                        : (40 + i * 100, 40.0, 180.0, 100.0);
+
+                    var eventos = incs
+                        .Select(inc => new EventoZona(
+                            "incidente",
+                            $"{inc.Tipo} — {inc.Area}",
+                            $"Inspector: {inc.Inspector}",
+                            inc.Fecha))
+                        .Take(4)
+                        .ToList();
+
+                    if (ultimaInsp is not null)
+                        eventos.Insert(0, new EventoZona(
+                            "inspeccion",
+                            "Última inspección",
+                            $"{ultimaInsp.Inspector} · {ultimaInsp.Estado}",
+                            ultimaInsp.Fecha));
+
+                    nuevasZonas.Add(new ZonaGemelo
+                    {
+                        Id = i + 1,
+                        Nombre = area,
+                        PorcentajeRiesgo = score,
+                        IncidentesAcumulados = numIncs,
+                        TrabajadoresExpuestos = Math.Max(2, 6 - i),
+                        DiasUltimaInspeccion = diasInsp,
+                        CanvasX = pos.x,
+                        CanvasY = pos.y,
+                        CanvasW = pos.w,
+                        CanvasH = pos.h,
+                        Eventos = eventos
+                    });
+                }
+
+                Zonas = nuevasZonas;
+            }
+            else
+            {
+                Zonas = new();
+            }
+
+            PeriodoActual = ahora.ToString("MMMM yyyy");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando gemelo: {ex.Message}");
+        }
+    }
+
+    // protected override void OnInitialized() =>
+    //     ZonaSeleccionada = Zonas.OrderByDescending(z => z.PorcentajeRiesgo).First();
+
+    // ── Datos ──────────────────────────────────────────────────
+    private List<ZonaGemelo> Zonas = new();
+    // {
+    //     new()
+    //     {
+    //         Id=1, Nombre="Zona Norte · Estructura",
+    //         PorcentajeRiesgo=91, IncidentesAcumulados=3,
+    //         TrabajadoresExpuestos=8, DiasUltimaInspeccion=8,
+    //         CanvasX=40, CanvasY=40, CanvasW=230, CanvasH=120,
+    //         Eventos = new()
+    //         {
+    //             new("incidente",  "Caída desde andamio",    "Zona Norte · Piso 4",         new DateTime(2025,5,3)),
+    //             new("epp",        "Sin EPP detectado",       "Visión IA · 3 trabajadores",  new DateTime(2025,5,2)),
+    //             new("inspeccion", "Inspección fallida",      "No conforme · R. Gómez",      new DateTime(2025,5,1)),
+    //             new("charla",     "Charla de seguridad",     "14 asistentes · Cuadrilla A", new DateTime(2025,4,28)),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=2, Nombre="Eléctrico · Piso 4",
+    //         PorcentajeRiesgo=78, IncidentesAcumulados=2,
+    //         TrabajadoresExpuestos=4, DiasUltimaInspeccion=12,
+    //         CanvasX=390, CanvasY=180, CanvasW=130, CanvasH=120,
+    //         Eventos = new()
+    //         {
+    //             new("incidente",  "Cables expuestos",        "Área eléctrica · Sin señal",  new DateTime(2025,5,2)),
+    //             new("inspeccion", "Inspección programada",   "Pendiente · M. Santos",       new DateTime(2025,4,29)),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=3, Nombre="Área central · Carga",
+    //         PorcentajeRiesgo=65, IncidentesAcumulados=1,
+    //         TrabajadoresExpuestos=12, DiasUltimaInspeccion=3,
+    //         CanvasX=170, CanvasY=180, CanvasW=200, CanvasH=120,
+    //         Eventos = new()
+    //         {
+    //             new("inspeccion", "Inspección conforme",     "Conforme · L. Herrera",       new DateTime(2025,5,3)),
+    //             new("charla",     "Charla de inducción",     "12 asistentes · Cuadrilla B", new DateTime(2025,5,1)),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=4, Nombre="Zona Sur · Fachada",
+    //         PorcentajeRiesgo=28, IncidentesAcumulados=0,
+    //         TrabajadoresExpuestos=6, DiasUltimaInspeccion=2,
+    //         CanvasX=290, CanvasY=40, CanvasW=230, CanvasH=120,
+    //         Eventos = new()
+    //         {
+    //             new("inspeccion", "Inspección conforme",     "Sin observaciones",           new DateTime(2025,5,3)),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=5, Nombre="Accesos · Escaleras",
+    //         PorcentajeRiesgo=15, IncidentesAcumulados=0,
+    //         TrabajadoresExpuestos=38, DiasUltimaInspeccion=1,
+    //         CanvasX=40, CanvasY=180, CanvasW=110, CanvasH=120,
+    //         Eventos = new()
+    //         {
+    //             new("inspeccion", "Revisión diaria",         "Todo en orden",               new DateTime(2025,5,5)),
+    //         }
+    //     },
+    // };
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class ZonaGemelo
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public int PorcentajeRiesgo { get; set; }
+        public int IncidentesAcumulados { get; set; }
+        public int TrabajadoresExpuestos { get; set; }
+        public int DiasUltimaInspeccion { get; set; }
+        public double CanvasX { get; set; }
+        public double CanvasY { get; set; }
+        public double CanvasW { get; set; }
+        public double CanvasH { get; set; }
+        public List<EventoZona> Eventos { get; set; } = new();
+    }
+
+    public class EventoZona
+    {
+        public string Tipo { get; set; }
+        public string Titulo { get; set; }
+        public string Descripcion { get; set; }
+        public DateTime Fecha { get; set; }
+
+        public EventoZona(string tipo, string titulo,
+            string desc, DateTime fecha)
+        {
+            Tipo = tipo; Titulo = titulo;
+            Descripcion = desc; Fecha = fecha;
+        }
+    }
+}

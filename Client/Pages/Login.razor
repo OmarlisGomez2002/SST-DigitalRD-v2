@@ -1,0 +1,136 @@
+﻿@page "/login"
+@layout LoginLayout
+@inject HttpClient Http
+@inject SSTAuthStateProvider Auth
+@inject NavigationManager Nav
+@attribute [AllowAnonymous]
+
+<PageTitle>Iniciar sesión · SST-Digital RD</PageTitle>
+
+<div class="login-wrap">
+    <div class="login-card">
+
+        <!-- Logo / Marca -->
+        <div class="login-brand">
+            <div class="login-logo">
+                <i class="ti ti-shield-check" aria-hidden="true"></i>
+            </div>
+            <div>
+                <div class="login-title">SST-Digital RD</div>
+                <div class="login-subtitle">
+                    Sistema de Seguridad y Salud en el Trabajo
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario -->
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Correo electrónico</label>
+            <input type="email"
+                   @bind="Correo"
+                   @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   placeholder="usuario@empresa.do"
+                   autocomplete="email" />
+        </div>
+
+        <div class="form-field" style="margin-bottom:20px">
+            <label>Contraseña</label>
+            <input type="password"
+                   @bind="Password"
+                   @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   placeholder="••••••••"
+                   autocomplete="current-password" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="alert-banner error" style="margin-bottom:12px">
+                <i class="ti ti-alert-circle" aria-hidden="true"></i>
+                <span>@Error</span>
+            </div>
+        }
+
+        <button class="btn-primary"
+                style="width:100%;justify-content:center;height:40px"
+                @onclick="IniciarSesion"
+                disabled="@Cargando">
+            @if (Cargando)
+            {
+                <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                <span>Verificando...</span>
+            }
+            else
+            {
+                <i class="ti ti-login" aria-hidden="true"></i>
+                <span>Iniciar sesión</span>
+            }
+        </button>
+
+        <div style="text-align:center;margin-top:16px;
+                    font-size:11px;color:var(--text-hint)">
+            SST-Digital RD · UNIBE 2026 · v1.0
+        </div>
+    </div>
+</div>
+
+@code {
+    private string Correo = "";
+    private string Password = "";
+    private string Error = "";
+    private bool Cargando = false;
+
+    private async Task IniciarSesion()
+    {
+        if (string.IsNullOrWhiteSpace(Correo) ||
+            string.IsNullOrWhiteSpace(Password))
+        {
+            Error = "Por favor ingresa tu correo y contraseña.";
+            return;
+        }
+
+        Cargando = true;
+        Error = "";
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync(
+                "api/auth/login",
+                new { Correo, Password });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content
+                    .ReadFromJsonAsync<
+                        SSTDigitalRD.Shared.DTOs.LoginResponseDto > ();
+
+                if (result is not null)
+                {
+                    await Auth.Login(result);
+                    Nav.NavigateTo("/");
+                }
+            }
+            else
+            {
+                Error = "Correo o contraseña incorrectos.";
+            }
+        }
+        catch
+        {
+            Error = "Error de conexión. Intenta de nuevo.";
+        }
+        finally
+        {
+            Cargando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await IniciarSesion();
+    }
+}

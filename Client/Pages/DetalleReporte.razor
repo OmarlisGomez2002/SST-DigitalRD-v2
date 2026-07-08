@@ -1,0 +1,590 @@
+﻿@page "/dossier/{Letra}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Reporte @Letra · SST-Digital RD</PageTitle>
+
+<!-- ===== ENCABEZADO ===== -->
+<div class="form-page-header">
+    <button class="btn-back" @onclick="VolverAlDossier">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver al dossier
+    </button>
+    <div class="form-page-title">
+        <h1>Reporte @Letra — @Reporte.Titulo</h1>
+        <span class="form-page-sub">
+            @Reporte.BaseLegal · Generado el @Reporte.FechaGeneracion.ToString("dd/MM/yyyy")
+            · @Reporte.Periodo
+        </span>
+    </div>
+    <div class="form-page-actions">        
+        <button class="btn-primary" @onclick="DescargarPDF">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Descargar PDF
+        </button>
+    </div>
+</div>
+
+<!-- ===== CONTENIDO ===== -->
+<div class="detalle-reporte-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Identificación -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-info-circle" aria-hidden="true"></i>
+                    Identificación del reporte
+                </span>
+                <span class="pill pill-ok" style="margin-left:auto">
+                    <i class="ti ti-check" aria-hidden="true"></i>
+                    Generado y sellado
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposIdentificacion)
+                {
+                    <div style="display:flex;flex-direction:column;gap:2px;
+                                    padding:7px 0;border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                         color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Registros incluidos — varía por tipo -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-list-check" aria-hidden="true"></i>
+                    Registros incluidos
+                </span>
+                <span class="pill pill-info" style="margin-left:auto">
+                    @Reporte.RegistrosIncluidos.Count items
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                @foreach (var reg in Reporte.RegistrosIncluidos)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;
+                                    padding:8px 10px;border:0.5px solid var(--border);
+                                    border-radius:var(--radius-md)">
+                        <div style="width:32px;height:32px;border-radius:var(--radius-md);
+                                        display:flex;align-items:center;justify-content:center;
+                                        flex-shrink:0;background:@reg.IconoBg">
+                            <i class="ti @reg.Icono"
+                               style="font-size:16px;color:@reg.IconoColor"
+                               aria-hidden="true"></i>
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-size:12px;font-weight:500;
+                                            color:var(--text-primary)">
+                                @reg.Titulo
+                            </div>
+                            <div class="text-hint">@reg.Descripcion</div>
+                        </div>
+                        <span class="pill pill-ok">Incluido</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Artículos legales aplicados -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-book" aria-hidden="true"></i>
+                    Marco legal aplicado
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var art in Reporte.ArticulosLegales)
+                {
+                    <div style="display:flex;align-items:flex-start;gap:8px;
+                                    padding:8px 0;border-bottom:0.5px solid var(--border)">
+                        <div style="width:22px;height:22px;border-radius:50%;
+                                        background:#E6F1FB;color:#185FA5;
+                                        font-size:10px;font-weight:500;
+                                        display:flex;align-items:center;
+                                        justify-content:center;flex-shrink:0;margin-top:1px">
+                            @art.Numero
+                        </div>
+                        <div style="font-size:12px;color:var(--text-primary);
+                                        line-height:1.5">
+                            @art.Texto
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Integridad -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Integridad del documento
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="text-hint" style="font-size:11px">Hash SHA-256</div>
+                <div class="hash-box">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    <span class="hash-text">@Reporte.HashSha256</span>
+                </div>
+                <div class="text-hint">
+                    Generado: @Reporte.FechaGeneracion.ToString("dd/MM/yyyy hh:mm tt")
+                </div>
+                <div class="text-hint">
+                    Validez legal: Ley 126-02, Art. 7
+                </div>
+            </div>
+        </div>
+        
+        <!-- Historial de versiones -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-clock" aria-hidden="true"></i>
+                    Historial de versiones
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var ver in Reporte.Versiones)
+                {
+                    <div style="display:flex;align-items:center;gap:8px;
+                                    padding:7px 0;border-bottom:0.5px solid var(--border)">
+                        <div style="width:7px;height:7px;border-radius:50%;
+                                        flex-shrink:0;
+                                        background:@(ver.Activa ? "#3B6D11" : "#888780")">
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-size:12px;font-weight:500;
+                                            color:var(--text-primary)">
+                                @(ver.Activa ? "Versión actual" : "Versión anterior")
+                            </div>
+                            <div class="text-hint">
+                                @ver.Fecha.ToString("dd/MM/yyyy") · @ver.Autor
+                            </div>
+                        </div>
+                        <span class="pill @(ver.Activa ? "pill-ok" : "pill-gray")">
+                            @(ver.Activa ? "Activa" : "Archivada")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Letra { get; set; } = "A";
+        
+    private ReporteDetalle Reporte = new();
+
+    private void VolverAlDossier() => Nav.NavigateTo("/dossier");
+    
+    private async Task DescargarPDF()
+    {
+        var response = await Http.GetAsync($"api/dossier/{Letra}/pdf");
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes    = await response.Content.ReadAsByteArrayAsync();
+            var base64   = Convert.ToBase64String(bytes);
+            var fileName = $"Dossier_{Reporte.Titulo.Replace(" ", "_")}.pdf";
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",fileName, base64, "application/pdf");
+        }
+    }
+    
+
+    private List<(string Label, string Valor)> CamposIdentificacion =>
+        new()
+        {
+            ("Empresa",           "Constructora Piantini S.R.L."),
+            ("RNC",               "1-31-12345-6"),
+            ("Responsable SST",   "Ramón Gómez · Prevencionista"),
+            ("Base legal",        Reporte.BaseLegal),
+            ("Período",           Reporte.Periodo),
+            ("Fecha generación",  Reporte.FechaGeneracion.ToString("dd/MM/yyyy · hh:mm tt")),
+        };
+
+    // protected override void OnInitialized() =>
+    //     Reporte = BuildReporte(Letra);
+
+    // protected override void OnParametersSet() =>
+    //     Reporte = BuildReporte(Letra);
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var resumen = await Http
+                .GetFromJsonAsync<DossierResumenDto>(
+                    "api/dossier");
+
+            if (resumen is not null)
+            {
+                var dto = resumen.Reportes
+                    .FirstOrDefault(r => r.Letra == Letra);
+
+                if (dto is not null)
+                {
+                    Reporte = new ReporteDetalle
+                    {
+                        Titulo = dto.Titulo,
+                        BaseLegal = dto.BaseLegal,
+                        Periodo = dto.Periodo,
+                        FechaGeneracion = DateTime.TryParse(
+                            dto.FechaGeneracion, out var f) ? f : DateTime.Now,
+                        HashSha256 = dto.HashSha256,
+                        RegistrosIncluidos = BuildRegistros(Letra, dto),
+                        ArticulosLegales = BuildArticulos(Letra),
+                        Versiones = new()
+                    {
+                        new(DateTime.Today,              "R. Gómez", true),
+                        new(DateTime.Today.AddYears(-1), "R. Gómez", false),
+                    }
+                    };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando reporte: {ex.Message}");
+            Reporte = BuildReporte(Letra);
+        }
+    }
+
+    private static List<RegistroItem> BuildRegistros(
+    string letra, ReporteStatusDto dto)
+    {
+        var descripcion = dto.RegistrosIncluidos;
+        return letra switch
+        {
+            "A" => new()
+        {
+            new("ti-shield-check","#EAF3DE","#3B6D11",
+                "Política de Seguridad y Salud",
+                "Declaración firmada por representante legal"),
+            new("ti-alert-triangle","#FAEEDA","#854F0B",
+                "Matriz de identificación de riesgos",
+                descripcion),
+            new("ti-flame","#FCEBEB","#A32D2D",
+                "Plan de emergencias",
+                "Rutas de evacuación y responsables definidos"),
+            new("ti-calendar","#E6F1FB","#185FA5",
+                "Cronograma de capacitaciones",
+                "Plan anual de charlas por cuadrilla"),
+        },
+            "B" => new()
+        {
+            new("ti-first-aid-kit","#FCEBEB","#A32D2D",
+                "Incidentes del período", descripcion),
+            new("ti-map-pin","#E6F1FB","#185FA5",
+                "Coordenadas GPS de cada incidente",
+                "Geolocalización verificada"),
+            new("ti-camera","#E6F1FB","#185FA5",
+                "Fotografías de evidencia",
+                "Fotos selladas con SHA-256"),
+        },
+            "C" => new()
+        {
+            new("ti-users","#FAEEDA","#854F0B",
+                "Actas de reunión mensual", descripcion),
+            new("ti-certificate","#E6F1FB","#185FA5",
+                "Registro del comité ante MTRAB",
+                "Resolución 007-2011 vigente"),
+        },
+            "D" => new()
+        {
+            new("ti-speakerphone","#E6F1FB","#185FA5",
+                "Charlas de seguridad", descripcion),
+            new("ti-writing","#EAF3DE","#3B6D11",
+                "Listas de asistencia firmadas",
+                "Con firma digital y hash SHA-256"),
+        },
+            "E" => new()
+        {
+            new("ti-hardhat","#E6F1FB","#185FA5",
+                "Inventario por trabajador", descripcion),
+            new("ti-calendar","#FAEEDA","#854F0B",
+                "Fechas de vencimiento",
+                "Control de reposición automático"),
+        },
+            "F" => new()
+        {
+            new("ti-first-aid-kit","#FCEBEB","#A32D2D",
+                "Accidentes graves pendientes", descripcion),
+            new("ti-map-pin","#E6F1FB","#185FA5",
+                "Evidencia GPS y fotos",
+                "Sellada criptográficamente"),
+        },
+            _ => new()
+        };
+    }
+
+    private static List<ArticuloLegal> BuildArticulos(string letra) =>
+        letra switch
+        {
+            "A" => new()
+            {
+            new("8",  "El empleador formulará un Programa de SST " +
+                      "por escrito, lo implementará y revisará " +
+                      "periódicamente, remitiendo copia al Ministerio " +
+                      "de Trabajo cada tres años."),
+            new("7",  "El empleador identificará y evaluará los " +
+                      "riesgos en los lugares de trabajo."),
+            },
+            "B" => new()
+            {
+            new("6.1.3","El empleador registrará los datos de todos " +
+                        "los accidentes de trabajo y enfermedades " +
+                        "profesionales."),
+            new("6",    "En caso de accidente grave, el empleador " +
+                        "notificará a la autoridad laboral dentro " +
+                        "de las 24 a 48 horas."),
+            },
+            "C" => new()
+            {
+            new("13",   "Las empresas con más de 15 trabajadores " +
+                        "constituirán un Comité Mixto de SST que " +
+                        "se reunirá mensualmente."),
+            },
+            "D" => new()
+            {
+            new("9.6",  "El empleador garantizará que todos los " +
+                        "trabajadores reciban capacitación, manteniendo " +
+                        "registros con listas de asistencia firmadas."),
+            },
+            "E" => new()
+            {
+            new("R04",  "El empleador mantendrá un registro de " +
+                        "entrega de EPP por trabajador con firma " +
+                        "del receptor y fecha de vencimiento."),
+            },
+            "F" => new()
+            {
+            new("6",    "En caso de accidente grave o fatal, el " +
+                        "empleador comunicará el hecho a la autoridad " +
+                        "de trabajo dentro de las 24 a 48 horas."),
+            new("720",  "El incumplimiento de la notificación " +
+                        "constituye una infracción muy grave."),
+            },
+            _ => new()
+        };
+
+    //── Constructor por tipo de reporte ───────────────────────
+    private static ReporteDetalle BuildReporte(string letra) => letra switch
+    {
+        "A" => new()
+        {
+            Titulo = "Programa de SST",
+            BaseLegal = "Art. 8, Reg. 522-06",
+            Periodo = "Vigencia 2025-2027",
+            FechaGeneracion = new DateTime(2025, 1, 1, 8, 0, 0),
+            HashSha256 = "a3f8c2d1e94b760f2c31a8e4d7b09c5f1a2e3d4b5c6f7a8b9c0d1e2f3a4b5c6",
+            RegistrosIncluidos = new()
+            {
+                new("ti-shield-check","#EAF3DE","#3B6D11","Política de Seguridad y Salud",    "Declaración firmada por representante legal"),
+                new("ti-alert-triangle","#FAEEDA","#854F0B","Matriz de identificación de riesgos","12 áreas evaluadas · Torre Piantini IV"),
+                new("ti-flame",      "#FCEBEB","#A32D2D","Plan de emergencias",               "Rutas de evacuación y responsables definidos"),
+                new("ti-calendar",   "#E6F1FB","#185FA5","Cronograma de capacitaciones",      "Plan anual de charlas por cuadrilla · 2025"),
+                new("ti-chart-bar",  "#E6F1FB","#185FA5","Estadísticas del período anterior", "7 incidentes · 24 inspecciones · 18 charlas"),
+            },
+            ArticulosLegales = new()
+            {
+                new("8",  "El empleador formulará un Programa de SST por escrito, lo implementará y revisará periódicamente, remitiendo copia al Ministerio de Trabajo cada tres años."),
+                new("7",  "El empleador identificará y evaluará los riesgos en los lugares de trabajo e implementará medidas preventivas adecuadas."),
+                new("9",  "El empleador garantizará la formación e información de los trabajadores sobre los riesgos y las medidas preventivas aplicables."),
+            },
+            Versiones = new()
+            {
+                new(new DateTime(2025,1,1),  "R. Gómez", true),
+                new(new DateTime(2022,3,15), "R. Gómez", false),
+            }
+        },
+
+        "B" => new()
+        {
+            Titulo = "Registro de accidentes",
+            BaseLegal = "Art. 6.1.3, Reg. 522-06",
+            Periodo = "Mayo 2025",
+            FechaGeneracion = new DateTime(2025, 5, 3, 9, 30, 0),
+            HashSha256 = "b4e9d3c2f05a871e3d42b9f5e8c10d6a2b3f4e5d6c7a8b9a0e1f2a3b4c5d6e7",
+            RegistrosIncluidos = new()
+            {
+                new("ti-first-aid-kit","#FCEBEB","#A32D2D","Caída desde andamio — Piso 4",     "03/05/2025 · Accidente grave · C. Ramírez"),
+                new("ti-hand-off",     "#FAEEDA","#854F0B","Golpe con herramienta — Taller",    "01/05/2025 · Accidente leve · J. Pérez"),
+                new("ti-flame",        "#FAEEDA","#854F0B","Conato de incendio — Almacén",      "02/05/2025 · Cuasi-accidente"),
+                new("ti-eye-off",      "#E6F1FB","#185FA5","Exposición a polvo — Piso 2",       "30/04/2025 · Condición insegura"),
+            },
+            ArticulosLegales = new()
+            {
+                new("6.1.3","El empleador registrará los datos de todos los accidentes de trabajo y enfermedades profesionales, conservando estos registros a disposición de la autoridad laboral."),
+                new("6",    "En caso de accidente grave o fatal, el empleador notificará a la autoridad laboral dentro de las 24 a 48 horas siguientes al evento."),
+            },
+            Versiones = new()
+            {
+                new(new DateTime(2025,5,3), "R. Gómez", true),
+            }
+        },
+
+        "C" => new()
+        {
+            Titulo = "Actas del Comité Mixto",
+            BaseLegal = "Res. 007-2011, Ministerio de Trabajo",
+            Periodo = "Mayo 2025",
+            FechaGeneracion = new DateTime(2025, 5, 1, 10, 0, 0),
+            HashSha256 = "c5f0e4d3a16b982e4e53c0a6f9d11e7a3c4a5f6e7d8a9c0b1a2a3c4d5e6f7a8",
+            RegistrosIncluidos = new()
+            {
+                new("ti-users",       "#FAEEDA","#854F0B","Acta #5 — Reunión mensual",         "01/05/2025 · 8 miembros presentes"),
+                new("ti-users",       "#FAEEDA","#854F0B","Acta #4 — Reunión mensual",         "01/04/2025 · 7 miembros presentes"),
+                new("ti-users",       "#FAEEDA","#854F0B","Acta #3 — Reunión mensual",         "01/03/2025 · 8 miembros presentes"),
+                new("ti-certificate", "#E6F1FB","#185FA5","Registro del comité ante MTRAB",    "Resolución 007-2011 · Inscripción vigente"),
+            },
+            ArticulosLegales = new()
+            {
+                new("13","Las empresas con más de 15 trabajadores constituirán un Comité Mixto de SST con igual representación de empleadores y trabajadores, que se reunirá mensualmente."),
+                new("R007","La Resolución 007-2011 regula el registro, funcionamiento y documentación de los Comités Mixtos de SST ante el Ministerio de Trabajo."),
+            },
+            Versiones = new()
+            {
+                new(new DateTime(2025,5,1), "R. Gómez", true),
+                new(new DateTime(2025,4,1), "R. Gómez", false),
+            }
+        },
+
+        "D" => new()
+        {
+            Titulo = "Registro de capacitaciones",
+            BaseLegal = "Art. 9.6, Reg. 522-06",
+            Periodo = "Mayo 2025",
+            FechaGeneracion = new DateTime(2025, 5, 5, 8, 0, 0),
+            HashSha256 = "d6a1f5e4a27c093e5f64d1a7a0e12f8a4d5a6a7f8e9a0d1c2a3a4d5e6f7a8a9",
+            RegistrosIncluidos = new()
+            {
+                new("ti-speakerphone","#E6F1FB","#185FA5","Uso correcto de EPP en altura",     "05/05/2025 · 14 asistentes · Cuadrilla A"),
+                new("ti-flame",       "#FAEEDA","#854F0B","Prevención y control de incendios", "04/05/2025 · 11 asistentes · Cuadrilla B"),
+                new("ti-first-aid-kit","#EAF3DE","#3B6D11","Primeros auxilios en obra",        "02/05/2025 · 9 asistentes · Cuadrilla C"),
+                new("ti-alert-triangle","#FCEBEB","#A32D2D","Manejo de materiales peligrosos", "01/05/2025 · 10 asistentes · Cuadrilla D"),
+                new("ti-speakerphone","#E6F1FB","#185FA5","Inducción de seguridad",            "28/04/2025 · 12 asistentes · Cuadrilla A"),
+            },
+            ArticulosLegales = new()
+            {
+                new("9.6","El empleador garantizará que todos los trabajadores reciban capacitación y entrenamiento en materia de seguridad y salud, manteniendo registros actualizados con listas de asistencia firmadas."),
+                new("9.1","La capacitación deberá realizarse dentro de la jornada laboral y sin costo para el trabajador, con énfasis en los riesgos específicos del puesto de trabajo."),
+            },
+            Versiones = new()
+            {
+                new(new DateTime(2025,5,5), "R. Gómez", true),
+                new(new DateTime(2025,4,5), "M. Santos", false),
+            }
+        },
+
+        "E" => new()
+        {
+            Titulo = "Inventario de EPP",
+            BaseLegal = "Res. 04/2007, Ministerio de Trabajo",
+            Periodo = "Mayo 2025",
+            FechaGeneracion = new DateTime(2025, 5, 5, 9, 0, 0),
+            HashSha256 = "",
+            RegistrosIncluidos = new()
+            {
+                new("ti-hardhat",    "#E6F1FB","#185FA5","Cascos de seguridad",               "38 trabajadores · 3 registros vencidos"),
+                new("ti-shirt",      "#EAF3DE","#3B6D11","Chalecos reflectivos",              "38 trabajadores · todos vigentes"),
+                new("ti-shoe",       "#FAEEDA","#854F0B","Botas de seguridad",                "38 trabajadores · 2 por vencer"),
+                new("ti-hand-stop",  "#E6F1FB","#185FA5","Guantes de protección",             "30 unidades en stock"),
+                new("ti-ripple",     "#FCEBEB","#A32D2D","Arneses de seguridad",              "15 en uso · 5 disponibles"),
+            },
+            ArticulosLegales = new()
+            {
+                new("R04","La Resolución 04/2007 obliga al empleador a mantener un registro de entrega de EPP por trabajador, con firma del receptor y fecha de vencimiento de cada artículo."),
+                new("9.2","El empleador suministrará gratuitamente a los trabajadores los equipos de protección personal adecuados a los riesgos identificados en sus puestos de trabajo."),
+            },
+            Versiones = new()
+            {
+                new(new DateTime(2025,5,5), "R. Gómez", true),
+            }
+        },
+
+        "F" => new()
+        {
+            Titulo = "Notificación accidente grave",
+            BaseLegal = "Art. 6, Código de Trabajo (Ley 16-92)",
+            Periodo = "03/05/2025",
+            FechaGeneracion = DateTime.Now,
+            HashSha256 = "",
+            RegistrosIncluidos = new()
+            {
+                new("ti-first-aid-kit","#FCEBEB","#A32D2D","Caída desde andamio — Piso 4",    "03/05/2025 · 9:20 AM · C. Ramírez"),
+                new("ti-map-pin",      "#E6F1FB","#185FA5","Coordenadas GPS del incidente",    "18.473621, -69.931215 · Verificado"),
+                new("ti-camera",       "#E6F1FB","#185FA5","Fotografías de evidencia",         "2 fotos selladas con SHA-256"),
+                new("ti-writing",      "#EAF3DE","#3B6D11","Firma del inspector",              "R. Gómez · 9:28 AM"),
+            },
+            ArticulosLegales = new()
+            {
+                new("6",    "En caso de accidente grave o fatal, el empleador comunicará el hecho a la autoridad de trabajo dentro de las 24 a 48 horas siguientes a su ocurrencia."),
+                new("720",  "El incumplimiento de la notificación de accidente grave constituye una infracción muy grave sancionable con multa de 7 a 12 salarios mínimos mensuales (Ley 16-92)."),
+            },
+            Versiones = new()
+            {
+                new(DateTime.Today, "R. Gómez", true),
+            }
+        },
+
+        _ => new() { Titulo = "Reporte no encontrado" }
+    };
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class ReporteDetalle
+    {
+        public string Titulo { get; set; } = "";
+        public string BaseLegal { get; set; } = "";
+        public string Periodo { get; set; } = "";
+        public DateTime FechaGeneracion { get; set; } = DateTime.Now;
+        public string HashSha256 { get; set; } = "";
+        public List<RegistroItem> RegistrosIncluidos { get; set; } = new();
+        public List<ArticuloLegal> ArticulosLegales { get; set; } = new();
+        public List<VersionReporte> Versiones { get; set; } = new();
+    }
+
+    public class RegistroItem
+    {
+        public string Icono { get; set; }
+        public string IconoBg { get; set; }
+        public string IconoColor { get; set; }
+        public string Titulo { get; set; }
+        public string Descripcion { get; set; }
+        public RegistroItem(string i, string bg, string c, string t, string d)
+        { Icono = i; IconoBg = bg; IconoColor = c; Titulo = t; Descripcion = d; }
+    }
+
+    public class ArticuloLegal
+    {
+        public string Numero { get; set; }
+        public string Texto { get; set; }
+        public ArticuloLegal(string n, string t) { Numero = n; Texto = t; }
+    }
+
+    public class VersionReporte
+    {
+        public DateTime Fecha { get; set; }
+        public string Autor { get; set; }
+        public bool Activa { get; set; }
+        public VersionReporte(DateTime f, string a, bool act)
+        { Fecha = f; Autor = a; Activa = act; }
+    }
+}

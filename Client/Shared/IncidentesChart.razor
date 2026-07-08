@@ -1,0 +1,90 @@
+@inject IJSRuntime JS
+@using SSTDigitalRD.Shared.DTOs
+
+<div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Incidentes por semana</span>
+        <a href="/incidentes" class="card-link">Ver detalle →</a>
+    </div>
+    <div class="chart-legend">
+        <span class="legend-item">
+            <span class="legend-dot" style="background:#B5D4F4"></span>
+            Reportados
+        </span>
+        <span class="legend-item">
+            <span class="legend-dot" style="background:#E24B4A"></span>
+            Graves
+        </span>
+    </div>
+    <div style="position:relative;height:160px;width:100%">
+        <canvas id="incidentesChart"></canvas>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<DashboardIncidentesSemanaDto> Datos { get; set; } = new();
+
+    private bool _graficado = false;
+
+    private async Task RenderizarGrafico()
+    {
+        var labels = Datos.Select(d => d.Semana).ToArray();
+        var reportados = Datos.Select(d => d.Reportados).ToArray();
+        var graves = Datos.Select(d => d.Graves).ToArray();
+
+        await JS.InvokeVoidAsync(
+            "SSTCharts.renderIncidentes",
+            "incidentesChart", labels, reportados, graves);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Solo renderizar cuando lleguen datos reales
+        if (Datos.Any() && !_graficado)
+        {
+            _graficado = true;
+            await RenderizarGrafico();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var labels = Datos.Select(d => d.Semana).ToArray();
+            var reportados = Datos.Select(d => d.Reportados).ToArray();
+            var graves = Datos.Select(d => d.Graves).ToArray();
+
+            await JS.InvokeVoidAsync(
+                "SSTCharts.renderIncidentes",
+                "incidentesChart", labels, reportados, graves);
+        }
+    }
+}
+@* @inject IJSRuntime JS
+
+<div class="dashboard-card">
+    <div class="card-header">
+        <span class="card-title">Incidentes por semana</span>
+        <a href="/incidentes" class="card-link">Ver detalle →</a>
+    </div>
+    <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#B5D4F4"></span>Reportados</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#E24B4A"></span>Graves</span>
+    </div>
+    <div style="position:relative; height:160px; width:100%;">
+        <canvas id="incidentesChart"></canvas>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("SSTCharts.renderIncidentes", "incidentesChart");
+        }
+    }
+}
+ *@

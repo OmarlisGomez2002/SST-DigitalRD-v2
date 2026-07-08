@@ -1,0 +1,51 @@
+@inject NavigationManager Nav
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Authorization
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<header class="topbar">
+    <div class="topbar-left">
+        <h1 class="page-title">@PageTitle</h1>
+        <span class="page-sub">@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) &middot; Obra: @ObraNombre</span>
+    </div>
+    <div class="topbar-actions">
+        <button class="icon-btn" title="Buscar">
+            <i class="ti ti-search"></i>
+        </button>
+        <button class="icon-btn notif" title="Notificaciones">
+            <i class="ti ti-bell"></i>
+            <span class="notif-dot"></span>
+        </button>
+        @if (_puedeCrear)
+
+        {            
+            <button class="btn-primary" @onclick="NuevaInspeccion">
+                <i class="ti ti-plus"></i> Nueva inspección
+            </button>                }
+    </div>
+</header>
+
+@code {
+    [Parameter] public string PageTitle { get; set; } = "Dashboard";
+
+    private string ObraNombre = "Torre Piantini IV";
+    private bool _puedeCrear = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeCrear = await Permisos.PuedeCrear("Inspecciones");
+        try
+        {
+            var obra = await Http
+                .GetFromJsonAsync<SSTDigitalRD.Shared.DTOs.ObraActivaDto>("api/configuracion/obra");
+            if (obra is not null)
+                ObraNombre = obra.Nombre;
+        }
+        catch { }
+    }
+
+    private void NuevaInspeccion()
+    {
+        Nav.NavigateTo("/inspecciones/nueva");
+    }
+}

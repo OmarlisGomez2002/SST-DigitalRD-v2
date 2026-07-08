@@ -1,0 +1,678 @@
+﻿@page "/ia-predictiva"
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>IA Predictiva · SST-Digital RD</PageTitle>
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="toolbar-filters">
+        <button class="filter-btn">
+            <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+            @(ObraActual ?? "Cargando...")
+        </button>
+
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn"
+                    @onclick="() => MostrarSelectorPeriodo =
+                    !MostrarSelectorPeriodo">
+                <i class="ti ti-calendar" aria-hidden="true"></i>
+                @PeriodoActual
+            </button>
+            @if (MostrarSelectorPeriodo)
+            {
+                <div class="filtros-panel" style="width:200px">
+                    <div class="filtros-panel-header">
+                        <span>Período</span>
+                        <button class="icon-action"
+                                @onclick="() => MostrarSelectorPeriodo = false">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body" style="padding:6px 8px">
+                        @foreach (var p in PeriodosDisponibles)
+                        {
+                            var periodo = p;
+                            <div style="padding:7px 8px;cursor:pointer;
+                                            border-radius:var(--radius-md);
+                                            font-size:13px;
+                                            background:@(PeriodoActual == periodo
+                                                                         ? "var(--color-background-info)"
+                                                                         : "transparent");
+                                    color:@(PeriodoActual == periodo
+                                                                 ? "var(--color-text-info)"
+                                                                 : "var(--color-text-primary)")"
+                         @onclick="() => CambiarPeriodo(periodo)">
+                        @periodo
+                    </div>
+                                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <button class="filter-btn" @onclick="ActualizarAnalisis">
+            <i class="ti ti-refresh" aria-hidden="true"></i>
+            Actualizar análisis
+        </button>
+    </div>
+    @if (_puedeEjecutar)
+    {
+        <button class="btn-primary" style="margin-left:auto"
+                @onclick="EjecutarModelo" disabled="@Ejecutando">
+            @if (Ejecutando)
+            {
+                <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                <span>Analizando...</span>
+            }
+            else
+            {
+                <i class="ti ti-brain" aria-hidden="true"></i>
+                <span>Ejecutar modelo</span>
+            }
+        </button>
+    }
+    
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Índice de riesgo global</span>
+        <span class="insp-stat-val" style="color:#A32D2D">
+            @IndiceRiesgoGlobal<small>/ 100</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Zonas de alto riesgo</span>
+        <span class="insp-stat-val" style="color:#854F0B">
+            @Zonas.Count(z => z.PorcentajeRiesgo >= 70)
+            <small>áreas</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Precisión del modelo</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @PrecisionModelo<small>%</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Último análisis</span>
+        <span class="insp-stat-val" style="font-size:16px">
+            Hoy <small>@HoraAnalisis</small>
+        </span>
+    </div>
+</div>
+
+<!-- ===== PANEL PRINCIPAL ===== -->
+<div class="ia-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-map-2" aria-hidden="true"></i>
+                Zonas de riesgo detectadas
+            </span>
+            <span class="pill pill-danger" style="margin-left:auto">
+                @Zonas.Count(z => z.PorcentajeRiesgo >= 70) críticas
+            </span>
+        </div>
+
+        <!-- Badge del modelo -->
+        <div class="ia-model-badge">
+            <i class="ti ti-cpu" aria-hidden="true"></i>
+            <div style="flex:1">
+                <div class="ia-model-title">
+                    ML.NET · Regresión logística + historial de incidentes
+                </div>
+                <div class="ia-model-sub">
+                    Entrenado con dataset CHV internacional · Fine-tuning local
+                </div>
+            </div>
+            <span class="ia-live-dot"></span>
+        </div>
+
+        <!-- Lista de zonas -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+            @foreach (var zona in Zonas.OrderByDescending(z => z.PorcentajeRiesgo))
+            {
+                var z = zona;
+                <div class="ia-zona-item @(ZonaSeleccionada?.Id == z.Id ? "active" : "")"
+                     @onclick="() => SeleccionarZona(z)">
+                    <div class="ia-zona-icon" style="background:@z.IconoBg">
+                        <i class="ti @z.Icono"
+                           style="color:@z.IconoColor;font-size:18px"
+                           aria-hidden="true"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                        <div class="ia-zona-titulo">@z.Nombre</div>
+                        <div class="ia-zona-sub">@z.Categoria · @z.Trabajadores trabajadores expuestos</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+                            <div style="flex:1;height:5px;border-radius:999px;
+                                            background:#F0EFEC;overflow:hidden">
+                                <div style="height:100%;border-radius:999px;
+                                                width:@(z.PorcentajeRiesgo)%;
+                                                background:@GetRiesgoColor(z.PorcentajeRiesgo)">
+                                </div>
+                            </div>
+                            <span style="font-size:11px;font-weight:500;min-width:28px;
+                                             color:@GetRiesgoColor(z.PorcentajeRiesgo)">
+                                @z.PorcentajeRiesgo%
+                            </span>
+                            <span class="pill @GetRiesgoPill(z.PorcentajeRiesgo)">
+                                @GetRiesgoLabel(z.PorcentajeRiesgo)
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Gráfico de tendencia -->
+        <div style="margin-top:16px;padding-top:14px;
+                    border-top:0.5px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;
+                        margin-bottom:12px;font-size:13px;
+                        font-weight:500;color:var(--text-primary)">
+                <i class="ti ti-chart-bar"
+                   style="font-size:17px;color:#185FA5"
+                   aria-hidden="true"></i>
+                Tendencia de riesgo — últimas 6 semanas
+            </div>
+            <div style="height:120px;position:relative;width:100%">
+                <canvas id="riesgoChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    @if (ZonaSeleccionada is not null)
+    {
+        <div class="dashboard-card" style="display:flex;flex-direction:column;gap:14px">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-analyze" aria-hidden="true"></i>
+                    @ZonaSeleccionada.Nombre
+                </span>
+            </div>
+
+            <!-- Probabilidad destacada -->
+            <div class="ia-prob-card"
+                 style="background:@GetProbBg(ZonaSeleccionada.PorcentajeRiesgo)">
+                <div class="ia-prob-label">
+                    Probabilidad de accidente próximas 48h
+                </div>
+                <div class="ia-prob-valor"
+                     style="color:@GetRiesgoColor(ZonaSeleccionada.PorcentajeRiesgo)">
+                    @ZonaSeleccionada.PorcentajeRiesgo%
+                </div>
+                <span class="pill @GetRiesgoPill(ZonaSeleccionada.PorcentajeRiesgo)">
+                    @GetRiesgoLabel(ZonaSeleccionada.PorcentajeRiesgo)
+                </span>
+            </div>
+
+            <!-- Factores de riesgo -->
+            <div>
+                <div class="detalle-section-title">Factores de riesgo detectados</div>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+                    @foreach (var factor in ZonaSeleccionada.Factores)
+                    {
+                        <div style="display:flex;align-items:center;gap:8px;
+                                            font-size:12px;color:var(--text-primary)">
+                            <i class="ti @(factor.Critico ? "ti-x" : "ti-alert-triangle")"
+                               style="font-size:14px;flex-shrink:0;
+                                              color:@(factor.Critico ? "#A32D2D" : "#854F0B")"
+                               aria-hidden="true"></i>
+                            @factor.Descripcion
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Acciones recomendadas -->
+            <div>
+                <div class="detalle-section-title">Acciones recomendadas</div>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+                    @foreach (var accion in ZonaSeleccionada.Acciones)
+                    {
+                        var a = accion;
+                        <div class="ia-accion-item">
+                            <i class="ti @a.Icono"
+                               style="font-size:15px;color:#185FA5;flex-shrink:0;margin-top:1px"
+                               aria-hidden="true"></i>
+                            <span>@a.Descripcion</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* <!-- Botón de acción -->
+            <button class="btn-primary"
+                    style="width:100%;justify-content:center"
+                    @onclick="() => GenerarAlerta(ZonaSeleccionada)">
+                <i class="ti ti-bell" aria-hidden="true"></i>
+                Generar alerta para esta zona
+            </button> *@
+            @if (AlertaEnviada)
+            {
+                <div class="alert-banner ok" style="margin-bottom:8px">
+                    <i class="ti ti-bell-check" aria-hidden="true"></i>
+                    <span>@MensajeAlerta</span>
+                </div>
+            }
+
+            <button class="btn-primary"
+                    style="width:100%;justify-content:center"
+                    @onclick="() => GenerarAlerta(ZonaSeleccionada)">
+                <i class="ti ti-bell" aria-hidden="true"></i>
+                Generar alerta para esta zona
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-card"
+             style="display:flex;flex-direction:column;
+                        align-items:center;justify-content:center;
+                        min-height:200px;gap:8px;
+                        color:var(--text-hint);font-size:13px">
+            <i class="ti ti-map-2"
+               style="font-size:28px;color:#E2E1DC"
+               aria-hidden="true"></i>
+            <span>Selecciona una zona para ver el análisis</span>
+        </div>
+    }
+</div>
+
+@code {
+    private string PeriodoActual = DateTime.Now.ToString("MMMM yyyy");
+    private int IndiceRiesgoGlobal = 0;
+    private int PrecisionModelo = 87;
+    private string HoraAnalisis = "—";
+    private bool Ejecutando = false;
+    private ZonaRiesgoDto? ZonaSeleccionada;
+    private List<ZonaRiesgoDto> Zonas = new();
+    private string? ObraActual;
+    private bool MostrarSelectorPeriodo = false;
+    private List<string> PeriodosDisponibles = new();
+
+    private bool AlertaEnviada = false;
+    private string MensajeAlerta = "";
+    private bool _puedeEjecutar = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeEjecutar = await Permisos.PuedeEjecutarModelo();
+        GenerarPeriodos();
+        try
+        {
+            var obra = await Http
+                .GetFromJsonAsync<ObraActivaDto>(
+                    "api/configuracion/obra");
+            ObraActual = obra?.Nombre;
+        }
+        catch { }
+
+        await CargarAnalisis();
+        ZonaSeleccionada = Zonas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync(
+                "SSTCharts.renderRiesgo", "riesgoChart");
+    }
+
+    private void GenerarPeriodos()
+    {
+        var periodos = new List<string>();
+        var fecha = DateTime.Now;
+        for (int i = 0; i < 12; i++)
+            periodos.Add(fecha.AddMonths(-i).ToString("MMMM yyyy"));
+        PeriodosDisponibles = periodos;
+    }
+
+    private async Task CambiarPeriodo(string periodo)
+    {
+        PeriodoActual = periodo;
+        MostrarSelectorPeriodo = false;
+        await CargarAnalisis();
+        ZonaSeleccionada = Zonas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        StateHasChanged();
+    }
+
+    private async Task CargarAnalisis()
+    {
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<IAAnalisisDto>("api/ia/analisis");
+
+            if (dto is not null)
+            {
+                IndiceRiesgoGlobal = dto.IndiceRiesgoGlobal;
+                PrecisionModelo = dto.PrecisionModelo;
+                HoraAnalisis = dto.HoraAnalisis;
+                Zonas = dto.Zonas;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando análisis IA: {ex.Message}");
+        }
+    }
+
+    private void SeleccionarZona(ZonaRiesgoDto z) =>
+        ZonaSeleccionada = z;
+
+    private async Task EjecutarModelo()
+    {
+        Ejecutando = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = await Http
+                .PostAsJsonAsync("api/ia/ejecutar", new { })
+                .ContinueWith(async t =>
+                    await t.Result.Content
+                        .ReadFromJsonAsync<IAAnalisisDto>());
+
+            var resultado = await dto;
+            if (resultado is not null)
+            {
+                IndiceRiesgoGlobal = resultado.IndiceRiesgoGlobal;
+                HoraAnalisis = resultado.HoraAnalisis;
+                Zonas = resultado.Zonas;
+                ZonaSeleccionada = Zonas
+                    .OrderByDescending(z => z.PorcentajeRiesgo)
+                    .FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error ejecutando modelo: {ex.Message}");
+        }
+        finally
+        {
+            Ejecutando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ActualizarAnalisis()
+    {
+        await CargarAnalisis();
+        ZonaSeleccionada = Zonas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        StateHasChanged();
+    }
+
+    private async Task GenerarAlerta(ZonaRiesgoDto z)
+    {
+        AlertaEnviada = false;
+        MensajeAlerta = "";
+        StateHasChanged();
+
+        var response = await Http.PostAsJsonAsync(
+        "api/ia/alerta", new AlertaIADto
+        {
+            ZonaId = z.Id,
+            ZonaNombre = z.Nombre,
+            NivelRiesgo = z.PorcentajeRiesgo
+        });
+
+        if (response.IsSuccessStatusCode)
+        {
+            AlertaEnviada = true;
+            MensajeAlerta = $"Alerta generada para {z.Nombre} " +
+                            $"({z.PorcentajeRiesgo}% riesgo)";
+            StateHasChanged();
+
+            // Limpiar el mensaje después de 4 segundos
+            await Task.Delay(4000);
+            AlertaEnviada = false;
+            MensajeAlerta = "";
+            StateHasChanged();
+        }
+
+        // await Http.PostAsJsonAsync("api/ia/alerta", new AlertaIADto
+        // {
+        //     ZonaId = z.Id,
+        //     ZonaNombre = z.Nombre,
+        //     NivelRiesgo = z.PorcentajeRiesgo
+        // });
+    }
+
+    // ── Helpers visuales ───────────────────────────────────
+    private static string GetRiesgoColor(int pct) => pct switch
+    {
+        >= 70 => "#E24B4A",
+        >= 50 => "#EF9F27",
+        _ => "#3B6D11"
+    };
+
+    private static string GetRiesgoPill(int pct) => pct switch
+    {
+        >= 70 => "pill-danger",
+        >= 50 => "pill-warn",
+        _ => "pill-ok"
+    };
+
+    private static string GetRiesgoLabel(int pct) => pct switch
+    {
+        >= 70 => "Crítico",
+        >= 50 => "Alto",
+        _ => "Bajo"
+    };
+
+    private static string GetProbBg(int pct) => pct switch
+    {
+        >= 70 => "#FCEBEB",
+        >= 50 => "#FAEEDA",
+        _ => "#EAF3DE"
+    };
+}
+
+@* @code {
+    // ── Estado ─────────────────────────────────────────────────
+    private string PeriodoActual = "Mayo 2025";
+    private int IndiceRiesgoGlobal = 74;
+    private int PrecisionModelo = 87;
+    private string HoraAnalisis = "7:00 AM";
+    private bool Ejecutando = false;
+    private ZonaRiesgo? ZonaSeleccionada;
+
+    // ── Acciones ───────────────────────────────────────────────
+    private void SeleccionarZona(ZonaRiesgo z) => ZonaSeleccionada = z;
+
+    private void GenerarAlerta(ZonaRiesgo z)
+    {
+        // TODO: POST /api/ia/alerta
+    }
+
+    private async Task EjecutarModelo()
+    {
+        Ejecutando = true;
+        StateHasChanged();
+        await Task.Delay(2000); // TODO: POST /api/ia/ejecutar
+        HoraAnalisis = DateTime.Now.ToString("hh:mm tt");
+        Ejecutando = false;
+        StateHasChanged();
+    }
+
+    private void ActualizarAnalisis() => StateHasChanged();
+
+    // ── Chart ──────────────────────────────────────────────────
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("SSTCharts.renderRiesgo", "riesgoChart");
+    }
+
+    // ── Helpers ────────────────────────────────────────────────
+    private static string GetRiesgoColor(int pct) => pct switch
+    {
+        >= 70 => "#E24B4A",
+        >= 50 => "#EF9F27",
+        _ => "#3B6D11"
+    };
+
+    private static string GetRiesgoPill(int pct) => pct switch
+    {
+        >= 70 => "pill-danger",
+        >= 50 => "pill-warn",
+        _ => "pill-ok"
+    };
+
+    private static string GetRiesgoLabel(int pct) => pct switch
+    {
+        >= 70 => "Crítico",
+        >= 50 => "Alto",
+        _ => "Bajo"
+    };
+
+    private static string GetProbBg(int pct) => pct switch
+    {
+        >= 70 => "#FCEBEB",
+        >= 50 => "#FAEEDA",
+        _ => "#EAF3DE"
+    };
+
+    protected override void OnInitialized() =>
+        ZonaSeleccionada = Zonas.OrderByDescending(z => z.PorcentajeRiesgo).First();
+
+    // ── Datos ──────────────────────────────────────────────────
+    private List<ZonaRiesgo> Zonas = new()
+    {
+        new()
+        {
+            Id=1, Nombre="Andamios Norte — Piso 6-8",
+            Categoria="Construcción", Trabajadores=8,
+            PorcentajeRiesgo=91,
+            Icono="ti-ladder", IconoBg="#FCEBEB", IconoColor="#A32D2D",
+            Factores = new()
+            {
+                new("3 inspecciones fallidas consecutivas",     true),
+                new("Uso de EPP al 62% en el área",            true),
+                new("Sin charla de seguridad en 5 días",       true),
+                new("Condiciones climáticas adversas",         false),
+                new("Alta rotación de personal reciente",      false),
+            },
+            Acciones = new()
+            {
+                new("ti-urgent",     "Suspender trabajos en altura hasta inspección"),
+                new("ti-speakerphone","Realizar charla de seguridad hoy antes de iniciar"),
+                new("ti-hardhat",    "Verificar EPP al 100% antes de permitir acceso"),
+            }
+        },
+        new()
+        {
+            Id=2, Nombre="Instalaciones eléctricas — Piso 3",
+            Categoria="Eléctrico", Trabajadores=4,
+            PorcentajeRiesgo=78,
+            Icono="ti-bolt", IconoBg="#FCEBEB", IconoColor="#A32D2D",
+            Factores = new()
+            {
+                new("Cables expuestos sin señalización",       true),
+                new("Sin permiso de trabajo peligroso activo", true),
+                new("Última inspección hace 12 días",          false),
+            },
+            Acciones = new()
+            {
+                new("ti-file-certificate", "Emitir permiso de trabajo peligroso"),
+                new("ti-clipboard-check",  "Inspección inmediata del área eléctrica"),
+                new("ti-hardhat",          "Verificar uso de guantes dieléctricos"),
+            }
+        },
+        new()
+        {
+            Id=3, Nombre="Área de carga y descarga",
+            Categoria="Logística", Trabajadores=12,
+            PorcentajeRiesgo=65,
+            Icono="ti-forklift", IconoBg="#FAEEDA", IconoColor="#854F0B",
+            Factores = new()
+            {
+                new("Señalización de tránsito deteriorada",    true),
+                new("Operador sin certificación reciente",     false),
+                new("Congestionamiento en horario pico",       false),
+            },
+            Acciones = new()
+            {
+                new("ti-road",    "Renovar señalización de tránsito del área"),
+                new("ti-clock",   "Establecer horarios escalonados de carga"),
+            }
+        },
+        new()
+        {
+            Id=4, Nombre="Excavación Sur — Sótano 2",
+            Categoria="Civil", Trabajadores=6,
+            PorcentajeRiesgo=52,
+            Icono="ti-building", IconoBg="#FAEEDA", IconoColor="#854F0B",
+            Factores = new()
+            {
+                new("Nivel de humedad elevado en paredes",     false),
+                new("Ventilación insuficiente",                false),
+            },
+            Acciones = new()
+            {
+                new("ti-wind",   "Instalar sistema de ventilación temporal"),
+                new("ti-eye",    "Monitoreo diario de humedad estructural"),
+            }
+        },
+        new()
+        {
+            Id=5, Nombre="Escaleras de emergencia",
+            Categoria="Accesos", Trabajadores=38,
+            PorcentajeRiesgo=28,
+            Icono="ti-door", IconoBg="#EAF3DE", IconoColor="#3B6D11",
+            Factores = new()
+            {
+                new("Iluminación de emergencia operativa",     false),
+            },
+            Acciones = new()
+            {
+                new("ti-check", "Mantener inspección semanal de rutina"),
+            }
+        },
+    };
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class ZonaRiesgo
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public int Trabajadores { get; set; }
+        public int PorcentajeRiesgo { get; set; }
+        public string Icono { get; set; } = "";
+        public string IconoBg { get; set; } = "";
+        public string IconoColor { get; set; } = "";
+        public List<FactorRiesgo> Factores { get; set; } = new();
+        public List<AccionRecomendada> Acciones { get; set; } = new();
+    }
+
+    public class FactorRiesgo
+    {
+        public string Descripcion { get; set; }
+        public bool Critico { get; set; }
+        public FactorRiesgo(string desc, bool critico)
+        { Descripcion = desc; Critico = critico; }
+    }
+
+    public class AccionRecomendada
+    {
+        public string Icono { get; set; }
+        public string Descripcion { get; set; }
+        public AccionRecomendada(string icono, string desc)
+        { Icono = icono; Descripcion = desc; }
+    }
+} *@

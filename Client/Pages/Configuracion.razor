@@ -1,0 +1,730 @@
+﻿@page "/configuracion"
+@inject HttpClient Http
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Configuración · SST-Digital RD</PageTitle>
+
+@if (!_tieneAcceso)
+{
+    <AccesoRestringido />
+    return;
+}
+
+<div class="cfg-layout">
+
+    <!-- ══ Datos de la empresa ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-building" aria-hidden="true"></i>
+                Datos de la empresa
+            </span>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-field">
+                <label>Razón social</label>
+                <input type="text" @bind="Config.RazonSocial" />
+            </div>
+            <div class="form-field">
+                <label>RNC</label>
+                <input type="text" @bind="Config.RNC" />
+            </div>
+            <div class="form-field">
+                <label>Sector / Actividad económica</label>
+                <input type="text" @bind="Config.Sector" />
+            </div>
+            <div class="form-field">
+                <label>Responsable SST</label>
+                <input type="text" @bind="Config.ResponsableSST" />
+            </div>
+            <div class="form-field">
+                <label>Teléfono de contacto</label>
+                <input type="text" @bind="Config.Telefono" />
+            </div>
+            <div class="form-field">
+                <label>Correo institucional</label>
+                <input type="email" @bind="Config.Correo" />
+            </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button class="btn-primary btn-sm" @onclick="GuardarEmpresa"
+                    disabled="@GuardandoEmpresa">
+                @if (GuardandoEmpresa)
+                {
+                    <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                    <span>Guardando...</span>
+                }
+                else
+                {
+                    <i class="ti ti-device-floppy" aria-hidden="true"></i>
+                    <span>Guardar cambios</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Obras registradas ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-map-pin" aria-hidden="true"></i>
+                Obra activa
+            </span>
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Nombre de la obra</label>
+            <input type="text" @bind="Obra.Nombre" />
+        </div>
+        @* <div class="form-field" style="margin-bottom:12px">
+            <label>Coordenadas GPS (lat, lng)</label>
+            <input type="text" @bind="O.ObraCoordenadas"
+                   placeholder="18.473621, -69.931215" />
+        </div> *@         
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Latitud</label>
+            <input type="number" @bind="Obra.Latitud"
+                   step="0.000001" placeholder="18.473621" />
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Longitud</label>
+            <input type="number" @bind="Obra.Longitud"
+                   step="0.000001" placeholder="-69.931215" />
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Radio de geofencing (metros)</label>
+            <input type="number" @bind="Obra.RadioGeofencing"
+                   min="50" max="500" />
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Dirección</label>
+            <input type="text" @bind="Obra.Direccion" />
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+            <button class="btn-primary btn-sm" @onclick="GuardarObra"
+                    disabled="@GuardandoObra">
+                @if (GuardandoObra)
+                {
+                    <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                }
+                else
+                {
+                    <i class="ti ti-device-floppy" aria-hidden="true"></i>
+                }
+                Guardar obra
+            </button>
+            
+        </div>
+        <button class="btn-secondary"
+                style="width:100%;justify-content:center;margin-top:8px"
+                @onclick="AgregarObraActual">
+            <i class="ti ti-plus" aria-hidden="true"></i>
+            Guardar como nueva obra
+        </button>
+    </div>
+
+    <!-- ══ Notificaciones ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-bell" aria-hidden="true"></i>
+                Notificaciones
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+            @foreach (var noti in Notificaciones)
+            {
+                var n = noti;
+                <div class="cfg-noti-row">
+                    <div style="flex:1">
+                        <div style="font-size:13px;color:var(--text-primary)">
+                            @n.Titulo
+                        </div>
+                        <div class="text-hint">@n.Descripcion</div>
+                    </div>
+                    <label class="toggle-asist">
+                        <input type="checkbox"
+                               checked="@n.Activa"
+                               @onchange="() => n.Activa = !n.Activa" />
+                        <span class="toggle-track">
+                            <span class="toggle-thumb"></span>
+                        </span>
+                    </label>
+                </div>
+            }
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button class="btn-primary btn-sm" @onclick="GuardarNotificaciones" disabled="@GuardandoNoti">
+                @if (GuardandoNoti)
+                {
+                    <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                }
+                else
+                {
+                    <i class="ti ti-device-floppy" aria-hidden="true"></i>
+                }
+                Guardar preferencias
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Usuarios del sistema ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-users" aria-hidden="true"></i>
+                Usuarios del sistema
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+            @foreach (var user in Usuarios)
+            {
+                var iniciales = string.Concat(
+                user.Nombre.Split(' ')
+                .Take(2)
+                .Select(p => p.Length > 0
+                ? p[0].ToString() : ""))
+                .ToUpper();
+
+                var avatarBg = user.Rol == "Admin" ? "#E6F1FB" : "#FAEEDA";
+                var avatarColor = user.Rol == "Admin" ? "#185FA5" : "#854F0B";
+
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <div class="mini-avatar"
+                         style="background:@avatarBg;color:@avatarColor;
+                                width:30px;height:30px;font-size:11px">
+                        @iniciales
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:13px;font-weight:500;
+                                    color:var(--text-primary)">
+                            @user.Nombre
+                        </div>
+                        <div class="text-hint">
+                            @user.Rol · @user.Cuadrilla
+                        </div>
+                    </div>
+                    <span class="pill @(user.Rol == "Admin" ? "pill-info" : "pill-gray")">
+                        @user.Rol
+                    </span>
+                    <button class="icon-action">
+                        <i class="ti ti-edit" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+            @* @foreach (var user in Usuarios)
+            {
+                <div style="display:flex;align-items:center;gap:10px;
+                                padding:8px 10px;border:0.5px solid var(--border);
+                                border-radius:var(--radius-md)">
+                    <div class="mini-avatar"
+                         style="background:@user.AvatarBg;color:@user.AvatarColor;
+                                    width:30px;height:30px;font-size:11px">
+                        @user.Iniciales
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:13px;font-weight:500;
+                                        color:var(--text-primary)">
+                            @user.Nombre
+                        </div>
+                        <div class="text-hint">@user.Rol · @user.Cuadrilla</div>
+                    </div>
+                    <span class="pill @(user.Rol == "Admin" ? "pill-info" : "pill-gray")">
+                        @user.Rol
+                    </span>
+                    <button class="icon-action">
+                        <i class="ti ti-edit" aria-hidden="true"></i>
+                    </button>
+                </div>
+            } *@
+        </div>
+        <button class="btn-primary"
+                style="width:100%;justify-content:center">
+            <i class="ti ti-user-plus" aria-hidden="true"></i>
+            Agregar usuario
+        </button>
+    </div>
+
+    <!-- ══ Tipos de inspección ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-clipboard-list" aria-hidden="true"></i>
+                Tipos de inspección
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+            @foreach (var tipo in TiposInspeccion)
+            {
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <span style="flex:1;font-size:13px;color:var(--text-primary)">
+                        @tipo.Nombre
+                    </span>
+                    <button class="icon-action"
+                            @onclick="() => EliminarTipoInspeccion(tipo.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        </div>
+        <div style="display:flex;gap:8px">
+            <input type="text"
+                   @bind="NuevoTipoInspeccion"
+                   placeholder="Nuevo tipo de inspección..."
+                   style="flex:1" />
+            <button class="btn-primary btn-sm" @onclick="AgregarTipoInspeccion">
+                <i class="ti ti-plus" aria-hidden="true"></i>
+                Agregar
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Cuadrillas ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-users-group" aria-hidden="true"></i>
+                Cuadrillas
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+            @foreach (var c in Cuadrillas)
+            {
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <span style="flex:1;font-size:13px;color:var(--text-primary)">
+                        @c.Nombre
+                    </span>
+                    <button class="icon-action"
+                            @onclick="() => EliminarCuadrilla(c.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        </div>
+        <div style="display:flex;gap:8px">
+            <input type="text"
+                   @bind="NuevaCuadrilla"
+                   placeholder="Nueva cuadrilla..."
+                   style="flex:1" />
+            <button class="btn-primary btn-sm" @onclick="AgregarCuadrilla">
+                <i class="ti ti-plus" aria-hidden="true"></i>
+                Agregar
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Tipos de charla ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-speakerphone" aria-hidden="true"></i>
+                Tipos de charla
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+            @foreach (var tipo in TiposCharla)
+            {
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <span style="flex:1;font-size:13px;color:var(--text-primary)">
+                        @tipo.Nombre
+                    </span>
+                    <button class="icon-action"
+                            @onclick="() => EliminarTipoCharla(tipo.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        </div>
+        <div style="display:flex;gap:8px">
+            <input type="text"
+                   @bind="NuevoTipoCharla"
+                   placeholder="Nuevo tipo de charla..."
+                   style="flex:1" />
+            <button class="btn-primary btn-sm" @onclick="AgregarTipoCharla">
+                <i class="ti ti-plus" aria-hidden="true"></i>
+                Agregar
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Cargos de empleados ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-briefcase" aria-hidden="true"></i>
+                Cargos de empleados
+            </span>
+        </div>
+        <div style="display:flex;flex-direction:column;
+                gap:6px;margin-bottom:12px">
+            @foreach (var cargo in Cargos)
+            {
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <span style="flex:1;font-size:13px;
+                                 color:var(--text-primary)">
+                        @cargo.Nombre
+                    </span>
+                    <button class="icon-action"
+                            @onclick="() => EliminarCargo(cargo.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        </div>
+        <div style="display:flex;gap:8px">
+            <input type="text"
+                   @bind="NuevoCargo"
+                   placeholder="Nuevo cargo..."
+                   style="flex:1" />
+            <button class="btn-primary btn-sm"
+                    @onclick="AgregarCargo">
+                <i class="ti ti-plus" aria-hidden="true"></i>
+                Agregar
+            </button>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private bool GuardandoEmpresa = false;
+    private bool GuardandoObra = false;
+    private bool GuardandoNoti = false;
+
+    private ConfiguracionEmpresaDto Config = new();
+    private ObraActivaDto Obra = new();
+    private List<NotificacionConfigDto> Notificaciones = new();
+    private List<UsuarioSistemaDto> Usuarios = new();
+
+    private List<TipoInspeccionDto> TiposInspeccion = new();
+    private string NuevoTipoInspeccion = "";
+
+    private List<CuadrillaDto> Cuadrillas = new();
+    private string NuevaCuadrilla = "";
+
+    private List<TipoCharlaDto> TiposCharla = new();
+    private string NuevoTipoCharla = "";
+
+    private List<CargoEmpleadoDto> Cargos = new();
+    private string NuevoCargo = "";
+
+    private bool _tieneAcceso = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tieneAcceso = await Permisos.TieneAcceso("Configuracion");
+        if (!_tieneAcceso) return;
+
+        try
+        {
+            Config = await Http
+                .GetFromJsonAsync<ConfiguracionEmpresaDto>(
+                    "api/configuracion/empresa")
+                ?? new();
+
+            Obra = await Http
+                .GetFromJsonAsync<ObraActivaDto>(
+                    "api/configuracion/obra")
+                ?? new();
+
+            Notificaciones = await Http
+                .GetFromJsonAsync<List<NotificacionConfigDto>>(
+                    "api/configuracion/notificaciones")
+                ?? new();
+
+            Usuarios = (await Http
+                .GetFromJsonAsync<List<UsuarioSistemaDto>>(
+                    "api/configuracion/usuarios")
+                ?? new())
+                .Select(u =>
+                {
+                    u.Iniciales = string.Concat(
+                        u.Nombre.Split(' ')
+                         .Take(2)
+                         .Select(p => p.Length > 0 ? p[0].ToString() : ""))
+                         .ToUpper();
+                    u.AvatarBg = u.Rol == "Admin" ? "#E6F1FB" : "#FAEEDA";
+                    u.AvatarColor = u.Rol == "Admin" ? "#185FA5" : "#854F0B";
+                    return u;
+                }).ToList();
+
+            TiposInspeccion = await Http.GetFromJsonAsync<List<TipoInspeccionDto>>("api/configuracion/tipos-inspeccion") ?? new();
+
+            Cuadrillas = await Http.GetFromJsonAsync<List<CuadrillaDto>>("api/configuracion/cuadrillas") ?? new();
+
+            TiposCharla = await Http.GetFromJsonAsync<List<TipoCharlaDto>>("api/configuracion/tipos-charla") ?? new();
+
+            Cargos = await Http.GetFromJsonAsync<List<CargoEmpleadoDto>>("api/configuracion/cargos") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando configuración: {ex.Message}");
+        }
+    }
+
+    private async Task AgregarCargo()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoCargo)) return;
+
+        var dto = new CargoEmpleadoDto { Nombre = NuevoCargo };
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/cargos", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creado = await response.Content
+                .ReadFromJsonAsync<CargoEmpleadoDto>();
+            if (creado is not null)
+                Cargos.Add(creado);
+            NuevoCargo = "";
+        }
+    }
+
+    private async Task EliminarCargo(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/cargos/{id}");
+
+        if (response.IsSuccessStatusCode)
+            Cargos.RemoveAll(x => x.Id == id);
+    }
+
+    private async Task GuardarEmpresa()
+    {
+        GuardandoEmpresa = true;
+        StateHasChanged();
+        await Http.PutAsJsonAsync("api/configuracion/empresa", Config);
+        GuardandoEmpresa = false;
+        StateHasChanged();
+    }
+
+    private async Task GuardarObra()
+    {
+        GuardandoObra = true;
+        StateHasChanged();
+
+        // Parsear coordenadas si vienen como string
+        var partes = Obra.Direccion.Split(',');
+        if (partes.Length == 2)
+        {
+            if (double.TryParse(partes[0].Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out double lat))
+                Obra.Latitud = lat;
+
+            if (double.TryParse(partes[1].Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out double lng))
+                Obra.Longitud = lng;
+        }
+
+        await Http.PutAsJsonAsync("api/configuracion/obra", Obra);
+        GuardandoObra = false;
+        StateHasChanged();
+    }
+
+    private async Task GuardarNotificaciones()
+    {
+        GuardandoNoti = true;
+        StateHasChanged();
+        await Http.PutAsJsonAsync(
+            "api/configuracion/notificaciones", Notificaciones);
+        GuardandoNoti = false;
+        StateHasChanged();
+    }
+
+    private async Task AgregarObraActual()
+    {
+        await Http.PostAsJsonAsync("api/configuracion/obras", Obra);
+    }
+
+    private async Task AgregarTipoInspeccion()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoTipoInspeccion)) return;
+
+        var dto = new TipoInspeccionDto { Nombre = NuevoTipoInspeccion };
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/tipos-inspeccion", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creado = await response.Content
+                .ReadFromJsonAsync<TipoInspeccionDto>();
+            if (creado is not null)
+                TiposInspeccion.Add(creado);
+            NuevoTipoInspeccion = "";
+        }
+    }
+
+    private async Task EliminarTipoInspeccion(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/tipos-inspeccion/{id}");
+
+        if (response.IsSuccessStatusCode)
+            TiposInspeccion.RemoveAll(x => x.Id == id);
+    }
+
+    private async Task AgregarCuadrilla()
+    {
+        if (string.IsNullOrWhiteSpace(NuevaCuadrilla)) return;
+
+        var dto = new CuadrillaDto { Nombre = NuevaCuadrilla };
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/cuadrillas", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creada = await response.Content
+                .ReadFromJsonAsync<CuadrillaDto>();
+            if (creada is not null)
+                Cuadrillas.Add(creada);
+            NuevaCuadrilla = "";
+        }
+    }
+
+    private async Task EliminarCuadrilla(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/cuadrillas/{id}");
+
+        if (response.IsSuccessStatusCode)
+            Cuadrillas.RemoveAll(x => x.Id == id);
+    }
+
+    private async Task AgregarTipoCharla()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoTipoCharla)) return;
+
+        var dto = new TipoCharlaDto { Nombre = NuevoTipoCharla };
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/tipos-charla", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creado = await response.Content
+                .ReadFromJsonAsync<TipoCharlaDto>();
+            if (creado is not null)
+                TiposCharla.Add(creado);
+            NuevoTipoCharla = "";
+        }
+    }
+
+    private async Task EliminarTipoCharla(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/tipos-charla/{id}");
+
+        if (response.IsSuccessStatusCode)
+            TiposCharla.RemoveAll(x => x.Id == id);
+    }
+}
+
+@* @code {
+    private bool GuardandoEmpresa = false;
+    private bool GuardandoObra = false;
+
+    private ConfigModel Config = new()
+    {
+        RazonSocial = "Constructora Piantini S.R.L.",
+        RNC = "1-31-12345-6",
+        Sector = "Construcción privada — Edificación vertical",
+        ResponsableSST = "Ramón Gómez",
+        Telefono = "809-000-0000",
+        Correo = "sst@piantini.com.do",
+        ObraNombre = "Torre Piantini IV",
+        ObraCoordenadas = "18.473621, -69.931215",
+        RadioGeofencing = 100,
+        ObraDireccion = "Av. Abraham Lincoln, Piantini, D.N."
+    };
+
+    private async Task GuardarEmpresa()
+    {
+        GuardandoEmpresa = true;
+        StateHasChanged();
+        await Task.Delay(800); // TODO: PUT /api/config/empresa
+        GuardandoEmpresa = false;
+        StateHasChanged();
+    }
+
+    private async Task GuardarObra()
+    {
+        GuardandoObra = true;
+        StateHasChanged();
+        await Task.Delay(800); // TODO: PUT /api/config/obra
+        GuardandoObra = false;
+        StateHasChanged();
+    }
+
+    private void GuardarNotificaciones()
+    {
+        // TODO: PUT /api/config/notificaciones
+    }
+
+    private List<NotificacionConfig> Notificaciones = new()
+    {
+        new("Alertas de EPP vencido",       "Notificar 30 días antes del vencimiento",    true),
+        new("Infracción detectada por IA",  "Alerta inmediata al prevencionista",          true),
+        new("Zona de riesgo crítico",       "Notificar cuando riesgo supere 70%",          true),
+        new("Reporte semanal de dossier",   "Resumen automático los lunes",                false),
+        new("Accidente grave registrado",   "Notificación urgente al responsable SST",     true),
+        new("Inspección pendiente",         "Recordatorio 24h antes del vencimiento",      true),
+    };
+
+    private List<UsuarioSistema> Usuarios = new()
+    {
+        new("RG","Ramón Gómez",  "Admin",     "Prevencionista","#E6F1FB","#185FA5"),
+        new("MS","M. Santos",    "Inspector", "Cuadrilla B",   "#FAEEDA","#854F0B"),
+        new("LH","L. Herrera",   "Inspector", "Cuadrilla C",   "#EAF3DE","#3B6D11"),
+    };
+
+    public class ConfigModel
+    {
+        public string RazonSocial { get; set; } = "";
+        public string RNC { get; set; } = "";
+        public string Sector { get; set; } = "";
+        public string ResponsableSST { get; set; } = "";
+        public string Telefono { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string ObraNombre { get; set; } = "";
+        public string ObraCoordenadas { get; set; } = "";
+        public int RadioGeofencing { get; set; } = 100;
+        public string ObraDireccion { get; set; } = "";
+    }
+
+    public class NotificacionConfig
+    {
+        public string Titulo { get; set; }
+        public string Descripcion { get; set; }
+        public bool Activa { get; set; }
+        public NotificacionConfig(string t, string d, bool a)
+        { Titulo = t; Descripcion = d; Activa = a; }
+    }
+
+    public class UsuarioSistema
+    {
+        public string Iniciales { get; set; }
+        public string Nombre { get; set; }
+        public string Rol { get; set; }
+        public string Cuadrilla { get; set; }
+        public string AvatarBg { get; set; }
+        public string AvatarColor { get; set; }
+        public UsuarioSistema(string ini, string nom, string rol,
+            string cua, string bg, string color)
+        {
+            Iniciales = ini; Nombre = nom; Rol = rol; Cuadrilla = cua;
+            AvatarBg = bg; AvatarColor = color;
+        }
+    }
+} *@

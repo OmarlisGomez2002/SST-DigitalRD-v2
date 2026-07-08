@@ -1,0 +1,288 @@
+﻿@page "/charlas/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using SSTDigitalRD.Shared.DTOs
+
+<PageTitle>Detalle charla · SST-Digital RD</PageTitle>
+
+<!-- ===== ENCABEZADO ===== -->
+<div class="form-page-header">
+    <button class="btn-back" @onclick="VolverALista">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a charlas
+    </button>
+    <div class="form-page-title">
+        <h1>@Charla.Tema</h1>
+        <span class="form-page-sub">
+            @Charla.Cuadrilla · @Charla.Obra ·
+            @Charla.FechaCharla.ToString("dd/MM/yyyy")
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary" @onclick="DescargarPDF">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Descargar PDF
+        </button>
+    </div>
+</div>
+
+<!-- ===== CONTENIDO ===== -->
+<div class="detalle-charla-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Datos generales -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-speakerphone" aria-hidden="true"></i>
+                    Datos generales
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposGenerales())
+                {
+                    <div style="display:flex;flex-direction:column;
+                                gap:2px;padding:7px 0;
+                                border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                     color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+                <div style="display:flex;flex-direction:column;
+                            gap:2px;padding:7px 0">
+                    <span class="text-hint" style="font-size:11px">Firma</span>
+                    <span>
+                        <span class="pill @(Charla.Firmado ? "pill-ok" : "pill-warn")">
+                            @(Charla.Firmado
+                                ? $"✓ Firmado · {Charla.HoraFirma}"
+                                : "Pendiente")
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GPS -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-map-pin" aria-hidden="true"></i>
+                    Geolocalización
+                </span>
+            </div>
+            @if (Charla.GpsCapturado)
+            {
+                <div style="display:flex;align-items:center;gap:8px;
+                            padding:10px 12px;background:#EAF3DE;
+                            border-radius:var(--radius-md)">
+                    <i class="ti ti-map-pin"
+                       style="font-size:16px;color:#3B6D11;flex-shrink:0"
+                       aria-hidden="true"></i>
+                    <div>
+                        <div style="font-size:12px;font-weight:500;
+                                    color:#27500A">
+                            Coordenadas capturadas
+                        </div>
+                        <div style="font-size:11px;font-family:var(--font-mono);
+                                    color:#3B6D11;margin-top:1px">
+                            @Charla.Latitud.ToString("F6"),
+                            @Charla.Longitud.ToString("F6")
+                            · ±@Charla.PrecisionGps.ToString("F0")m
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="charla-detalle-empty" style="min-height:60px">
+                    <i class="ti ti-map-pin-off"
+                       style="color:#E2E1DC" aria-hidden="true"></i>
+                    <span>Sin geolocalización capturada</span>
+                </div>
+            }
+        </div>
+
+        <!-- Evidencia inmutable -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Evidencia inmutable
+                </span>
+            </div>
+            <div class="hash-box">
+                <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                <span class="hash-text">
+                    SHA-256: @(string.IsNullOrEmpty(Charla.HashSha256)
+                        ? "—" : Charla.HashSha256)
+                </span>
+            </div>
+            <div class="text-hint" style="margin-top:6px;font-size:11px">
+                Generado: @Charla.FechaCharla.ToString("dd/MM/yyyy")
+                · @(Charla.HoraFirma ?? "")
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA — Lista de asistencia ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-users" aria-hidden="true"></i>
+                Lista de asistencia
+            </span>
+            <span class="pill pill-info" style="margin-left:auto">
+                @Presentes / @Charla.Asistentes.Count presentes
+            </span>
+        </div>
+
+        <!-- Barra de asistencia -->
+        <div style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;
+                        justify-content:space-between;
+                        font-size:11px;color:var(--text-sec);
+                        margin-bottom:4px">
+                <span>Asistencia</span>
+                <span style="font-weight:500;color:#185FA5">
+                    @PctAsistencia%
+                </span>
+            </div>
+            <div style="height:6px;border-radius:999px;
+                        background:var(--bg-muted);overflow:hidden">
+                <div style="height:100%;border-radius:999px;
+                            width:@PctAsistencia%;
+                            background:@(PctAsistencia >= 80 ? "#185FA5"
+                                       : PctAsistencia >= 60 ? "#EF9F27"
+                                       : "#E24B4A");
+                            transition:width 0.4s ease">
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista -->
+        @if (!Charla.Asistentes.Any())
+        {
+            <div class="charla-detalle-empty" style="min-height:100px">
+                <i class="ti ti-users"
+                   style="color:#E2E1DC" aria-hidden="true"></i>
+                <span>Sin asistentes registrados</span>
+            </div>
+        }
+        else
+        {
+            <div style="display:flex;flex-direction:column">
+                @foreach (var asistente in Charla.Asistentes)
+                {
+                    var iniciales = GenerarIniciales(asistente.Nombre);
+                    var bg        = asistente.Presente ? "#E6F1FB" : "#F1EFE8";
+                    var color     = asistente.Presente ? "#185FA5" : "#888780";
+
+                    <div style="display:flex;align-items:center;gap:10px;
+                                padding:8px 0;
+                                border-bottom:0.5px solid var(--border)">
+                        <div style="width:28px;height:28px;border-radius:50%;
+                                    background:@bg;color:@color;
+                                    font-size:10px;font-weight:500;
+                                    display:flex;align-items:center;
+                                    justify-content:center;flex-shrink:0">
+                            @iniciales
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-size:12px;font-weight:500;
+                                        color:var(--text-primary)">
+                                @asistente.Nombre
+                            </div>
+                            <div class="text-hint">@asistente.Cargo</div>
+                        </div>
+                        <span class="pill @(asistente.Presente
+                            ? "pill-ok" : "pill-gray")">
+                            @(asistente.Presente ? "Presente" : "Ausente")
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private CharlaDetalleDto Charla = new();
+
+    private void VolverALista() => Nav.NavigateTo("/charlas");
+
+    private int Presentes =>
+        Charla.Asistentes.Count(a => a.Presente);
+
+    private int PctAsistencia =>
+        Charla.Asistentes.Count == 0 ? 0 :
+        (int)Math.Round(Presentes * 100.0 / Charla.Asistentes.Count);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<CharlaDetalleDto>(
+                    $"api/charlas/{Id}");
+
+            if (dto is not null)
+                Charla = dto;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando charla: {ex.Message}");
+        }
+    }
+
+    private async Task DescargarPDF()
+    {
+        var response = await Http.GetAsync($"api/charlas/{Id}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var nombre = Charla.Tema.Replace(" ", "_");
+            var fileName = $"Charla_{nombre}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "application/pdf");
+        }
+    }
+
+    private List<(string Label, string Valor)> CamposGenerales()
+    {
+        return new List<(string, string)>
+        {
+            ("Tema",              Charla.Tema),
+            ("Instructor",        Charla.Instructor),
+            ("Cuadrilla",         Charla.Cuadrilla),
+            ("Obra",              Charla.Obra),
+            ("Fecha y hora",      Charla.FechaCharla.ToString("dd/MM/yyyy") +
+                                  " · " + Charla.FechaCharla.ToString("hh:mm tt")),
+            ("Duración",          Charla.DuracionMinutos + " minutos"),
+            ("Total asistentes",  Charla.TotalAsistentes + " trabajadores"),
+        };
+    }
+
+    private static string GenerarIniciales(string nombre)
+    {
+        if (string.IsNullOrWhiteSpace(nombre)) return "??";
+        var partes = nombre.Split(' ',
+            StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 1)
+            return partes[0].Length > 0
+                ? partes[0][0].ToString().ToUpper() : "?";
+        return string.Concat(partes[0][0], partes[1][0]).ToUpper();
+    }
+}

@@ -1,0 +1,276 @@
+﻿@page "/empleados/{Id:int}/editar"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Editar empleado · SST-Digital RD</PageTitle>
+
+<!-- ===== ENCABEZADO ===== -->
+<div class="form-page-header">
+    <button class="btn-back" @onclick="Cancelar">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a empleados
+    </button>
+    <div class="form-page-title">
+        <h1>Editar empleado</h1>
+        <span class="form-page-sub">
+            @Modelo.Nombre · @Modelo.Cargo · @Modelo.Cuadrilla
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary"
+                style="color:#A32D2D;border-color:#F09595"
+                @onclick="DesactivarEmpleado">
+            <i class="ti ti-user-off" aria-hidden="true"></i>
+            Desactivar
+        </button>
+        <button class="btn-primary"
+                @onclick="GuardarCambios"
+                disabled="@Guardando">
+            @if (Guardando)
+            {
+                <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                <span>Guardando...</span>
+            }
+            else
+            {
+                <i class="ti ti-device-floppy" aria-hidden="true"></i>
+                <span>Guardar cambios</span>
+            }
+        </button>
+    </div>
+</div>
+
+<div class="form-body">
+
+    <!-- ══ Datos personales ══ -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="ti ti-user" aria-hidden="true"></i>
+            <span>Datos personales</span>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-field" style="grid-column:span 2">
+                <label>Nombre completo</label>
+                <input type="text" @bind="Modelo.Nombre" />
+            </div>
+            <div class="form-field">
+                <label>Cédula de identidad</label>
+                <input type="text"
+                       value="@Modelo.Cedula"
+                       disabled
+                       style="opacity:0.6;cursor:not-allowed" />
+                <span style="font-size:11px;color:var(--text-hint)">
+                    La cédula no puede modificarse
+                </span>
+            </div>
+            <div class="form-field">
+                <label>Fecha de nacimiento</label>
+                <input type="date" @bind="Modelo.FechaNacimiento" />
+            </div>
+            <div class="form-field">
+                <label>Teléfono</label>
+                <input type="text" @bind="Modelo.Telefono" />
+            </div>
+            <div class="form-field">
+                <label>Correo electrónico</label>
+                <input type="email" @bind="Modelo.Correo" />
+            </div>
+            <div class="form-field" style="grid-column:span 2">
+                <label>Dirección</label>
+                <input type="text" @bind="Modelo.Direccion" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Datos laborales ══ -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="ti ti-briefcase" aria-hidden="true"></i>
+            <span>Datos laborales</span>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-field">
+                <label>Cargo</label>
+                <select @bind="Modelo.Cargo"
+                        class="@(MostrarErrores &&
+                                        string.IsNullOrEmpty(Modelo.Cargo)
+                                        ? "input-error" : "")">
+                    <option value="">Seleccionar cargo...</option>
+                    @foreach (var cargo in CargosDisponibles)
+                    {
+                        <option value="@cargo.Nombre">@cargo.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Cuadrilla</label>
+                <select @bind="Modelo.Cuadrilla">
+                    <option>Cuadrilla A</option>
+                    <option>Cuadrilla B</option>
+                    <option>Cuadrilla C</option>
+                    <option>Cuadrilla D</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Fecha de ingreso</label>
+                <input type="date" @bind="Modelo.FechaIngreso" />
+            </div>
+            <div class="form-field">
+                <label>Tipo de contrato</label>
+                <select @bind="Modelo.TipoContrato">
+                    <option>Indefinido</option>
+                    <option>Por obra</option>
+                    <option>Temporal</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Número de afiliación TSS</label>
+                <input type="text" @bind="Modelo.NumeroTSS" />
+            </div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="Modelo.Estado">
+                    <option>Activo</option>
+                    <option>Inactivo</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool Guardando = false;
+
+    private EmpleadoEditDto Modelo = new();
+
+    private bool MostrarErrores = false;
+    private List<CargoEmpleadoDto> CargosDisponibles = new();
+
+    // protected override void OnInitialized()
+    // {
+    //     // TODO: GET /api/empleados/{Id}
+    //     // Datos de ejemplo mientras se conecta el backend
+    //     Modelo = new()
+    //     {
+    //         Nombre = "Juan Pérez",
+    //         Cedula = "001-0000001-1",
+    //         FechaNacimiento = new DateTime(1995, 3, 15),
+    //         Telefono = "809-555-1234",
+    //         Correo = "juan@ejemplo.com",
+    //         Direccion = "Los Alcarrizos, D.N.",
+    //         Cargo = "Albañil",
+    //         Cuadrilla = "Cuadrilla A",
+    //         FechaIngreso = new DateTime(2024, 1, 15),
+    //         TipoContrato = "Por obra",
+    //         NumeroTSS = "TSS-0001234567",
+    //         Estado = "Activo"
+    //     };
+    // }
+
+    // private async Task GuardarCambios()
+    // {
+    //     Guardando = true;
+    //     StateHasChanged();
+    //     await Task.Delay(1000); // TODO: PUT /api/empleados/{Id}
+    //     Nav.NavigateTo("/empleados");
+    // }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var resultado = await Http.GetFromJsonAsync<EmpleadoDetalleDto>($"api/empleados/{Id}");
+
+            if (resultado is not null)
+            {
+                Modelo = new EmpleadoEditDto
+                {
+                    Nombre = resultado.Nombre,
+                    Cedula = resultado.Cedula,
+                    FechaNacimiento = resultado.FechaNacimiento,
+                    Telefono = resultado.Telefono,
+                    Correo = resultado.Correo,
+                    Direccion = resultado.Direccion,
+                    Cargo = resultado.Cargo,
+                    Cuadrilla = resultado.Cuadrilla,
+                    FechaIngreso = resultado.FechaIngreso,
+                    TipoContrato = resultado.TipoContrato,
+                    NumeroTSS = resultado.NumeroTSS,
+                    Estado = resultado.Estado
+                };
+            }
+
+            var cargos = await Http.GetFromJsonAsync<List<CargoEmpleadoDto>>("api/configuracion/cargos");
+            
+            if (cargos is not null)
+                CargosDisponibles = cargos;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando empleado: {ex.Message}");
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        MostrarErrores = true;
+        Guardando = true;
+        StateHasChanged();
+
+        var dto = new CrearEmpleadoDto
+        {
+            Nombre = Modelo.Nombre,
+            Cedula = Modelo.Cedula,
+            FechaNacimiento = Modelo.FechaNacimiento,
+            Telefono = Modelo.Telefono,
+            Correo = Modelo.Correo,
+            Direccion = Modelo.Direccion,
+            Cargo = Modelo.Cargo,
+            Cuadrilla = Modelo.Cuadrilla,
+            Obra = "Torre Piantini IV",
+            FechaIngreso = Modelo.FechaIngreso,
+            TipoContrato = Modelo.TipoContrato,
+            NumeroTSS = Modelo.NumeroTSS,
+            Estado = Modelo.Estado
+        };
+
+        var response = await Http
+            .PutAsJsonAsync($"api/empleados/{Id}", dto);
+
+        if (response.IsSuccessStatusCode)
+            Nav.NavigateTo("/empleados");
+        else
+        {
+            MostrarErrores = true;
+            Guardando = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DesactivarEmpleado()
+    {
+        Modelo.Estado = "Inactivo";
+        await GuardarCambios();
+    }
+
+    private void Cancelar() => Nav.NavigateTo("/empleados");
+
+    public class EmpleadoEditDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Cedula { get; set; } = "";
+        public DateTime FechaNacimiento { get; set; }
+        public string Telefono { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string Direccion { get; set; } = "";
+        public string Cargo { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public DateTime FechaIngreso { get; set; }
+        public string TipoContrato { get; set; } = "";
+        public string NumeroTSS { get; set; } = "";
+        public string Estado { get; set; } = "";
+    }
+}

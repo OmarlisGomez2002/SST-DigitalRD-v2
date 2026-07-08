@@ -1,0 +1,123 @@
+@page "/"
+@using SSTDigitalRD.Shared.DTOs 
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+
+
+<PageTitle>Dashboard · SST-Digital RD</PageTitle>
+
+<!-- Métricas superiores -->
+<section class="metrics-grid">
+    @* <MetricCard
+        Icon="ti-clipboard-check"
+        IconColor="blue"
+        Value="94"
+        Unit="%"
+        Label="Cumplimiento normativo"
+        Trend="+12%"
+        TrendUp="true" /> *@
+    @* <MetricCard
+        Icon="ti-alert-triangle"
+        IconColor="coral"
+        Value="7"
+        Label="Incidentes este mes"
+        Trend="-3"
+        TrendUp="false" /> *@
+    @* <MetricCard Icon="ti-hardhat"
+                IconColor="green"
+                Value="88"
+                Unit="%"
+                Label="Uso de EPP detectado"
+                Trend="+5%"
+                TrendUp="true" />
+
+    <MetricCard Icon="ti-file-certificate"
+                IconColor="amber"
+                Value="2"
+                Label="Inspecciones pendientes"
+                Trend="Próx. 15 días"
+                TrendUp="null" /> *@
+    <MetricCard Titulo="Cumplimiento normativo"
+                Valor="@($"{Datos.Metricas.CumplimientoNormativo}%")"
+                Tendencia="@($"+{Datos.Metricas.TendenciaInspecciones}%")"
+                TendenciaPositiva="true"
+                Icono="ti-clipboard-check" />
+
+    
+    <MetricCard Titulo="Incidentes este mes"
+                Valor="@Datos.Metricas.IncidentesEsteMes.ToString()"
+                Tendencia="@($"-{Datos.Metricas.TendenciaIncidentes}")"
+                TendenciaPositiva="@(Datos.Metricas.TendenciaIncidentes >= 0)"
+                Icono="ti-alert-triangle" />
+
+    <MetricCard Titulo="Uso de EPP detectado"
+                Valor="@($"{Datos.Metricas.UsoEPPDetectado}%")"
+                Tendencia="+5%"
+                TendenciaPositiva="true"
+                Icono="ti-hardhat" />
+
+    <MetricCard Titulo="Inspecciones pendientes"
+                Valor="@Datos.Metricas.InspeccionesPendientes.ToString()"
+                Tendencia="@($"Próx. {Datos.Metricas.ProximaEntregaMTRAB}")"
+                TendenciaPositiva="false"
+                Icono="ti-calendar" />
+
+    
+</section>
+
+@* <!-- Fila central -->
+<section class="mid-grid">
+    <IncidentesChart />
+    <AlertasPanel />
+</section>
+
+<!-- Fila inferior -->
+<section class="bottom-grid">
+    <InspeccionesTable />
+    <EppDeteccionPanel />
+</section> *@
+<section class="mid-grid">
+    <IncidentesChart Datos="Datos.IncidentesPorSemana" />
+    <AlertasPanel Alertas="Datos.AlertasActivas" />
+</section>
+
+<section class="bottom-grid">
+    <InspeccionesTable Inspecciones="Datos.UltimasInspecciones" />
+    <EppDeteccionPanel PctCascos="Datos.PctCascos"
+                       PctChalecos="Datos.PctChalecos"
+                       PctBotas="Datos.PctBotas" />
+</section>
+
+@code {
+    private DashboardResumenDto Datos = new();
+    private bool Cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var resultado = await Http
+                .GetFromJsonAsync<DashboardResumenDto>(
+                    "api/dashboard");
+
+            if (resultado is not null)
+                Datos = resultado;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando dashboard: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     if (firstRender && !Cargando)
+    //         await JS.InvokeVoidAsync(
+    //             "SSTCharts.renderIncidentes", "incidentesChart");
+    // }
+}

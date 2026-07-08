@@ -1,0 +1,687 @@
+﻿@page "/charlas"
+@inject HttpClient Http
+@using SSTDigitalRD.Shared.DTOs
+@inject IJSRuntime JS
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Charlas SST · SST-Digital RD</PageTitle>
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="search-box">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text"
+               placeholder="Buscar charla, instructor..."
+               @bind="SearchTerm"
+               @bind:event="oninput" />
+    </div>
+    <div class="toolbar-filters">
+        
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn" @onclick="TogglePanelFiltros">
+                <i class="ti ti-filter" aria-hidden="true"></i>
+                Filtrar
+                @if (FiltrosActivos > 0)
+                {
+                    <span class="filter-badge">@FiltrosActivos</span>
+                }
+            </button>
+
+            @if (MostrarPanelFiltros)
+            {
+                <div class="filtros-panel">
+                    <div class="filtros-panel-header">
+                        <span>Filtros avanzados</span>
+                        <button class="icon-action"
+                                @onclick="TogglePanelFiltros">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body">
+                        <div class="form-field">
+                            <label>Instructor</label>
+                            <select @bind="FiltroInstructor">
+                                <option value="">Todos</option>
+                                @foreach (var i in InstructoresDisponibles)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Cuadrilla</label>
+                            <select @bind="FiltroCuadrilla">
+                                <option value="">Todas</option>
+                                @foreach (var c in CuadrillasDisponibles)
+                                {
+                                    <option value="@c.Nombre">@c.Nombre</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Firma</label>
+                            <select @bind="FiltroFirmado">
+                                <option value="">Todas</option>
+                                <option value="si">Firmado</option>
+                                <option value="no">Pendiente</option>
+                            </select>
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-field">
+                                <label>Desde</label>
+                                <input type="date" @bind="FiltroFechaDesde" />
+                            </div>
+                            <div class="form-field">
+                                <label>Hasta</label>
+                                <input type="date" @bind="FiltroFechaHasta" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filtros-panel-footer">
+                        <button class="btn-secondary btn-sm"
+                                @onclick="LimpiarFiltros">
+                            Limpiar
+                        </button>
+                        <button class="btn-primary btn-sm"
+                                @onclick="AplicarFiltros">
+                            Aplicar filtros
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+        <button class="filter-btn" @onclick="ExportarCSV">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Exportar
+        </button>
+    </div>
+    @if (_puedeCrear)
+    {
+        <button class="btn-primary" @onclick="NuevaCharla">
+            <i class="ti ti-plus" aria-hidden="true"></i>
+            Nueva charla
+        </button>
+    }
+    
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Charlas este mes</span>
+        <span class="insp-stat-val">@ListaCharlas.Count <small>registradas</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Asistencia promedio</span>
+        <span class="insp-stat-val">@AsistenciaPromedio<small>%</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Trabajadores capacitados</span>
+        <span class="insp-stat-val">@TotalCapacitados <small>personas</small></span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Sin charla hoy</span>
+        <span class="insp-stat-val">@CuadrillaSinCharla <small>cuadrillas</small></span>
+    </div>
+</div>
+
+<!-- ===== PANEL DIVIDIDO ===== -->
+<div class="charlas-split">
+
+    <!-- Lista izquierda -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-speakerphone" aria-hidden="true"></i>
+                Charlas recientes
+            </span>
+            <a class="card-link">Ver todas →</a>
+        </div>
+        <div class="charla-list">
+            @foreach (var charla in CharlasFiltradas)
+            {
+                <div class="charla-item @(CharlaSeleccionada?.Id == charla.Id ? "active" : "")"
+                     @onclick="() => SeleccionarCharla(charla)">
+                    <div class="charla-icon" style="background:@charla.AvatarBg">
+                        <i class="ti @charla.Icono" style="color:@charla.AvatarColor"
+                           aria-hidden="true"></i>
+                    </div>
+                    <div class="charla-meta">
+                        <div class="charla-titulo">@charla.Tema</div>
+                        <div class="charla-sub">
+                            @charla.Fecha.ToString("dd/MM") @charla.Hora · @charla.Cuadrilla · @charla.Instructor
+                        </div>
+                        <div class="charla-badges">
+                            <span class="pill @GetAsistenciaPill(charla)">
+                                <i class="ti ti-users" aria-hidden="true"></i>
+                                @charla.AsistentesPresentes/@charla.TotalAsistentes asistentes
+                            </span>
+                            @if (charla.Firmado)
+                            {
+                                <span class="pill pill-ok">
+                                    <i class="ti ti-writing" aria-hidden="true"></i>
+                                    Firmado
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-warn">Pendiente</span>
+                            }
+                            <span class="pill pill-info">@charla.DuracionMinutos min</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Detalle derecha -->
+    @if (CharlaSeleccionada is not null)
+    {
+        <div class="dashboard-card charla-detalle">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-file-description" aria-hidden="true"></i>
+                    Detalle
+                </span>
+                <span class="pill @(CharlaSeleccionada.Firmado ? "pill-ok" : "pill-warn")">
+                    @(CharlaSeleccionada.Firmado ? "Completada" : "Pendiente firma")
+                </span>
+            </div>
+
+            <!-- Info general -->
+            <div class="detalle-section">
+                <div class="detalle-section-title">Información general</div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Tema</span>
+                    <span class="detalle-val">@CharlaSeleccionada.Tema</span>
+                </div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Instructor</span>
+                    <span class="detalle-val">@CharlaSeleccionada.Instructor · Prevencionista</span>
+                </div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Cuadrilla</span>
+                    <span class="detalle-val">@CharlaSeleccionada.Cuadrilla</span>
+                </div>
+                <div class="detalle-field">
+                    <span class="detalle-label">Duración</span>
+                    <span class="detalle-val">
+                        @CharlaSeleccionada.DuracionMinutos minutos ·
+                        @CharlaSeleccionada.Hora
+                    </span>
+                </div>
+            </div>
+
+            <!-- Asistencia -->
+            <div class="detalle-section">
+                <div class="detalle-section-title">
+                    Asistencia (@CharlaSeleccionada.AsistentesPresentes/@CharlaSeleccionada.TotalAsistentes)
+                </div>
+                <div class="asist-grid">
+                    @foreach (var asistente in CharlaSeleccionada.Asistentes)
+                    {
+                        <div class="asist-item">
+                            <div class="asist-avatar"
+                                 style="background:@asistente.AvatarBg; color:@asistente.AvatarColor">
+                                @asistente.Iniciales
+                            </div>
+                            <span class="asist-name">@asistente.Nombre</span>
+                            @if (asistente.Presente)
+                            {
+                                <i class="ti ti-check" style="color:#3B6D11;font-size:14px"
+                                   aria-hidden="true"></i>
+                            }
+                            else
+                            {
+                                <i class="ti ti-x" style="color:#A32D2D;font-size:14px"
+                                   aria-hidden="true"></i>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (CharlaSeleccionada.Asistentes.Count > 4)
+                {
+                    <div class="asist-mas">
+                        +@(CharlaSeleccionada.Asistentes.Count - 4) trabajadores más
+                    </div>
+                }
+            </div>
+
+            <!-- Firma -->
+            <div class="detalle-section">
+                <div class="detalle-section-title">Firma del instructor</div>
+                @if (CharlaSeleccionada.Firmado)
+                {
+                    <div class="firma-preview-ok">
+                        <i class="ti ti-writing" aria-hidden="true"></i>
+                        Firma capturada · @CharlaSeleccionada.HoraFirma
+                    </div>
+                }
+                else
+                {
+                    <div class="firma-preview-pending">
+                        <i class="ti ti-writing" aria-hidden="true"></i>
+                        Firma pendiente
+                    </div>
+                }
+            </div>
+
+            <!-- Hash SHA-256 -->
+            @if (CharlaSeleccionada.Firmado)
+            {
+                <div class="detalle-section">
+                    <div class="detalle-section-title">Evidencia inmutable</div>
+                    <div class="hash-box">
+                        <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                        <span class="hash-text">SHA-256: @CharlaSeleccionada.HashSha256</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-card charla-detalle charla-detalle-empty">
+            <i class="ti ti-file-description" aria-hidden="true"></i>
+            <span>Selecciona una charla para ver el detalle</span>
+        </div>
+    }
+</div>
+
+<!-- ===== TABLA HISTORIAL ===== -->
+<div class="table-card">
+    <table class="insp-table">
+        <thead>
+            <tr>
+                <th>Tema de la charla</th>
+                <th>Instructor</th>
+                <th>Cuadrilla</th>
+                <th>Fecha</th>
+                <th>Asistencia</th>
+                <th>Duración</th>
+                <th>Firma</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!CharlasPaginadas.Any())
+            {
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <i class="ti ti-speakerphone" aria-hidden="true"></i>
+                        <span>No se encontraron charlas</span>
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var c in CharlasPaginadas)
+                {
+                    <tr>
+                        <td style="font-weight:500">@c.Tema</td>
+                        <td>@c.Instructor</td>
+                        <td>
+                            <span class="pill pill-info">@c.Cuadrilla</span>
+                        </td>
+                        <td>@c.Fecha.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <span class="pill @GetAsistenciaPill(c)">
+                                @c.AsistentesPresentes/@c.TotalAsistentes
+                            </span>
+                        </td>
+                        <td>@c.DuracionMinutos min</td>
+                        <td>
+                            @if (c.Firmado)
+                            {
+                                <span class="pill pill-ok">
+                                    <i class="ti ti-check" aria-hidden="true"></i> Firmado
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pill pill-warn">Pendiente</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button class="icon-action" title="Ver detalle"
+                                        @onclick="() => VerDetalle(c.Id)">
+                                    <i class="ti ti-eye" aria-hidden="true"></i>
+                                </button>
+                                <button class="icon-action" title="Descargar PDF"
+                                        @onclick="() => DescargarPDF(c)">
+                                    <i class="ti ti-download" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="pagination-bar">
+        <span class="page-info">
+            Mostrando @PaginaDesde–@PaginaHasta de @ListaCharlas.Count charlas
+        </span>
+        <div class="page-btns">
+            <button class="page-btn" @onclick="PaginaAnterior" disabled="@(PaginaActual == 1)">
+                <i class="ti ti-chevron-left" aria-hidden="true"></i>
+            </button>
+            @for (int i = 1; i <= TotalPaginas; i++)
+            {
+                var p = i;
+                <button class="page-btn @(PaginaActual == p ? "active" : "")"
+                        @onclick="() => IrAPagina(p)">@p</button>
+            }
+            <button class="page-btn" @onclick="PaginaSiguiente"
+                    disabled="@(PaginaActual == TotalPaginas)">
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ── Estado UI ──────────────────────────────────────────────
+    private string SearchTerm   = "";    
+    private int PaginaActual    = 1;
+    private const int PerPage   = 8;
+
+    private bool MostrarPanelFiltros = false;
+    private string FiltroInstructor = "";
+    private string FiltroCuadrilla = "";
+    private string FiltroFirmado = "";
+    private DateTime? FiltroFechaDesde = null;
+    private DateTime? FiltroFechaHasta = null;
+
+    private CharlaViewModel? CharlaSeleccionada;
+
+    private List<CuadrillaDto> CuadrillasDisponibles = new();
+    private bool _puedeCrear = false;
+
+    // ── Métricas ───────────────────────────────────────────────
+    private int AsistenciaPromedio => ListaCharlas.Count == 0 ? 0 :
+        (int)Math.Round(ListaCharlas.Average(c =>
+            c.TotalAsistentes == 0 ? 0 :
+            c.AsistentesPresentes * 100.0 / c.TotalAsistentes));
+
+    private int TotalCapacitados    => ListaCharlas.Sum(c => c.AsistentesPresentes);
+    private int CuadrillaSinCharla  => 2; // TODO: calcular desde API
+
+    // ── Filtrado y paginación ──────────────────────────────────
+    private IEnumerable<CharlaViewModel> CharlasFiltradas =>
+    ListaCharlas
+        .Where(x => string.IsNullOrWhiteSpace(SearchTerm) ||
+                    x.Tema.Contains(SearchTerm,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    x.Instructor.Contains(SearchTerm,
+                        StringComparison.OrdinalIgnoreCase))
+        .Where(x => string.IsNullOrEmpty(FiltroInstructor) ||
+                    x.Instructor == FiltroInstructor)
+        .Where(x => string.IsNullOrEmpty(FiltroCuadrilla) ||
+                    x.Cuadrilla == FiltroCuadrilla)
+        .Where(x => FiltroFirmado == "" ||
+                    (FiltroFirmado == "si" && x.Firmado) ||
+                    (FiltroFirmado == "no" && !x.Firmado))
+        .Where(x => FiltroFechaDesde == null ||
+                    x.Fecha.Date >= FiltroFechaDesde.Value.Date)
+        .Where(x => FiltroFechaHasta == null ||
+                    x.Fecha.Date <= FiltroFechaHasta.Value.Date);
+
+    private List<string> InstructoresDisponibles =>
+    ListaCharlas.Select(x => x.Instructor)
+        .Distinct().OrderBy(x => x).ToList();
+
+    private int FiltrosActivos =>
+        (string.IsNullOrEmpty(FiltroInstructor) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroCuadrilla) ? 0 : 1) +
+        (string.IsNullOrEmpty(FiltroFirmado) ? 0 : 1) +
+        (FiltroFechaDesde is null ? 0 : 1) +
+        (FiltroFechaHasta is null ? 0 : 1);
+
+    private void TogglePanelFiltros() =>
+        MostrarPanelFiltros = !MostrarPanelFiltros;
+
+    private void LimpiarFiltros()
+    {
+        FiltroInstructor = "";
+        FiltroCuadrilla = "";
+        FiltroFirmado = "";
+        FiltroFechaDesde = null;
+        FiltroFechaHasta = null;
+        PaginaActual = 1;
+    }
+
+    private void AplicarFiltros()
+    {
+        PaginaActual = 1;
+        MostrarPanelFiltros = false;
+    }
+
+    private IEnumerable<CharlaViewModel> CharlasPaginadas =>
+        CharlasFiltradas.Skip((PaginaActual - 1) * PerPage).Take(PerPage);
+
+    private int TotalPaginas => Math.Max(1,
+        (int)Math.Ceiling(CharlasFiltradas.Count() / (double)PerPage));
+    private int PaginaDesde  => CharlasFiltradas.Any() ? (PaginaActual - 1) * PerPage + 1 : 0;
+    private int PaginaHasta  => Math.Min(PaginaActual * PerPage, CharlasFiltradas.Count());
+
+    // ── Acciones ───────────────────────────────────────────────
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private void NuevaCharla()              => Nav.NavigateTo("/charlas/nueva");
+    private void SeleccionarCharla(CharlaViewModel c) => CharlaSeleccionada = c;
+    private void IrAPagina(int p)           => PaginaActual = p;
+    private void PaginaAnterior()           { if (PaginaActual > 1) PaginaActual--; }
+    private void PaginaSiguiente()          { if (PaginaActual < TotalPaginas) PaginaActual++; }
+
+    // ── Helpers ────────────────────────────────────────────────
+    private static string GetAsistenciaPill(CharlaViewModel c)
+    {
+        if (c.TotalAsistentes == 0) return "pill-gray";
+        double pct = c.AsistentesPresentes * 100.0 / c.TotalAsistentes;
+        return pct >= 90 ? "pill-ok" : pct >= 70 ? "pill-warn" : "pill-danger";
+    }
+
+    //protected override void OnInitialized() => CharlaSeleccionada = ListaCharlas.FirstOrDefault();
+    protected override async Task OnInitializedAsync()
+    {
+        _puedeCrear = await Permisos.PuedeCrear("Charlas");
+        try
+        {
+            var resultado = await Http.GetFromJsonAsync<List<CharlaListDto>>("api/charlas");
+
+            if (resultado is not null)
+            {
+                ListaCharlas = resultado.Select(x => new CharlaViewModel
+                {
+                    Id = x.Id,
+                    Tema = x.Tema,
+                    Instructor = x.Instructor,
+                    InstructorIni = string.Concat(
+                        x.Instructor.Split(' ')
+                         .Take(2)
+                         .Select(p => p[0].ToString()))
+                         .ToUpper(),
+                    Obra = x.Obra,
+                    Cuadrilla = x.Cuadrilla,
+                    Fecha = x.FechaCharla,
+                    Hora = x.FechaCharla.ToString("hh:mm tt"),
+                    DuracionMinutos = x.DuracionMinutos,
+                    TotalAsistentes = x.TotalAsistentes,
+                    GpsCapturado = x.GpsCapturado,
+                    FotoCapturada = x.FotoCapturada,
+                    Firmado = x.Firmado,
+                    HashSha256 = x.HashSha256 ?? "",
+                    AvatarBg = "#E6F1FB",
+                    AvatarColor = "#185FA5"
+                }).ToList();
+            }
+
+            var cuadrillas = await Http.GetFromJsonAsync<List<CuadrillaDto>>("api/configuracion/cuadrillas");
+
+            if (cuadrillas is not null)
+                CuadrillasDisponibles = cuadrillas;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando charlas: {ex.Message}");
+        }
+    }
+
+    private async Task DescargarPDF(CharlaViewModel c)
+    {
+        var response = await Http
+            .GetAsync($"api/charlas/{c.Id}/pdf");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content
+                .ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Charla_{c.Tema.Replace(" ", "_")}.pdf";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "application/pdf");
+        }
+    }
+
+    private async Task ExportarCSV()
+    {
+        var response = await Http
+            .GetAsync("api/charlas/export");
+
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content
+                .ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var fileName = $"Charlas_{DateTime.Now:yyyyMMdd}.csv";
+
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                fileName, base64, "text/csv");
+        }
+    }
+
+    private void VerDetalle(int id) =>
+    Nav.NavigateTo($"/charlas/{id}");
+
+    // ── Datos de ejemplo ───────────────────────────────────────
+    private List<CharlaViewModel> ListaCharlas = new();
+    // {
+    //     new()
+    //     {
+    //         Id=1, Tema="Uso correcto de EPP en altura",
+    //         Instructor="R. Gómez", Cuadrilla="Cuadrilla A",
+    //         Fecha=DateTime.Today, Hora="7:30–8:00 AM", HoraFirma="8:02 AM",
+    //         DuracionMin=30, AsistentesPresentes=14, AsistentesTotal=14,
+    //         Firmado=true, Icono="ti-hard-hat",
+    //         IconoBg="#E6F1FB", IconoColor="#185FA5",
+    //         HashSha256="a3f8c2d1e94b760f2c31a8e4d7b09c5f1a2e3d4b5c6f7a8b9c0d1e2f3a4b5c6",
+    //         Asistentes = new()
+    //         {
+    //             new("JP","Juan Pérez",    true, "#E6F1FB","#185FA5"),
+    //             new("ML","M. López",      true, "#EAF3DE","#3B6D11"),
+    //             new("CR","C. Ramírez",    true, "#FAEEDA","#854F0B"),
+    //             new("DM","D. Martínez",   true, "#E6F1FB","#185FA5"),
+    //             new("RP","R. Paulino",    true, "#EAF3DE","#3B6D11"),
+    //             new("LV","L. Valdez",     true, "#FAEEDA","#854F0B"),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=2, Tema="Prevención y control de incendios",
+    //         Instructor="M. Santos", Cuadrilla="Cuadrilla B",
+    //         Fecha=DateTime.Today.AddDays(-1), Hora="7:15–8:00 AM", HoraFirma="8:03 AM",
+    //         DuracionMin=45, AsistentesPresentes=11, AsistentesTotal=12,
+    //         Firmado=true, Icono="ti-flame",
+    //         IconoBg="#FAEEDA", IconoColor="#854F0B",
+    //         HashSha256="b4e9d3c2f05a871g3d42b9f5e8c10d6g2b3f4e5d6c7g8b9a0e1f2g3b4c5d6e7",
+    //         Asistentes = new()
+    //         {
+    //             new("PS","P. Sánchez",  true,  "#E6F1FB","#185FA5"),
+    //             new("EM","E. Méndez",   true,  "#EAF3DE","#3B6D11"),
+    //             new("JR","J. Reyes",    false, "#FCEBEB","#A32D2D"),
+    //             new("AR","A. Rosario",  true,  "#FAEEDA","#854F0B"),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=3, Tema="Primeros auxilios en obra",
+    //         Instructor="L. Herrera", Cuadrilla="Cuadrilla C",
+    //         Fecha=new DateTime(2025,5,2), Hora="7:00–8:00 AM", HoraFirma="8:05 AM",
+    //         DuracionMin=60, AsistentesPresentes=9, AsistentesTotal=13,
+    //         Firmado=true, Icono="ti-first-aid-kit",
+    //         IconoBg="#EAF3DE", IconoColor="#3B6D11",
+    //         HashSha256="c5f0e4d3g16b982h4e53c0g6f9d11e7h3c4g5f6e7d8h9c0b1g2h3c4d5e6f7g8",
+    //         Asistentes = new()
+    //         {
+    //             new("MT","M. Torres",    true,  "#E6F1FB","#185FA5"),
+    //             new("FG","F. García",    true,  "#EAF3DE","#3B6D11"),
+    //             new("NA","N. Arias",     false, "#FCEBEB","#A32D2D"),
+    //             new("OC","O. Castro",    true,  "#FAEEDA","#854F0B"),
+    //         }
+    //     },
+    //     new()
+    //     {
+    //         Id=4, Tema="Manejo seguro de materiales peligrosos",
+    //         Instructor="R. Gómez", Cuadrilla="Cuadrilla D",
+    //         Fecha=new DateTime(2025,5,1), Hora="7:30–8:10 AM", HoraFirma="8:12 AM",
+    //         DuracionMin=40, AsistentesPresentes=10, AsistentesTotal=10,
+    //         Firmado=true, Icono="ti-alert-triangle",
+    //         IconoBg="#FCEBEB", IconoColor="#A32D2D",
+    //         HashSha256="d6g1f5e4h27c093i5f64d1h7g0e12f8i4d5h6g7f8e9i0d1c2h3i4d5e6f7g8h9",
+    //         Asistentes = new()
+    //         {
+    //             new("BF","B. Féliz",     true, "#E6F1FB","#185FA5"),
+    //             new("IC","I. Cabrera",   true, "#EAF3DE","#3B6D11"),
+    //             new("SM","S. Matos",     true, "#FAEEDA","#854F0B"),
+    //             new("VD","V. Díaz",      true, "#E6F1FB","#185FA5"),
+    //         }
+    //     },
+    // };
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class CharlaViewModel
+    {
+        public int    Id                   { get; set; }
+        public string Tema                 { get; set; } = "";
+        public string Instructor           { get; set; } = "";
+        public string InstructorIni { get; set; } = "";
+        public string Obra { get; set; } = "";        
+        public string Cuadrilla            { get; set; } = "";
+        public DateTime Fecha              { get; set; }
+        public string Hora                 { get; set; } = "";
+        public string HoraFirma            { get; set; } = "";
+        public int      DuracionMinutos { get; set; }
+        public int      TotalAsistentes { get; set; }
+        public bool     GpsCapturado    { get; set; }
+        public bool     FotoCapturada   { get; set; }
+        //public int    DuracionMin          { get; set; }
+        public int    AsistentesPresentes  { get; set; }
+        //public int    AsistentesTotal      { get; set; }
+        public bool   Firmado              { get; set; }
+        public string Icono                { get; set; } = "ti-speakerphone";
+        public string AvatarBg { get; set; } = "#E6F1FB"; //public string IconoBg { get; set; } = "#E6F1FB";
+        public string AvatarColor { get; set; } = "#185FA5";  //public string IconoColor { get; set; } = "#185FA5";
+        public string HashSha256           { get; set; } = "";
+        public List<AsistenteItem> Asistentes { get; set; } = new();
+    }
+
+    public class AsistenteItem
+    {
+        public string Iniciales   { get; set; }
+        public string Nombre      { get; set; }
+        public bool   Presente    { get; set; }
+        public string AvatarBg    { get; set; }
+        public string AvatarColor { get; set; }
+
+        public AsistenteItem(string ini, string nom, bool pres, string bg, string color)
+        {
+            Iniciales = ini; Nombre = nom; Presente = pres;
+            AvatarBg = bg;   AvatarColor = color;
+        }
+    }
+}

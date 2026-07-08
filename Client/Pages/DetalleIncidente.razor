@@ -1,0 +1,351 @@
+﻿@page "/incidentes/{Id:int}"
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using SSTDigitalRD.Shared.DTOs
+
+<PageTitle>Detalle incidente · SST-Digital RD</PageTitle>
+
+<div class="form-page-header">
+    <button class="btn-back" @onclick='() => Nav.NavigateTo("/incidentes")'>
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a incidentes
+    </button>
+    <div class="form-page-title">
+        <h1>@Incidente.Descripcion</h1>
+        <span class="form-page-sub">
+            @Incidente.Area · @Incidente.Fecha.ToString("dd/MM/yyyy")
+        </span>
+    </div>
+    <div class="form-page-actions">
+        <button class="btn-secondary" @onclick="DescargarPDF">
+            <i class="ti ti-download" aria-hidden="true"></i>
+            Descargar PDF
+        </button>
+    </div>
+</div>
+
+<div class="detalle-charla-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Tipo y estado -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                    Información general
+                </span>
+                <span class="pill @GetTipoPill(Incidente.Tipo)"
+                      style="margin-left:auto">
+                    @Incidente.Tipo
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column">
+                @foreach (var campo in CamposGenerales())
+                {
+                    <div style="display:flex;flex-direction:column;
+                                    gap:2px;padding:7px 0;
+                                    border-bottom:0.5px solid var(--border)">
+                        <span class="text-hint" style="font-size:11px">
+                            @campo.Label
+                        </span>
+                        <span style="font-size:13px;font-weight:500;
+                                         color:var(--text-primary)">
+                            @campo.Valor
+                        </span>
+                    </div>
+                }
+                <div style="display:flex;flex-direction:column;
+                            gap:2px;padding:7px 0">
+                    <span class="text-hint" style="font-size:11px">
+                        Estado
+                    </span>
+                    <span class="pill @GetEstadoPill(Incidente.Estado)">
+                        @Incidente.Estado
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- GPS -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-map-pin" aria-hidden="true"></i>
+                    Geolocalización
+                </span>
+            </div>
+            @if (Incidente.GpsCapturado)
+            {
+                <div style="display:flex;align-items:center;gap:8px;
+                                padding:10px 12px;background:#EAF3DE;
+                                border-radius:var(--radius-md)">
+                    <i class="ti ti-map-pin"
+                       style="font-size:16px;color:#3B6D11;flex-shrink:0"
+                       aria-hidden="true"></i>
+                    <div>
+                        <div style="font-size:12px;font-weight:500;
+                                        color:#27500A">
+                            Coordenadas capturadas
+                        </div>
+                        <div style="font-size:11px;font-family:var(--font-mono);
+                                        color:#3B6D11;margin-top:1px">
+                            @Incidente.Latitud.ToString("F6"),
+                            @Incidente.Longitud.ToString("F6")
+                            · ±@Incidente.PrecisionGps.ToString("F0")m
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="charla-detalle-empty" style="min-height:60px">
+                    <i class="ti ti-map-pin-off"
+                       style="color:#E2E1DC" aria-hidden="true"></i>
+                    <span>Sin geolocalización capturada</span>
+                </div>
+            }
+        </div>
+
+        <!-- Evidencia fotográfica -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-camera" aria-hidden="true"></i>
+                    Evidencia fotográfica
+                </span>
+                <span class="pill pill-info" style="margin-left:auto">
+                    @Incidente.CantidadFotos foto(s)
+                </span>
+            </div>
+            @if (Incidente.CantidadFotos > 0)
+            {
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                    @for (int i = 0; i < Incidente.CantidadFotos; i++)
+                    {
+                        var idx = i + 1;
+                        <div style="width:72px;height:72px;
+                                            border-radius:var(--radius-md);
+                                            background:var(--bg-muted);
+                                            border:0.5px solid var(--border);
+                                            display:flex;flex-direction:column;
+                                            align-items:center;justify-content:center;
+                                            gap:4px">
+                            <i class="ti ti-photo"
+                               style="font-size:20px;color:var(--text-sec)"
+                               aria-hidden="true"></i>
+                            <span class="text-hint" style="font-size:10px">
+                                Foto @idx
+                            </span>
+                        </div>
+                    }
+                </div>
+                <div class="text-hint" style="font-size:11px;margin-top:8px">
+                    Cada fotografía fue sellada automáticamente con GPS
+                    y timestamp al momento de la captura.
+                </div>
+            }
+            else
+            {
+                <div class="charla-detalle-empty" style="min-height:60px">
+                    <i class="ti ti-camera-off"
+                       style="color:#E2E1DC" aria-hidden="true"></i>
+                    <span>Sin fotografías registradas</span>
+                </div>
+            }
+        </div>
+
+        <!-- Evidencia inmutable -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Evidencia inmutable
+                </span>
+            </div>
+            <div class="hash-box">
+                <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                <span class="hash-text">
+                    SHA-256: @(string.IsNullOrEmpty(Incidente.HashSha256)
+                                        ? "—" : Incidente.HashSha256)
+                </span>
+            </div>
+            <div class="text-hint" style="margin-top:6px;font-size:11px">
+                Firmado: @(Incidente.Firmado ? "Sí" : "No")
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Descripción completa -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-file-description" aria-hidden="true"></i>
+                    Descripción del evento
+                </span>
+            </div>
+            <p style="font-size:13px;color:var(--text-primary);
+                      line-height:1.6;margin:0">
+                @Incidente.Descripcion
+            </p>
+        </div>
+
+        <!-- Acciones correctivas -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+                    Acciones correctivas
+                </span>
+                <span class="pill pill-info" style="margin-left:auto">
+                    @Incidente.AccionesCorrectivas.Count acción(es)
+                </span>
+            </div>
+
+            @if (!Incidente.AccionesCorrectivas.Any())
+            {
+                <div class="charla-detalle-empty" style="min-height:80px">
+                    <i class="ti ti-clipboard"
+                       style="color:#E2E1DC" aria-hidden="true"></i>
+                    <span>Sin acciones correctivas registradas</span>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    @foreach (var accion in Incidente.AccionesCorrectivas)
+                    {
+                        var pillClass = accion.Estado switch
+                        {
+                            "Completada" => "pill-ok",
+                            "Pendiente" => "pill-warn",
+                            _ => "pill-gray"
+                        };
+                        <div style="padding:10px 12px;
+                                            border:0.5px solid var(--border);
+                                            border-radius:var(--radius-md)">
+                            <div style="display:flex;align-items:center;
+                                                justify-content:space-between;
+                                                margin-bottom:6px">
+                                <span style="font-size:13px;font-weight:500;
+                                                     color:var(--text-primary)">
+                                    @accion.Descripcion
+                                </span>
+                                <span class="pill @pillClass">
+                                    @accion.Estado
+                                </span>
+                            </div>
+                            <div class="text-hint" style="font-size:11px">
+                                Responsable: @accion.Responsable ·
+                                Fecha límite: @accion.FechaLimite.ToString("dd/MM/yyyy")
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Notificación MTRAB -->
+        @if (Incidente.NotificarMTRAB)
+        {
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        <i class="ti ti-building-government" aria-hidden="true"></i>
+                        Notificación MTRAB
+                    </span>
+                    <span class="pill @(Incidente.NotificadoMTRAB
+                                                  ? "pill-ok" : "pill-warn")"
+                                                                            style="margin-left:auto">
+                        @(Incidente.NotificadoMTRAB
+                                            ? "Notificado" : "Pendiente de notificación")
+                </span>
+            </div>
+            <div style="font-size:12px;color:var(--text-sec);
+                            line-height:1.5">
+                Este incidente requiere notificación al Ministerio de
+                Trabajo dentro de las 24-48 horas según el Artículo 10.2
+                del Reglamento 522-06.
+            </div>
+        </div>
+                }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private IncidenteDetalleDto Incidente = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var dto = await Http
+                .GetFromJsonAsync<IncidenteDetalleDto>(
+                    $"api/incidentes/{Id}");
+            if (dto is not null)
+                Incidente = dto;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando incidente: {ex.Message}");
+        }
+    }
+
+    private async Task DescargarPDF()
+    {
+        var response = await Http.GetAsync($"api/incidentes/{Id}/pdf");
+        if (response.IsSuccessStatusCode)
+        {
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var tipo = Incidente.Tipo.Replace(" ", "_");
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
+                $"Incidente_{tipo}.pdf", base64, "application/pdf");
+        }
+    }
+
+    private List<(string Label, string Valor)> CamposGenerales()
+    {
+        return new List<(string, string)>
+        {
+            ("Tipo",              Incidente.Tipo),
+            ("Área / Zona",       Incidente.Area),
+            ("Obra",              Incidente.Obra),
+            ("Inspector",         Incidente.Inspector),
+            ("Trabajador afectado",
+                string.IsNullOrEmpty(Incidente.Afectado)
+                    ? "Sin afectado directo" : Incidente.Afectado),
+            ("Fecha y hora",      Incidente.Fecha.ToString("dd/MM/yyyy")),
+            ("Días perdidos",     $"{Incidente.DiasPerdidos} días"),
+            ("Atención médica",   Incidente.AtencionMedica ?? "—"),
+            ("Testigos",
+                string.IsNullOrEmpty(Incidente.Testigos)
+                    ? "—" : Incidente.Testigos),
+            ("Notifica al MTRAB", Incidente.NotificarMTRAB ? "Sí" : "No"),
+        };
+    }
+
+    private static string GetTipoPill(string tipo) => tipo switch
+    {
+        "Accidente grave" => "pill-danger",
+        "Accidente leve" => "pill-warn",
+        "Cuasi-accidente" => "pill-warn",
+        "Condición insegura" => "pill-info",
+        _ => "pill-gray"
+    };
+
+    private static string GetEstadoPill(string estado) => estado switch
+    {
+        "Cerrado" => "pill-ok",
+        "En seguimiento" => "pill-warn",
+        "Notificado MTRAB" => "pill-info",
+        _ => "pill-gray"
+    };
+}

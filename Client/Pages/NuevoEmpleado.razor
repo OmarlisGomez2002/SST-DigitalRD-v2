@@ -1,0 +1,299 @@
+﻿@page "/empleados/nuevo"
+@inject NavigationManager Nav
+@inject HttpClient Http
+
+<PageTitle>Nuevo empleado · SST-Digital RD</PageTitle>
+
+<!-- ===== ENCABEZADO ===== -->
+<div class="form-page-header">
+    <button class="btn-back" @onclick="Cancelar">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i>
+        Volver a empleados
+    </button>
+    <div class="form-page-title">
+        <h1>Nuevo empleado</h1>
+        <span class="form-page-sub">
+            Complete los datos del trabajador y guarde el registro
+        </span>
+    </div>
+    <div class="form-page-actions">        
+        <button class="btn-primary"
+                @onclick="RegistrarEmpleado"
+                disabled="@(!FormularioValido || Guardando)">
+            @if (Guardando)
+            {
+                <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                <span>Guardando...</span>
+            }
+            else
+            {
+                <i class="ti ti-check" aria-hidden="true"></i>
+                <span>Registrar empleado</span>
+            }
+        </button>
+    </div>
+</div>
+
+<div class="form-body">
+
+    <!-- ══ Datos personales ══ -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="ti ti-user" aria-hidden="true"></i>
+            <span>Datos personales</span>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-field" style="grid-column:span 2">
+                <label>Nombre completo <span class="required">*</span></label>
+                <input type="text"
+                       @bind="Modelo.Nombre"
+                       placeholder="Ej. Juan Carlos Pérez Rodríguez"
+                       class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Nombre) ? "input-error" : "")" />
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Nombre))
+                {
+                    <span class="field-error">El nombre es requerido</span>
+                }
+            </div>
+            <div class="form-field">
+                <label>Cédula de identidad <span class="required">*</span></label>
+                <input type="text"
+                       @bind="Modelo.Cedula"
+                       placeholder="000-0000000-0"
+                       class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Cedula) ? "input-error" : "")" />
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Cedula))
+                {
+                    <span class="field-error">La cédula es requerida</span>
+                }
+            </div>
+            <div class="form-field">
+                <label>Fecha de nacimiento</label>
+                <input type="date" @bind="Modelo.FechaNacimiento" />
+            </div>
+            <div class="form-field">
+                <label>Teléfono</label>
+                <input type="text"
+                       @bind="Modelo.Telefono"
+                       placeholder="809-000-0000" />
+            </div>
+            <div class="form-field">
+                <label>Correo electrónico</label>
+                <input type="email"
+                       @bind="Modelo.Correo"
+                       placeholder="correo@ejemplo.com" />
+            </div>
+            <div class="form-field" style="grid-column:span 2">
+                <label>Dirección</label>
+                <input type="text"
+                       @bind="Modelo.Direccion"
+                       placeholder="Sector, calle, número" />
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Datos laborales ══ -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="ti ti-briefcase" aria-hidden="true"></i>
+            <span>Datos laborales</span>
+        </div>
+        <div class="form-grid-2">
+            <div class="form-field">
+                <label>Cargo <span class="required">*</span></label>
+                <select @bind="Modelo.Cargo"
+                        class="@(MostrarErrores &&
+                                        string.IsNullOrEmpty(Modelo.Cargo)
+                                        ? "input-error" : "")">
+                    <option value="">Seleccionar cargo...</option>
+                    @foreach (var cargo in CargosDisponibles)
+                    {
+                        <option value="@cargo.Nombre">@cargo.Nombre</option>
+                    }
+                </select>
+                @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Cargo))
+                {
+                    <span class="field-error">El cargo es requerido</span>
+                }
+            </div>
+            @* <div class="form-field">
+                <label>Cuadrilla <span class="required">*</span></label>
+                <select @bind="Modelo.Cuadrilla"
+                        class="@(MostrarErrores && string.IsNullOrEmpty(Modelo.Cuadrilla) ? "input-error" : "")">
+                    <option value="">Seleccionar cuadrilla...</option>
+                    <option>Cuadrilla A</option>
+                    <option>Cuadrilla B</option>
+                    <option>Cuadrilla C</option>
+                    <option>Cuadrilla D</option>
+                </select>
+                @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Cuadrilla))
+                {
+                    <span class="field-error">La cuadrilla es requerida</span>
+                }
+            </div> *@
+
+            <div class="form-field">
+                <label>Obra / Proyecto <span class="required">*</span></label>
+                <select @bind="Modelo.ObraId">
+                    <option value="0">Seleccionar obra...</option>
+                    @foreach (var obra in ObrasDisponibles)
+                    {
+                        <option value="@obra.Id">@obra.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label>Cuadrilla <span class="required">*</span></label>
+                <select @bind="Modelo.Cuadrilla"
+                        class="@(MostrarErrores &&
+                                        string.IsNullOrEmpty(Modelo.Cuadrilla)
+                                        ? "input-error" : "")">
+                    <option value="">Seleccionar cuadrilla...</option>
+                    @foreach (var c in CuadrillasDisponibles)
+                    {
+                        <option value="@c.Nombre">@c.Nombre</option>
+                    }
+                </select>
+                @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Cuadrilla))
+                {
+                    <span class="field-error">La cuadrilla es requerida</span>
+                }
+            </div>
+            <div class="form-field">
+                <label>Fecha de ingreso</label>
+                <input type="date" @bind="Modelo.FechaIngreso" />
+            </div>
+            <div class="form-field">
+                <label>Tipo de contrato</label>
+                <select @bind="Modelo.TipoContrato">
+                    <option>Indefinido</option>
+                    <option>Por obra</option>
+                    <option>Temporal</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Número de afiliación TSS</label>
+                <input type="text"
+                       @bind="Modelo.NumeroTSS"
+                       placeholder="TSS-0000000000" />
+            </div>
+            <div class="form-field">
+                <label>Estado</label>
+                <select @bind="Modelo.Estado">
+                    <option>Activo</option>
+                    <option>Inactivo</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private bool Guardando = false;
+    private bool MostrarErrores = false;
+
+    private List<CargoEmpleadoDto> CargosDisponibles = new();
+
+    private List<ObraActivaDto> ObrasDisponibles = new();
+    private List<CuadrillaDto> CuadrillasDisponibles = new();
+
+    private EmpleadoFormDto Modelo = new()
+    {
+        FechaIngreso = DateTime.Today,
+        FechaNacimiento = new DateTime(1995, 1, 1),
+        TipoContrato = "Por obra",
+        Estado = "Activo"
+    };
+
+    private bool FormularioValido =>
+        !string.IsNullOrWhiteSpace(Modelo.Nombre) &&
+        !string.IsNullOrWhiteSpace(Modelo.Cedula) &&
+        !string.IsNullOrEmpty(Modelo.Cargo) &&
+        !string.IsNullOrEmpty(Modelo.Cuadrilla);
+
+    private async Task RegistrarEmpleado()
+    {
+        MostrarErrores = true;
+        if (!FormularioValido) return;
+        Guardando = true;
+        StateHasChanged();
+
+        var dto = new CrearEmpleadoDto
+        {
+            Nombre = Modelo.Nombre,
+            Cedula = Modelo.Cedula,
+            FechaNacimiento = Modelo.FechaNacimiento,
+            Telefono = Modelo.Telefono,
+            Correo = Modelo.Correo,
+            Direccion = Modelo.Direccion,
+            Cargo = Modelo.Cargo,
+            Cuadrilla = Modelo.Cuadrilla,
+            Obra = ObrasDisponibles.FirstOrDefault(o => o.Id == Modelo.ObraId) ?.Nombre ?? "",
+            FechaIngreso = Modelo.FechaIngreso,
+            TipoContrato = Modelo.TipoContrato,
+            NumeroTSS = Modelo.NumeroTSS,
+            Estado = Modelo.Estado
+        };
+
+        var response = await Http.PostAsJsonAsync("api/empleados", dto);
+
+        if (response.IsSuccessStatusCode)
+            Nav.NavigateTo("/empleados");
+        else if (response.StatusCode ==
+                 System.Net.HttpStatusCode.Conflict)
+        {
+            // Cédula duplicada
+            MostrarErrores = true;
+            Guardando = false;
+            StateHasChanged();
+        }
+        else
+        {
+            Guardando = false;
+            StateHasChanged();
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {           
+            var cargos = await Http.GetFromJsonAsync<List<CargoEmpleadoDto>>("api/configuracion/cargos");
+
+            if (cargos is not null)
+                CargosDisponibles = cargos;
+
+            var cuadrillas = await Http.GetFromJsonAsync<List<CuadrillaDto>>("api/configuracion/cuadrillas");
+            if (cuadrillas is not null)
+                CuadrillasDisponibles = cuadrillas;
+
+            var obras = await Http.GetFromJsonAsync<List<ObraActivaDto>>("api/configuracion/obras");
+            if (obras is not null)
+                ObrasDisponibles = obras;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando datos: {ex.Message}");
+        }
+    }
+
+    private void Cancelar() => Nav.NavigateTo("/empleados");
+
+    public class EmpleadoFormDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Cedula { get; set; } = "";
+        public DateTime FechaNacimiento { get; set; }
+        public string Telefono { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string Direccion { get; set; } = "";
+        public string Cargo { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public int ObraId { get; set; }
+        public DateTime FechaIngreso { get; set; }
+        public string TipoContrato { get; set; } = "Por obra";
+        public string NumeroTSS { get; set; } = "";
+        public string Estado { get; set; } = "Activo";
+    }
+}

@@ -1,0 +1,136 @@
+﻿/* ============================================
+   Módulo: Dossier MTRAB
+   ============================================ */
+
+/* Layout principal — dos columnas */
+.dossier-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 12px;
+    align-items: start;
+}
+
+/* Lista de reportes */
+.dossier-rep-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dossier-rep-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+    .dossier-rep-item:hover {
+        background: var(--bg-muted);
+    }
+
+    .dossier-rep-item.active {
+        border-color: var(--blue-600);
+        background: var(--blue-50);
+    }
+
+.dossier-rep-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dossier-rep-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.dossier-rep-titulo {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dossier-rep-sub {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 2px;
+}
+
+/* Botón de descarga PDF */
+.dossier-dl-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 0.5px solid var(--blue-600);
+    border-radius: var(--radius-md);
+    background: var(--blue-50);
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+    font-family: inherit;
+}
+
+    .dossier-dl-btn:hover {
+        background: #B5D4F4;
+    }
+
+    .dossier-dl-btn > i {
+        font-size: 22px;
+        color: var(--blue-600);
+        flex-shrink: 0;
+    }
+
+.dossier-dl-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #0C447C;
+}
+
+.dossier-dl-sub {
+    font-size: 11px;
+    color: var(--blue-600);
+    margin-top: 1px;
+}
+
+/* Alert banner warn (sin color específico) */
+.alert-banner.warn {
+    background: var(--amber-50);
+    color: #633806;
+}
+
+    .alert-banner.warn i {
+        color: var(--amber-600);
+    }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .dossier-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.detalle-reporte-layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 12px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .detalle-reporte-layout {
+        grid-template-columns: 1fr;
+    }
+}

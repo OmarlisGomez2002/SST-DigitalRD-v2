@@ -1,0 +1,155 @@
+@inject NavigationManager Nav
+@inject SSTAuthStateProvider Auth
+@using Microsoft.AspNetCore.Components.Authorization
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<aside class="sidebar">
+    <div class="brand">
+        <div class="brand-icon">
+            <span class="icon">🛡</span>
+        </div>
+        <div class="brand-text">
+            <span class="brand-name">SST-Digital RD</span>
+            <span class="brand-sub">Panel de control</span>
+        </div>
+    </div>
+
+    <nav class="nav-menu">
+        
+        <div class="nav-group">
+            <span class="nav-label">Principal</span>
+            <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">
+                <i class="nav-icon ti ti-layout-dashboard"></i>
+                <span>Dashboard</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/inspecciones">
+                <i class="nav-icon ti ti-clipboard-list"></i>
+                <span>Inspecciones</span>
+                <span class="badge danger">3</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/charlas">
+                <i class="nav-icon ti ti-speakerphone"></i>
+                <span>Charlas SST</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/epp">
+                <i class="nav-icon ti ti-hardhat"></i>
+                <span>EPP / Inventario</span>
+            </NavLink>
+            <NavLink class="nav-item" href="/incidentes">
+                <i class="nav-icon ti ti-alert-triangle"></i>
+                <span>Incidentes</span>
+            </NavLink>
+                   
+        </div>
+
+        <div class="nav-group">
+            <span class="nav-label">Inteligencia</span>
+            <NavLink class="nav-item" href="/ia-predictiva">
+                <i class="nav-icon ti ti-brain"></i>
+                <span>IA Predictiva</span>
+            </NavLink>
+            @if (AccesoVision)
+
+            {
+                <NavLink class="nav-item" href="/vision-obra">
+                    <i class="nav-icon ti ti-camera"></i>
+                    <span>Visión en obra</span>
+                </NavLink>
+            }
+            
+            <NavLink class="nav-item" href="/gemelo-digital">
+                <i class="nav-icon ti ti-building-factory-2"></i>
+                <span>Gemelo digital</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-group">
+            <span class="nav-label">Reportes</span>
+            @if (AccesoDossier)
+            {
+                <NavLink class="nav-item" href="/dossier">
+                    <i class="nav-icon ti ti-file-certificate"></i>
+                    <span>Dossier MTRAB</span>
+                </NavLink>
+            }
+            @if (AccesoEmpleados)
+            {
+                <NavLink class="nav-item" href="/empleados">
+                    <i class="nav-icon ti ti-users"></i>
+                    <span>Empleados</span>
+                </NavLink>
+
+            }
+
+            @* Solo Administrador ve Configuración *@
+            @if (AccesoConfiguracion)
+            {
+                <NavLink class="nav-item" href="/configuracion">
+                    <i class="nav-icon ti ti-settings"></i>
+                    <span>Configuración</span>
+                </NavLink>    
+            }            
+            
+        </div>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="user-pill">
+            <div class="avatar">@Iniciales</div>
+            <div class="user-info">
+                <span class="user-name">@NombreUsuario</span>
+                <span class="user-role">@RolUsuario</span>
+            </div>
+        </div>
+        <button class="icon-action"
+                title="Cerrar sesión"
+                @onclick="CerrarSesion"
+                style="margin-left:auto;color:var(--text-hint)">
+            <i class="ti ti-logout" style="font-size:16px"
+               aria-hidden="true"></i>
+        </button>
+    </div>
+</aside>
+
+@code {
+    private string NombreUsuario = "";
+    private string RolUsuario = "";
+    private string Iniciales = "";
+
+    private bool AccesoVision       = false;
+    private bool AccesoDossier      = false;
+    private bool AccesoEmpleados    = false;
+    private bool AccesoConfiguracion = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AccesoVision        = await Permisos.TieneAcceso("VisionObra");
+        AccesoDossier       = await Permisos.TieneAcceso("Dossier");
+        AccesoEmpleados     = await Permisos.TieneAcceso("Empleados");
+        AccesoConfiguracion = await Permisos.TieneAcceso("Configuracion");
+
+        var state = await Auth.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            NombreUsuario = user.Identity.Name ?? "";
+            RolUsuario = user.FindFirst(
+                System.Security.Claims.ClaimTypes.Role)
+                ?.Value ?? "";
+
+            Iniciales = string.Concat(
+                NombreUsuario.Split(' ')
+                    .Take(2)
+                    .Select(p => p.Length > 0
+                        ? p[0].ToString() : ""))
+                .ToUpper();
+        }
+    }
+
+    private async Task CerrarSesion()
+    {
+        await Auth.Logout();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

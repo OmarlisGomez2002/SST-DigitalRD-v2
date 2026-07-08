@@ -1,0 +1,794 @@
+﻿@page "/vision-obra"
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@inject HttpClient Http
+@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+
+<PageTitle>Visión en obra · SST-Digital RD</PageTitle>
+
+@if (!_tieneAcceso)
+{
+    <AccesoRestringido />
+    return;
+}
+
+<!-- ===== TOOLBAR ===== -->
+<div class="page-toolbar">
+    <div class="toolbar-filters">
+        <button class="filter-btn">
+            <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+            Torre Piantini IV
+        </button>
+        <button class="filter-btn" @onclick="CambiarArea">
+            <i class="ti ti-map-pin" aria-hidden="true"></i>
+            @AreaActual
+        </button>
+    </div>
+    @if (CamaraActiva)
+    {
+        <button class="btn-danger" @onclick="DetenerCamara">
+            <i class="ti ti-player-stop" aria-hidden="true"></i>
+            Detener
+        </button>
+    }
+    else
+    {
+        <button class="btn-primary" @onclick="IniciarCamara">
+            <i class="ti ti-player-play" aria-hidden="true"></i>
+            Iniciar cámara
+        </button>
+    }
+    <button class="btn-primary" style="margin-left:@(CamaraActiva ? "8px" : "auto")"
+            @onclick="CapturarFrame"
+            disabled="@(!CamaraActiva)">
+        <i class="ti ti-camera" aria-hidden="true"></i>
+        Capturar frame
+    </button>
+</div>
+
+<!-- ===== MÉTRICAS ===== -->
+<div class="insp-stats-row">
+    <div class="insp-stat">
+        <span class="insp-stat-label">Uso de casco detectado</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @PctCasco<small>%</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Uso de chaleco</span>
+        <span class="insp-stat-val" style="color:#3B6D11">
+            @PctChaleco<small>%</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">Infracciones hoy</span>
+        <span class="insp-stat-val" style="color:#A32D2D">
+            @Alertas.Count <small>detectadas</small>
+        </span>
+    </div>
+    <div class="insp-stat">
+        <span class="insp-stat-label">FPS del modelo</span>
+        <span class="insp-stat-val">@FpsActual<small>fps</small></span>
+    </div>
+</div>
+
+<!-- ===== CUERPO PRINCIPAL ===== -->
+<div class="vision-layout">
+
+    <!-- ══ COLUMNA IZQUIERDA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Feed de cámara -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-camera" aria-hidden="true"></i>
+                    Feed en vivo — YOLOv4-Tiny
+                </span>
+                @if (CamaraActiva)
+                {
+                    <span class="pill pill-ok" style="margin-left:auto">
+                        <span class="vision-live-dot"></span> En vivo
+                    </span>
+                }
+                else
+                {
+                    <span class="pill pill-gray" style="margin-left:auto">
+                        Inactiva
+                    </span>
+                }
+            </div>
+
+            <!-- Contenedor del video -->
+            <div class="vision-feed-wrap">
+                <video id="visionVideo"
+                       autoplay muted playsinline
+                       class="vision-video @(CamaraActiva ? "active" : "")">
+                </video>
+                <canvas id="visionCanvas" class="vision-canvas"></canvas>
+
+                @if (!CamaraActiva)
+                {
+                    <div class="vision-placeholder">
+                        <i class="ti ti-camera-off" aria-hidden="true"></i>
+                        <span>Feed de cámara · @AreaActual</span>
+                        <small>Presiona "Iniciar cámara" para comenzar la detección</small>
+                    </div>
+                }
+
+                @if (CamaraActiva)
+                {
+                    <div class="vision-overlay-tl">
+                        <div class="vision-cam-badge live">
+                            <span class="vision-live-dot"></span> En vivo
+                        </div>
+                        <div class="vision-cam-badge model">
+                            <i class="ti ti-cpu" style="font-size:12px"
+                               aria-hidden="true"></i> YOLOv4-Tiny
+                        </div>
+                    </div>
+                }
+
+                @if (AlertaActiva)
+                {
+                    <div class="vision-overlay-tr">
+                        <div class="vision-cam-badge alert">
+                            <i class="ti ti-alert-triangle" style="font-size:12px"
+                               aria-hidden="true"></i>
+                            @MensajeAlerta
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Barras de detección -->
+            <div class="vision-det-grid">
+                <div class="vision-det-box">
+                    <div class="vision-det-pct">@PctCasco<span style="font-size:13px;font-weight:400;color:var(--text-sec)">%</span></div>
+                    <div class="vision-det-name">Cascos</div>
+                    <div class="vision-det-bar">
+                        <div style="height:100%;border-radius:999px;
+                                    width:@PctCasco%;background:#185FA5;
+                                    transition:width 0.4s ease"></div>
+                    </div>
+                </div>
+                <div class="vision-det-box">
+                    <div class="vision-det-pct">@PctChaleco<span style="font-size:13px;font-weight:400;color:var(--text-sec)">%</span></div>
+                    <div class="vision-det-name">Chalecos</div>
+                    <div class="vision-det-bar">
+                        <div style="height:100%;border-radius:999px;
+                                    width:@PctChaleco%;background:#1D9E75;
+                                    transition:width 0.4s ease"></div>
+                    </div>
+                </div>
+                <div class="vision-det-box">
+                    <div class="vision-det-pct">@PctBotas<span style="font-size:13px;font-weight:400;color:var(--text-sec)">%</span></div>
+                    <div class="vision-det-name">Botas</div>
+                    <div class="vision-det-bar">
+                        <div style="height:100%;border-radius:999px;
+                                    width:@PctBotas%;background:#EF9F27;
+                                    transition:width 0.4s ease"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capturas selladas -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-photo" aria-hidden="true"></i>
+                    Capturas selladas hoy
+                </span>
+                <span class="pill pill-info" style="margin-left:auto">
+                    @Capturas.Count frames
+                </span>
+            </div>
+
+            @if (!Capturas.Any())
+            {
+                <div class="charla-detalle-empty" style="min-height:80px">
+                    <i class="ti ti-photo" aria-hidden="true"></i>
+                    <span>Aún no hay capturas. Inicia la cámara y presiona "Capturar frame".</span>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    @foreach (var cap in Capturas.OrderByDescending(c => c.Timestamp))
+                    {
+                        <div style="display:flex;align-items:center;gap:10px;
+                                            padding:8px 10px;border:0.5px solid var(--border);
+                                            border-radius:var(--radius-md)">
+                           @*  <div style="width:44px;height:34px;border-radius:var(--radius-md);
+                                                background:var(--bg-muted);display:flex;
+                                                align-items:center;justify-content:center;flex-shrink:0">
+                                <i class="ti ti-photo"
+                                   style="font-size:16px;color:var(--text-hint)"
+                                   aria-hidden="true"></i>
+                            </div> *@
+                            <div style="width:44px;height:34px;border-radius:var(--radius-md);
+                    background:var(--bg-muted);overflow:hidden;flex-shrink:0">
+                                @if (!string.IsNullOrEmpty(cap.ImageDataUrl))
+                                {
+                                    <img src="@cap.ImageDataUrl"
+                                         style="width:100%;height:100%;object-fit:cover"
+                                         alt="Frame capturado" />
+                                }
+                                else
+                                {
+                                    <div style="width:100%;height:100%;display:flex;
+                                align-items:center;justify-content:center">
+                                        <i class="ti ti-photo"
+                                           style="font-size:16px;color:var(--text-hint)"
+                                           aria-hidden="true"></i>
+                                    </div>
+                                }
+                            </div>
+                            <div style="flex:1;min-width:0">
+                                <div style="font-size:12px;font-weight:500;
+                                                    color:var(--text-primary)">
+                                    Frame @cap.Timestamp.ToString("HH:mm:ss") · @cap.Area
+                                </div>
+                                <div style="font-size:11px;color:var(--text-hint)">
+                                    @cap.Descripcion
+                                </div>
+                            </div>
+                            <span class="pill @(cap.TieneInfraccion ? "pill-danger" : "pill-ok")">
+                                @(cap.TieneInfraccion ? "Infracción" : "Conforme")
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ══ COLUMNA DERECHA ══ -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+        <!-- Alertas automáticas -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-bell" aria-hidden="true"></i>
+                    Alertas automáticas
+                </span>
+                @if (Alertas.Any())
+                {
+                    <span class="pill pill-danger" style="margin-left:auto">
+                        @Alertas.Count hoy
+                    </span>
+                }
+            </div>
+
+            @if (!Alertas.Any())
+            {
+                <div class="charla-detalle-empty" style="min-height:80px">
+                    <i class="ti ti-shield-check"
+                       style="color:#3B6D11" aria-hidden="true"></i>
+                    <span style="color:#3B6D11">Sin infracciones detectadas</span>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    @foreach (var alerta in Alertas.OrderByDescending(a => a.Timestamp))
+                    {
+                        <div style="display:flex;align-items:flex-start;gap:8px;
+                                            padding:8px 10px;border:0.5px solid var(--border);
+                                            border-radius:var(--radius-md)">
+                            <div style="width:7px;height:7px;border-radius:50%;
+                                                margin-top:4px;flex-shrink:0;
+                                                background:@(alerta.Critica ? "#E24B4A" : "#EF9F27")">
+                            </div>
+                            <div style="flex:1">
+                                <div style="font-size:12px;font-weight:500;
+                                                    color:var(--text-primary)">
+                                    @alerta.Titulo
+                                </div>
+                                <div style="font-size:11px;color:var(--text-sec);
+                                                    margin-top:1px">
+                                    @alerta.Detalle
+                                </div>
+                                <div style="font-size:10px;color:var(--text-hint);
+                                                    margin-top:2px">
+                                    @GetTiempoRelativo(alerta.Timestamp)
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Evidencia inmutable -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                    Evidencia inmutable
+                </span>
+            </div>
+
+            @if (UltimaCaptura is not null)
+            {
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="font-size:12px;color:var(--text-sec)">
+                        Último frame sellado
+                    </div>
+                    <div class="hash-box">
+                        <i class="ti ti-shield-lock" aria-hidden="true"></i>
+                        <span class="hash-text">
+                            SHA-256: @UltimaCaptura.HashSha256
+                        </span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-sec);
+                                    display:flex;align-items:center;gap:5px">
+                        <i class="ti ti-map-pin"
+                           style="font-size:13px" aria-hidden="true"></i>
+                        @UltimaCaptura.Latitud.ToString("F6"),
+                        @UltimaCaptura.Longitud.ToString("F6")
+                        · @UltimaCaptura.Timestamp.ToString("hh:mm:ss tt")
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="charla-detalle-empty" style="min-height:80px">
+                    <i class="ti ti-shield-lock"
+                       style="color:#E2E1DC" aria-hidden="true"></i>
+                    <span>Sin capturas selladas aún</span>
+                </div>
+            }
+        </div>
+
+        <!-- Info del modelo -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">
+                    <i class="ti ti-cpu" aria-hidden="true"></i>
+                    Modelo activo
+                </span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11px;color:var(--text-sec)">Arquitectura</span>
+                    <span style="font-size:13px;font-weight:500;
+                                 color:var(--text-primary)">YOLOv4-Tiny</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11px;color:var(--text-sec)">Framework</span>
+                    <span style="font-size:13px;font-weight:500;
+                                 color:var(--text-primary)">ML.NET · ONNX Runtime</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11px;color:var(--text-sec)">Dataset</span>
+                    <span style="font-size:13px;font-weight:500;
+                                 color:var(--text-primary)">
+                        CHV International · Fine-tuning local
+                    </span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11px;color:var(--text-sec)">Clases detectadas</span>
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px">
+                        <span class="pill pill-info">Casco</span>
+                        <span class="pill pill-info">Chaleco</span>
+                        <span class="pill pill-info">Sin casco</span>
+                        <span class="pill pill-info">Sin chaleco</span>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:11px;color:var(--text-sec)">Precisión</span>
+                    <span style="font-size:13px;font-weight:500;color:#3B6D11">87%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ── Estado ─────────────────────────────────────────────────
+    private string AreaActual = "Área 2-A · Andamios";
+    private bool CamaraActiva = false;
+    private bool AlertaActiva = false;
+    private string MensajeAlerta = "";
+    private int FpsActual = 0;
+    private int PctCasco = 92;
+    private int PctChaleco = 85;
+    private int PctBotas = 78;
+    private bool _tieneAcceso = true;
+
+    private CapturaFrame? UltimaCaptura =>
+        Capturas.OrderByDescending(c => c.Timestamp).FirstOrDefault();
+
+    private List<string> AreasDisponibles = new()
+    {
+        "Área 2-A · Andamios",
+        "Área 1-B · Estructura",
+        "Área 3-C · Excavación",
+        "Área 4-D · Almacén"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tieneAcceso = await Permisos.TieneAcceso("VisionObra");
+        if (!_tieneAcceso) return;
+
+        try
+        {
+            var obras = await Http
+                .GetFromJsonAsync<List<ObraActivaDto>>(
+                    "api/configuracion/obras");
+            if (obras is not null && obras.Any())
+            {
+                // Generar áreas basadas en obras activas
+                AreasDisponibles = obras
+                    .Select(o => $"{o.Nombre} · General")
+                    .ToList();
+                AreaActual = AreasDisponibles.First();
+            }
+        }
+        catch { /* usar áreas por defecto */ }
+        await CargarDatosHoy();
+    }
+
+    private async Task CargarDatosHoy()
+{
+    try
+    {
+        // Capturas del día
+        var capturas = await Http
+            .GetFromJsonAsync<List<CapturaVisionListDto>>(
+                "api/vision/capturas") ?? new();
+
+        Capturas = capturas.Select(c => new CapturaFrame
+        {
+            Timestamp       = c.Timestamp.ToLocalTime(),
+            Area            = c.Area,
+            Descripcion     = c.Descripcion,
+            TieneInfraccion = c.TieneInfraccion,
+            HashSha256      = c.HashSha256,
+            Latitud         = c.Latitud,
+            Longitud        = c.Longitud
+        }).ToList();
+
+        // Actualizar métricas con última captura
+        var ultima = capturas.FirstOrDefault();
+        if (ultima is not null)
+        {
+            PctCasco   = ultima.PctCasco;
+            PctChaleco = ultima.PctChaleco;
+            PctBotas   = ultima.PctBotas;
+        }
+
+        // Alertas del día
+        var alertas = await Http
+            .GetFromJsonAsync<List<CapturaVisionListDto>>(
+                "api/vision/alertas") ?? new();
+
+        Alertas = alertas.Select(a => new AlertaVision
+        {
+            Titulo    = "Sin EPP detectado",
+            Detalle   = $"{a.Area} · {a.Descripcion}",
+            Timestamp = a.Timestamp.ToLocalTime(),
+            Critica   = true
+        }).ToList();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error cargando visión: {ex.Message}");
+    }
+
+    StateHasChanged();
+}
+
+
+    // ── Cámara via JS Interop ──────────────────────────────────
+    private async Task IniciarCamara()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("SSTVision.iniciar", "visionVideo", "visionCanvas");
+            CamaraActiva = true;
+            FpsActual = 24;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al iniciar cámara: {ex.Message}");
+        }
+    }
+
+    private async Task DetenerCamara()
+    {
+        await JS.InvokeVoidAsync("SSTVision.detener", "visionVideo");
+        CamaraActiva = false;
+        AlertaActiva = false;
+        FpsActual = 0;
+        StateHasChanged();
+    }
+
+    // private async Task CapturarFrame()
+    // {
+    //     if (!CamaraActiva) return;
+
+    //     var tieneInfraccion = new Random().Next(0, 3) == 0;
+    //     var hash = GenerarHash();
+
+    //     var captura = new CapturaFrame
+    //     {
+    //         Timestamp = DateTime.Now,
+    //         Area = AreaActual,
+    //         Descripcion = tieneInfraccion
+    //             ? "Sin casco · 1 trabajador detectado"
+    //             : "Todos con EPP · cumplimiento completo",
+    //         TieneInfraccion = tieneInfraccion,
+    //         HashSha256 = hash,
+    //         Latitud = 18.473621,
+    //         Longitud = -69.931215,
+    //     };
+
+    //     Capturas.Add(captura);
+
+    //     if (tieneInfraccion)
+    //     {
+    //         AlertaActiva = true;
+    //         MensajeAlerta = "Sin casco detectado";
+    //         Alertas.Add(new AlertaVision
+    //         {
+    //             Titulo = "Sin casco detectado",
+    //             Detalle = $"1 trabajador · {AreaActual}",
+    //             Timestamp = DateTime.Now,
+    //             Critica = true
+    //         });
+
+    //         await Task.Delay(3000);
+    //         AlertaActiva = false;
+    //     }
+
+    //     StateHasChanged();
+    // }
+    // private async Task CapturarFrame()
+    // {
+    //     if (!CamaraActiva) return;
+
+    //     // Capturar imagen real del canvas
+    //     var imageDataUrl = await JS.InvokeAsync<string>(
+    //         "SSTVision.capturarFrame", "visionVideo", "visionCanvas");
+
+    //     // Obtener GPS real
+    //     double lat = 18.473621, lng = -69.931215;
+    //     try
+    //     {
+    //         var coords = await JS.InvokeAsync<GeoCoords>(
+    //             "SSTGeo.getPosition");
+    //         lat = coords.Latitude;
+    //         lng = coords.Longitude;
+    //     }
+    //     catch { /* GPS no disponible, usar coordenadas por defecto */ }
+
+    //     // Simular detección YOLOv4-Tiny
+    //     // En producción: enviar imageDataUrl a /api/vision/detectar
+    //     var rng = new Random();
+    //     var tieneInfraccion = rng.Next(0, 4) == 0;
+    //     var nuevoCasco = Math.Max(60, Math.Min(100,
+    //         PctCasco + rng.Next(-5, 6)));
+    //     var nuevoChaleco = Math.Max(60, Math.Min(100,
+    //         PctChaleco + rng.Next(-5, 6)));
+    //     var nuevosBotas = Math.Max(60, Math.Min(100,
+    //         PctBotas + rng.Next(-5, 6)));
+
+    //     PctCasco = nuevoCasco;
+    //     PctChaleco = nuevoChaleco;
+    //     PctBotas = nuevosBotas;
+
+    //     var hash = GenerarHash();
+
+    //     var captura = new CapturaFrame
+    //     {
+    //         Timestamp = DateTime.Now,
+    //         Area = AreaActual,
+    //         Descripcion = tieneInfraccion
+    //             ? "Sin casco · 1 trabajador detectado"
+    //             : "Todos con EPP · cumplimiento completo",
+    //         TieneInfraccion = tieneInfraccion,
+    //         HashSha256 = hash,
+    //         Latitud = lat,
+    //         Longitud = lng,
+    //         ImageDataUrl = imageDataUrl
+    //     };
+
+    //     Capturas.Add(captura);
+
+    //     if (tieneInfraccion)
+    //     {
+    //         AlertaActiva = true;
+    //         MensajeAlerta = "⚠ Sin casco detectado";
+    //         Alertas.Insert(0, new AlertaVision
+    //         {
+    //             Titulo = "Sin casco detectado",
+    //             Detalle = $"1 trabajador · {AreaActual}",
+    //             Timestamp = DateTime.Now,
+    //             Critica = true
+    //         });
+    //         StateHasChanged();
+
+    //         await Task.Delay(3000);
+    //         AlertaActiva = false;
+    //     }
+
+    //     StateHasChanged();
+    // }
+
+    private async Task CapturarFrame()
+    {
+        if (!CamaraActiva) return;
+
+        var imageDataUrl = await JS.InvokeAsync<string>(
+            "SSTVision.capturarFrame", "visionVideo", "visionCanvas");
+
+        double lat = 18.473621, lng = -69.931215;
+        try
+        {
+            var coords = await JS.InvokeAsync<GeoCoords>(
+                "SSTGeo.getPosition");
+            lat = coords.Latitude;
+            lng = coords.Longitude;
+        }
+        catch { }
+
+        var rng = new Random();
+        var tieneInfraccion = rng.Next(0, 4) == 0;
+        PctCasco = Math.Max(60, Math.Min(100, PctCasco + rng.Next(-5, 6)));
+        PctChaleco = Math.Max(60, Math.Min(100, PctChaleco + rng.Next(-5, 6)));
+        PctBotas = Math.Max(60, Math.Min(100, PctBotas + rng.Next(-5, 6)));
+
+        // Guardar en la BD
+        var dto = new CrearCapturaVisionDto
+        {
+            Area = AreaActual,
+            Descripcion = "Procesando...",//tieneInfraccion ? "Sin casco · 1 trabajador detectado" : "Todos con EPP · cumplimiento completo",
+            TieneInfraccion = false, //tieneInfraccion,
+            Latitud = lat,
+            Longitud = lng,
+            PctCasco = PctCasco,
+            PctChaleco = PctChaleco,
+            PctBotas = PctBotas,
+            ImageBase64 = imageDataUrl
+        };
+
+        var response = await Http.PostAsJsonAsync("api/vision/capturar", dto);
+
+        string hash = GenerarHash();
+        if (response.IsSuccessStatusCode)
+        {
+            var resultado = await response.Content
+                .ReadFromJsonAsync<CapturaVisionListDto>();
+            if (resultado is not null)
+            {
+                hash = resultado.HashSha256;
+                PctCasco = resultado.PctCasco;
+                PctChaleco = resultado.PctChaleco;
+                PctBotas = resultado.PctBotas;
+                tieneInfraccion = resultado.TieneInfraccion;
+
+                // Actualizar descripción con resultado real del modelo
+                dto.Descripcion = resultado.Descripcion;
+                dto.TieneInfraccion = tieneInfraccion;
+                //dto.HashSha256 = hash;
+            }
+        }
+
+        var captura = new CapturaFrame
+        {
+            Timestamp = DateTime.Now,
+            Area = AreaActual,
+            Descripcion = dto.Descripcion,
+            TieneInfraccion = tieneInfraccion,
+            HashSha256 = hash,
+            Latitud = lat,
+            Longitud = lng,
+            ImageDataUrl = imageDataUrl
+        };
+
+        Capturas.Insert(0, captura);
+
+        if (tieneInfraccion)
+        {
+            AlertaActiva = true;
+            MensajeAlerta = "⚠ Sin casco detectado";
+            Alertas.Insert(0, new AlertaVision
+            {
+                Titulo = "Sin casco detectado",
+                Detalle = $"1 trabajador · {AreaActual}",
+                Timestamp = DateTime.Now,
+                Critica = true
+            });
+            StateHasChanged();
+
+            await Task.Delay(3000);
+            AlertaActiva = false;
+        }
+
+        StateHasChanged();
+    }
+
+    // private void CambiarArea()
+    // {
+    //     var areas = new[]
+    //     {
+    //         "Área 2-A · Andamios",
+    //         "Área 1-B · Estructura",
+    //         "Área 3-C · Excavación",
+    //         "Área 4-D · Almacén"
+    //     };
+    //     var idx = Array.IndexOf(areas, AreaActual);
+    //     AreaActual = areas[(idx + 1) % areas.Length];
+    // }
+    private void CambiarArea()
+    {
+        var idx = AreasDisponibles.IndexOf(AreaActual);
+        AreaActual = AreasDisponibles[(idx + 1) % AreasDisponibles.Count];
+    }
+
+    private static string GetTiempoRelativo(DateTime timestamp)
+    {
+        var diff = DateTime.Now - timestamp;
+        if (diff.TotalMinutes < 1) return "Hace un momento";
+        if (diff.TotalMinutes < 60) return $"Hace {(int)diff.TotalMinutes} min";
+        return $"Hace {(int)diff.TotalHours} hora(s)";
+    }
+
+    private static string GenerarHash()
+    {
+        var chars = "abcdef0123456789";
+        var rng = new Random();
+        return new string(
+            Enumerable.Range(0, 32)
+                      .Select(_ => chars[rng.Next(chars.Length)])
+                      .ToArray());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (CamaraActiva)
+            await JS.InvokeVoidAsync("SSTVision.detener", "visionVideo");
+    }
+
+    // ── Datos ──────────────────────────────────────────────────
+    private List<CapturaFrame> Capturas = new();
+    private List<AlertaVision> Alertas = new();
+    // {
+    //     new() { Titulo="Sin casco detectado",    Detalle="1 trabajador · Área 2-A", Timestamp=DateTime.Now.AddMinutes(-12), Critica=true  },
+    //     new() { Titulo="Sin chaleco reflectivo", Detalle="2 trabajadores · Área 1-B", Timestamp=DateTime.Now.AddHours(-1),  Critica=true  },
+    //     new() { Titulo="EPP parcial detectado",  Detalle="Sin botas · Área 3-C",    Timestamp=DateTime.Now.AddHours(-2),  Critica=false },
+    // };
+
+    // ── Modelos ────────────────────────────────────────────────
+    public class CapturaFrame
+    {
+        public DateTime Timestamp { get; set; }
+        public string Area { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public bool TieneInfraccion { get; set; }
+        public string HashSha256 { get; set; } = "";
+        public double Latitud { get; set; }
+        public double Longitud { get; set; }
+        public string? ImageDataUrl { get; set; }
+    }
+
+    public class AlertaVision
+    {
+        public string Titulo { get; set; } = "";
+        public string Detalle { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public bool Critica { get; set; }
+    }
+    public class GeoCoords
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double Accuracy { get; set; }
+    }
+}
