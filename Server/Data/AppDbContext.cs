@@ -31,6 +31,8 @@ namespace SSTDigitalRD.Server.Data
 
         public DbSet<CapturaVision> CapturasVision { get; set; }
 
+        public DbSet<ItemChecklist> ItemsChecklist { get; set; }
+
         protected override void OnModelCreating(ModelBuilder mb)
         {
             base.OnModelCreating(mb);
@@ -161,6 +163,13 @@ namespace SSTDigitalRD.Server.Data
             {
                 e.ToTable("CargosEmpleado");
                 e.HasIndex(x => x.Nombre).IsUnique();
+            });
+
+            mb.Entity<ItemChecklist>(e =>
+            {
+                e.ToTable("ItemsChecklist");
+                e.HasIndex(x => x.Categoria);
+                e.HasIndex(x => x.Activo);
             });
         }
     }

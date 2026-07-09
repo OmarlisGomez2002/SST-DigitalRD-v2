@@ -643,6 +643,109 @@ namespace SSTDigitalRD.Server.Controllers
             return NoContent();
         }
 
+        // ══ ITEMS DE CHECKLIST ═════════════════════════════════
+
+        [HttpGet("checklist")]
+        public async Task<ActionResult<List<ItemChecklistDto>>>
+            GetChecklist([FromQuery] bool soloActivos = false)
+        {
+            var query = _db.ItemsChecklist.AsNoTracking().AsQueryable();
+
+            if (soloActivos)
+                query = query.Where(x => x.Activo);
+
+            var lista = await query
+                .OrderBy(x => x.Categoria)
+                .ThenBy(x => x.Orden)
+                .ThenBy(x => x.Id)
+                .ToListAsync();
+
+            if (!lista.Any() && soloActivos)
+            {
+                // Seed con los items por defecto
+                var defaults = new List<ItemChecklist>
+        {
+            new() { Categoria="EPP", Descripcion="Todo el personal usa casco de seguridad", Orden=1 },
+            new() { Categoria="EPP", Descripcion="Todo el personal usa chaleco reflectivo", Orden=2 },
+            new() { Categoria="EPP", Descripcion="Todo el personal usa botas de seguridad", Orden=3 },
+            new() { Categoria="EPP", Descripcion="Se dispone de guantes donde se requiere", Orden=4 },
+            new() { Categoria="Andamios y alturas", Descripcion="Andamios debidamente amarrados y nivelados", Orden=1 },
+            new() { Categoria="Andamios y alturas", Descripcion="Escaleras en buen estado y aseguradas", Orden=2 },
+            new() { Categoria="Andamios y alturas", Descripcion="Uso correcto de arnés en trabajos a más de 1.8 m", Orden=3 },
+            new() { Categoria="Orden y limpieza", Descripcion="Área libre de materiales apilados incorrectamente", Orden=1 },
+            new() { Categoria="Orden y limpieza", Descripcion="Pasillos y salidas despejadas", Orden=2 },
+            new() { Categoria="Orden y limpieza", Descripcion="Contenedores de desechos disponibles", Orden=3 },
+            new() { Categoria="Instalaciones eléctricas", Descripcion="Cables sin daños ni empalmes improvisados", Orden=1 },
+            new() { Categoria="Instalaciones eléctricas", Descripcion="Tableros eléctricos cerrados y señalizados", Orden=2 },
+            new() { Categoria="Señalización y emergencia", Descripcion="Señales de seguridad visibles y en buen estado", Orden=1 },
+            new() { Categoria="Señalización y emergencia", Descripcion="Extintores accesibles y vigentes", Orden=2 },
+            new() { Categoria="Señalización y emergencia", Descripcion="Rutas de evacuación señalizadas", Orden=3 },
+        };
+                _db.ItemsChecklist.AddRange(defaults);
+                await _db.SaveChangesAsync();
+                lista = defaults;
+            }
+
+            return Ok(lista.Select(x => new ItemChecklistDto
+            {
+                Id = x.Id,
+                Categoria = x.Categoria,
+                Descripcion = x.Descripcion,
+                Activo = x.Activo,
+                Orden = x.Orden
+            }).ToList());
+        }
+
+        [HttpPost("checklist")]
+        public async Task<ActionResult<ItemChecklistDto>> AgregarItemChecklist(
+            [FromBody] ItemChecklistDto dto)
+        {
+            var item = new ItemChecklist
+            {
+                Categoria = dto.Categoria,
+                Descripcion = dto.Descripcion,
+                Activo = true,
+                Orden = dto.Orden
+            };
+            _db.ItemsChecklist.Add(item);
+            await _db.SaveChangesAsync();
+
+            return Ok(new ItemChecklistDto
+            {
+                Id = item.Id,
+                Categoria = item.Categoria,
+                Descripcion = item.Descripcion,
+                Activo = item.Activo,
+                Orden = item.Orden
+            });
+        }
+
+        [HttpPut("checklist/{id:int}")]
+        public async Task<IActionResult> ActualizarItemChecklist(
+            int id, [FromBody] ItemChecklistDto dto)
+        {
+            var item = await _db.ItemsChecklist.FindAsync(id);
+            if (item is null) return NotFound();
+
+            item.Categoria = dto.Categoria;
+            item.Descripcion = dto.Descripcion;
+            item.Activo = dto.Activo;
+            item.Orden = dto.Orden;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("checklist/{id:int}")]
+        public async Task<IActionResult> EliminarItemChecklist(int id)
+        {
+            var item = await _db.ItemsChecklist.FindAsync(id);
+            if (item is null) return NotFound();
+
+            item.Activo = false;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
 
     }
 }

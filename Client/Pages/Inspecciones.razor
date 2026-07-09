@@ -126,8 +126,8 @@
         <span class="insp-stat-val">@TasaCumplimiento<small>%</small></span>
     </div>
     <div class="insp-stat">
-        <span class="insp-stat-label">Promedio de cierre</span>
-        <span class="insp-stat-val">@PromedioCierre<small>días</small></span>
+        <span class="insp-stat-label">Firmadas hoy</span>
+        <span class="insp-stat-val">@InspeccionesHoy<small>inspecciones</small></span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">No conformes abiertas</span>
@@ -294,7 +294,9 @@
     private int TotalInspecciones => ListaInspecciones.Count;
     private int TasaCumplimiento => ListaInspecciones.Count == 0 ? 0 :
         (int)Math.Round(ListaInspecciones.Count(x => x.Estado == "Conforme") * 100.0 / ListaInspecciones.Count);
-    private double PromedioCierre => 2.4;
+    private int InspeccionesHoy =>
+    ListaInspecciones.Count(x =>
+        x.Fecha.Date == DateTime.Today);
     private int NoConformesAbiertas => ListaInspecciones.Count(x => x.Estado == "No conforme");
 
     // ── Paginación ─────────────────────────────────────────────

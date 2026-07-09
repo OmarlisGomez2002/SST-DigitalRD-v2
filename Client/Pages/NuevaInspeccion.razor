@@ -110,9 +110,88 @@
                     </select>
                 </div>
 
-                <div class="form-field">
+                @* <div class="form-field">
                     <label>Responsable del área</label>
                     <input type="text" @bind="Modelo.ResponsableArea" placeholder="Nombre del encargado" />
+                </div> *@
+                @* <div class="form-field">
+                    <label>Responsable del área</label>
+                    <input type="text"
+                           @bind="BusquedaResponsable"
+                           @bind:event="oninput"
+                           @oninput="FiltrarResponsables"
+                           placeholder="Buscar empleado..."
+                           autocomplete="off" />
+                    @if (ResponsablesFiltrados.Any() &&
+                         !string.IsNullOrWhiteSpace(BusquedaResponsable) &&
+                         BusquedaResponsable != Modelo.ResponsableArea)
+                    {
+                        <div style="position:absolute;z-index:50;width:100%;
+                                    background:var(--bg-surface);
+                                    border:0.5px solid var(--border-mid);
+                                    border-radius:var(--radius-md);
+                                    box-shadow:var(--shadow-sm);
+                                    max-height:180px;overflow-y:auto">
+                            @foreach (var emp in ResponsablesFiltrados.Take(6))
+                            {
+                                var e = emp;
+                                <div style="padding:8px 12px;cursor:pointer;font-size:13px;
+                                            border-bottom:0.5px solid var(--border)"
+                                     @onclick="() => SeleccionarResponsable(e)">
+                                    <div style="font-weight:500">@e.Nombre</div>
+                                    <div style="font-size:11px;color:var(--text-hint)">
+                                        @e.Cargo · @e.Cuadrilla
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Modelo.ResponsableArea))
+                    {
+                        <span style="font-size:11px;color:var(--green-600)">
+                            <i class="ti ti-check"></i> @Modelo.ResponsableArea
+                        </span>
+                    }
+                </div> *@
+
+                <div class="form-field" style="position:relative">
+                    <label>Responsable del área</label>
+                    <input type="text"
+                           value="@BusquedaResponsable"
+                           @oninput="OnResponsableInput"
+                           placeholder="Buscar empleado..."
+                           autocomplete="off" />
+                    @if (ResponsablesFiltrados.Any() &&
+                                    !string.IsNullOrWhiteSpace(BusquedaResponsable) &&
+                                    BusquedaResponsable != Modelo.ResponsableArea)
+                    {
+                        <div style="position:absolute;z-index:50;width:100%;
+                            background:var(--bg-surface);
+                            border:0.5px solid var(--border-mid);
+                            border-radius:var(--radius-md);
+                            box-shadow:var(--shadow-sm);
+                            max-height:180px;overflow-y:auto">
+                            @foreach (var emp in ResponsablesFiltrados.Take(6))
+                            {
+                                var e = emp;
+                                <div style="padding:8px 12px;cursor:pointer;font-size:13px;
+                                        border-bottom:0.5px solid var(--border)"
+                                     @onclick="() => SeleccionarResponsable(e)">
+                                    <div style="font-weight:500">@e.Nombre</div>
+                                    <div style="font-size:11px;color:var(--text-hint)">
+                                        @e.Cargo · @e.Cuadrilla
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Modelo.ResponsableArea))
+                    {
+                        <span style="font-size:11px;color:var(--green-600)">
+                            <i class="ti ti-check" aria-hidden="true"></i>
+                            @Modelo.ResponsableArea
+                        </span>
+                    }
                 </div>
 
                 <div class="form-field">
@@ -416,6 +495,7 @@
 </div>
 
 @code {
+
     [Parameter] public int? Id { get; set; }
     private bool EsEdicion => Id.HasValue;
 
@@ -432,6 +512,10 @@
     private string GpsError = "";
 
     private string ErrorGeofencing = "";
+
+    private string BusquedaResponsable = "";
+    private List<EmpleadoSimpleDto> TodosEmpleados = new();
+    private List<EmpleadoSimpleDto> ResponsablesFiltrados = new();
 
     // ── Modelo ─────────────────────────────────────────────────
     private InspeccionFormDto Modelo = new()
@@ -503,7 +587,7 @@
     // ── Firma ──────────────────────────────────────────────────
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (PasoActual == 4) //if (firstRender)
         {
             await JS.InvokeVoidAsync("SSTFirma.init", "firmaIncidenteCanvas");
         }
@@ -539,17 +623,22 @@
         ErrorGeofencing = "";
         StateHasChanged();
 
+        // Obtener nombre de obra desde la lista
+        var obraNombre = ObrasDisponibles
+            .FirstOrDefault(x => x.Id == Modelo.ObraId)
+            ?.Nombre ?? "Obra";
+
         var dto = new CrearInspeccionDto
         {
             ObraId = Modelo.ObraId,
             Area = Modelo.Area,
-            Obra = Modelo.ObraId switch   // ← mapear ID a nombre
-            {
-                1 => "Torre Piantini IV",
-                2 => "Residencial Los Alamos",
-                3 => "Centro Comercial Acropolis",
-                _ => "Obra"
-            },//.ToString(),
+            Obra = obraNombre, //Modelo.ObraId switch   // ← mapear ID a nombre
+            // {
+            //     1 => "Torre Piantini IV",
+            //     2 => "Residencial Los Alamos",
+            //     3 => "Centro Comercial Acropolis",
+            //     _ => "Obra"
+            // },//.ToString(),
             TipoInspeccion = Modelo.TipoInspeccion,
             Inspector = Modelo.Inspector,
             ResponsableArea = Modelo.ResponsableArea,
@@ -560,6 +649,7 @@
             Longitud = Modelo.Longitud,
             PrecisionGps = Modelo.PrecisionGps,
             FirmaBase64 = Modelo.FirmaBase64,
+            PlanAccion = Modelo.PlanAccion,
             Items = ListaVerificacion.Select(i =>
                 new ChecklistItemDto
                 {
@@ -570,7 +660,14 @@
                 }).ToList()
         };
 
-        var response = await Http.PostAsJsonAsync("api/inspecciones", dto);
+        HttpResponseMessage response;
+
+        if (EsEdicion && Id.HasValue)
+            response = await Http.PutAsJsonAsync($"api/inspecciones/{Id.Value}", dto);
+        else
+            response = await Http.PostAsJsonAsync("api/inspecciones", dto);
+
+
 
         if (response.IsSuccessStatusCode)
             Nav.NavigateTo("/inspecciones");
@@ -599,30 +696,33 @@
         if (resultado != "warn" && resultado != "no") item.Observacion = "";
     }
 
+
+
     // ── Datos de verificación ──────────────────────────────────
-    private List<ChecklistItem> ListaVerificacion = new()
-    {
-        // EPP
-        new(1, "EPP", "Todo el personal usa casco de seguridad"),
-        new(2, "EPP", "Todo el personal usa chaleco reflectivo"),
-        new(3, "EPP", "Todo el personal usa botas de seguridad"),
-        new(4, "EPP", "Se dispone de guantes donde se requiere"),
-        // Andamios
-        new(5, "Andamios y alturas", "Andamios debidamente amarrados y nivelados"),
-        new(6, "Andamios y alturas", "Escaleras en buen estado y aseguradas"),
-        new(7, "Andamios y alturas", "Uso correcto de arnés en trabajos a más de 1.8 m"),
-        // Orden
-        new(8, "Orden y limpieza", "Área libre de materiales apilados incorrectamente"),
-        new(9, "Orden y limpieza", "Pasillos y salidas despejadas"),
-        new(10, "Orden y limpieza", "Contenedores de desechos disponibles"),
-        // Eléctrico
-        new(11, "Instalaciones eléctricas", "Cables sin daños ni empalmes improvisados"),
-        new(12, "Instalaciones eléctricas", "Tableros eléctricos cerrados y señalizados"),
-        // Señalización
-        new(13, "Señalización y emergencia", "Señales de seguridad visibles y en buen estado"),
-        new(14, "Señalización y emergencia", "Extintores accesibles y vigentes"),
-        new(15, "Señalización y emergencia", "Rutas de evacuación señalizadas"),
-    };
+
+    private List<ChecklistItem> ListaVerificacion = new();
+    // {
+    //     // EPP
+    //     new(1, "EPP", "Todo el personal usa casco de seguridad"),
+    //     new(2, "EPP", "Todo el personal usa chaleco reflectivo"),
+    //     new(3, "EPP", "Todo el personal usa botas de seguridad"),
+    //     new(4, "EPP", "Se dispone de guantes donde se requiere"),
+    //     // Andamios
+    //     new(5, "Andamios y alturas", "Andamios debidamente amarrados y nivelados"),
+    //     new(6, "Andamios y alturas", "Escaleras en buen estado y aseguradas"),
+    //     new(7, "Andamios y alturas", "Uso correcto de arnés en trabajos a más de 1.8 m"),
+    //     // Orden
+    //     new(8, "Orden y limpieza", "Área libre de materiales apilados incorrectamente"),
+    //     new(9, "Orden y limpieza", "Pasillos y salidas despejadas"),
+    //     new(10, "Orden y limpieza", "Contenedores de desechos disponibles"),
+    //     // Eléctrico
+    //     new(11, "Instalaciones eléctricas", "Cables sin daños ni empalmes improvisados"),
+    //     new(12, "Instalaciones eléctricas", "Tableros eléctricos cerrados y señalizados"),
+    //     // Señalización
+    //     new(13, "Señalización y emergencia", "Señales de seguridad visibles y en buen estado"),
+    //     new(14, "Señalización y emergencia", "Extintores accesibles y vigentes"),
+    //     new(15, "Señalización y emergencia", "Rutas de evacuación señalizadas"),
+    // };
 
     // ── Clases de datos ────────────────────────────────────────
     public class InspeccionFormDto
@@ -667,6 +767,43 @@
     private List<ObraActivaDto> ObrasDisponibles = new();
     private List<TipoInspeccionDto> TiposInspeccionDisponibles = new();
 
+    public class EmpleadoSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Cargo { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+    }
+
+    private void FiltrarResponsables()
+    {
+        if (string.IsNullOrWhiteSpace(BusquedaResponsable))
+        {
+            ResponsablesFiltrados = new();
+            return;
+        }
+        ResponsablesFiltrados = TodosEmpleados
+            .Where(x => x.Nombre.Contains(
+                BusquedaResponsable,
+                StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void SeleccionarResponsable(EmpleadoSimpleDto emp)
+    {
+        Modelo.ResponsableArea = emp.Nombre;
+        BusquedaResponsable = emp.Nombre;
+        ResponsablesFiltrados = new();
+        StateHasChanged();
+    }
+
+    private void OnResponsableInput(ChangeEventArgs e)
+    {
+        BusquedaResponsable = e.Value?.ToString() ?? "";
+        Modelo.ResponsableArea = "";
+        FiltrarResponsables();
+    }
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -679,6 +816,95 @@
             var tipos = await Http.GetFromJsonAsync<List<TipoInspeccionDto>>("api/configuracion/tipos-inspeccion");
             if (tipos is not null)
                 TiposInspeccionDisponibles = tipos;
+
+            // // Forzar render para que el select tenga las opciones
+            // // antes de asignar el valor seleccionado
+            // StateHasChanged();
+            // await Task.Delay(50);
+
+            // En OnInitializedAsync, después de cargar tipos:
+            var itemsChecklist = await Http
+                .GetFromJsonAsync<List<ItemChecklistDto>>(
+                    "api/configuracion/checklist?soloActivos=true");
+
+            if (itemsChecklist is not null && itemsChecklist.Any())
+            {
+                ListaVerificacion = itemsChecklist
+                    .Select((x, i) => new ChecklistItem(
+                        x.Id, x.Categoria, x.Descripcion))
+                    .ToList();
+            }
+            else
+            {
+                // Fallback con items por defecto si la BD está vacía
+                ListaVerificacion = new List<ChecklistItem>
+                {
+                    new(1, "EPP", "Todo el personal usa casco de seguridad"),
+                    new(2, "EPP", "Todo el personal usa chaleco reflectivo"),
+                    // ... resto de defaults
+                };
+            }
+
+            var empleados = await Http
+        .GetFromJsonAsync<List<EmpleadoListDto>>(
+            "api/empleados");
+            if (empleados is not null)
+                TodosEmpleados = empleados
+                    .Select(x => new EmpleadoSimpleDto
+                    {
+                        Id = x.Id,
+                        Nombre = x.Nombre,
+                        Cargo = x.Cargo,
+                        Cuadrilla = x.Cuadrilla
+                    }).ToList();
+
+            // Si es edición, cargar los datos existentes
+            if (EsEdicion && Id.HasValue)
+            {
+                var dto = await Http
+                    .GetFromJsonAsync<InspeccionDetalleDto>(
+                        $"api/inspecciones/{Id.Value}");
+
+                if (dto is not null)
+                {
+                    Modelo.ObraId = dto.ObraId;
+                    Modelo.Area = dto.Area;
+                    Modelo.TipoInspeccion = dto.TipoInspeccion;
+                    Modelo.Inspector = dto.Inspector;
+                    Modelo.ResponsableArea = dto.ResponsableArea;
+                    Modelo.FechaInspeccion = dto.FechaInspeccion;
+                    Modelo.CantidadTrabajadores = dto.CantidadTrabajadores;
+                    Modelo.Descripcion = dto.Descripcion;
+                    Modelo.Latitud = dto.Latitud;
+                    Modelo.Longitud = dto.Longitud;
+                    Modelo.PrecisionGps = dto.PrecisionGps;
+                    Modelo.PlanAccion = dto.PlanAccion;
+
+                    // GPS ya capturado
+                    if (dto.GpsCapturado)
+                        GpsCargado = true;
+
+                    // Firma ya capturada
+                    if (dto.Firmado)
+                        FirmaCapturada = true;
+
+                    // Cargar items del checklist
+                    if (dto.Items.Any())
+                    {
+                        foreach (var itemDto in dto.Items)
+                        {
+                            var item = ListaVerificacion
+                                .FirstOrDefault(x =>
+                                    x.Descripcion == itemDto.Descripcion);
+                            if (item is not null)
+                            {
+                                item.Resultado = itemDto.Resultado;
+                                item.Observacion = itemDto.Observacion;
+                            }
+                        }
+                    }
+                }
+            }
 
         }
         catch (Exception ex)

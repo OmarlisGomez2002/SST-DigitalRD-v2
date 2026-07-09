@@ -85,4 +85,13 @@ namespace SSTDigitalRD.Shared.DTOs
         public string Nombre { get; set; } = "";
         public bool Activo { get; set; } = true;
     }
+
+    public class ItemChecklistDto
+    {
+        public int Id { get; set; }
+        public string Categoria { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public bool Activo { get; set; } = true;
+        public int Orden { get; set; }
+    }
 }

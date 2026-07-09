@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SSTDigitalRD.Client.Pages;
 using SSTDigitalRD.Server.Data;
 using SSTDigitalRD.Server.Models;
 using SSTDigitalRD.Server.Services;
@@ -172,12 +173,20 @@ namespace SSTDigitalRD.Server.Controllers
 
             if (insp is null) return NotFound();
 
+            insp.ObraId = dto.ObraId;
             insp.Area = dto.Area;
+            insp.Obra = dto.Obra;
             insp.TipoInspeccion = dto.TipoInspeccion;
+            insp.Inspector = dto.Inspector;
             insp.ResponsableArea = dto.ResponsableArea;
+            insp.FechaInspeccion = dto.FechaInspeccion;
             insp.CantidadTrabajadores = dto.CantidadTrabajadores;
             insp.Descripcion = dto.Descripcion;
             insp.PlanAccion = dto.PlanAccion;
+            insp.Latitud = dto.Latitud;
+            insp.Longitud = dto.Longitud;
+            insp.PrecisionGps = dto.PrecisionGps;
+            insp.PlanAccion = dto.PlanAccion ?? "";
             insp.Estado = DeterminarEstado(dto.Items);
             insp.FechaActualizacion = DateTime.UtcNow;
 
@@ -290,6 +299,7 @@ namespace SSTDigitalRD.Server.Controllers
             Id = x.Id,
             Area = x.Area,
             Obra = x.Obra,
+            ObraId = x.ObraId,
             TipoInspeccion = x.TipoInspeccion,
             Inspector = x.Inspector,
             ResponsableArea = x.ResponsableArea,

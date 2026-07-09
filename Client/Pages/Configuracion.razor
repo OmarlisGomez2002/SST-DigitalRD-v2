@@ -393,12 +393,70 @@
         </div>
     </div>
 
+
+    <!-- ══ Items de checklist ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-checklist" aria-hidden="true"></i>
+                Lista de verificación
+            </span>
+        </div>
+
+        @foreach (var grupo in ItemsChecklist.GroupBy(x => x.Categoria))
+        {
+            <div style="font-size:10px;font-weight:600;color:var(--text-hint);
+                        text-transform:uppercase;letter-spacing:.06em;
+                        padding:8px 0 4px;border-bottom:0.5px solid var(--border);
+                        margin-bottom:4px">
+                @grupo.Key
+            </div>
+            @foreach (var item in grupo)
+            {
+                var it = item;
+                <div style="display:flex;align-items:center;gap:10px;
+                                padding:7px 4px;border-bottom:0.5px solid var(--border)">
+                    <span style="flex:1;font-size:12px;
+                                     color:@(it.Activo ? "var(--text-primary)" : "var(--text-hint)")">
+                        @it.Descripcion
+                    </span>
+                    <span class="pill @(it.Activo ? "pill-ok" : "pill-gray")"
+                          style="cursor:pointer"
+                          @onclick="() => ToggleItemChecklist(it)">
+                        @(it.Activo ? "Vigente" : "Inactivo")
+                    </span>
+                    <button class="icon-action"
+                            @onclick="() => EliminarItemChecklist(it.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        }
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            <div style="display:flex;gap:8px">
+                <input type="text" @bind="NuevoItemCategoria" placeholder="Categoría (ej. EPP)" style="flex:0 0 160px" />
+                <input type="text" @bind="NuevoItemDescripcion" placeholder="Descripción del item..." style="flex:1" />
+                <button class="btn-primary btn-sm" @onclick="AgregarItemChecklist">
+                    <i class="ti ti-plus" aria-hidden="true"></i>
+                    Agregar
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @code {
     private bool GuardandoEmpresa = false;
     private bool GuardandoObra = false;
     private bool GuardandoNoti = false;
+
+    private List<ItemChecklistDto> ItemsChecklist = new();
+    private string NuevoItemCategoria = "";
+    private string NuevoItemDescripcion = "";
+
+
 
     private ConfiguracionEmpresaDto Config = new();
     private ObraActivaDto Obra = new();
@@ -456,6 +514,10 @@
                     u.AvatarColor = u.Rol == "Admin" ? "#185FA5" : "#854F0B";
                     return u;
                 }).ToList();
+
+            ItemsChecklist = await Http
+    .GetFromJsonAsync<List<ItemChecklistDto>>(
+        "api/configuracion/checklist") ?? new();
 
             TiposInspeccion = await Http.GetFromJsonAsync<List<TipoInspeccionDto>>("api/configuracion/tipos-inspeccion") ?? new();
 
@@ -628,6 +690,48 @@
 
         if (response.IsSuccessStatusCode)
             TiposCharla.RemoveAll(x => x.Id == id);
+    }
+
+    private async Task AgregarItemChecklist()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoItemDescripcion) ||
+            string.IsNullOrWhiteSpace(NuevoItemCategoria)) return;
+
+        var dto = new ItemChecklistDto
+        {
+            Categoria = NuevoItemCategoria.Trim(),
+            Descripcion = NuevoItemDescripcion.Trim(),
+            Activo = true
+        };
+
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/checklist", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creado = await response.Content
+                .ReadFromJsonAsync<ItemChecklistDto>();
+            if (creado is not null)
+                ItemsChecklist.Add(creado);
+            NuevoItemCategoria = "";
+            NuevoItemDescripcion = "";
+        }
+    }
+
+    private async Task ToggleItemChecklist(ItemChecklistDto item)
+    {
+        item.Activo = !item.Activo;
+        await Http.PutAsJsonAsync(
+            $"api/configuracion/checklist/{item.Id}", item);
+        StateHasChanged();
+    }
+
+    private async Task EliminarItemChecklist(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/checklist/{id}");
+        if (response.IsSuccessStatusCode)
+            ItemsChecklist.RemoveAll(x => x.Id == id);
     }
 }
 

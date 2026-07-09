@@ -12,6 +12,8 @@ public class Inspeccion
     public string Area { get; set; } = "";
 
     [Required, MaxLength(200)]
+
+    public int ObraId { get; set; }
     public string Obra { get; set; } = "";
 
     [Required, MaxLength(100)]

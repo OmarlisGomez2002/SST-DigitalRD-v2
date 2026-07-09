@@ -18,6 +18,7 @@
     {
         public int Id { get; set; }
         public string Area { get; set; } = "";
+        public int ObraId { get; set; }
         public string Obra { get; set; } = "";
         public string TipoInspeccion { get; set; } = "";
         public string Inspector { get; set; } = "";

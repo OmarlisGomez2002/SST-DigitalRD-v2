@@ -142,4 +142,17 @@ namespace SSTDigitalRD.Server.Models
 
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     }
+
+    public class ItemChecklist
+    {
+        [Key]
+        public int Id { get; set; }
+        [Required, MaxLength(100)]
+        public string Categoria { get; set; } = "";
+        [Required, MaxLength(300)]
+        public string Descripcion { get; set; } = "";
+        public bool Activo { get; set; } = true;
+        public int Orden { get; set; } = 0;
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+    }
 }
