@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -93,5 +94,14 @@ namespace SSTDigitalRD.Shared.DTOs
         public string Descripcion { get; set; } = "";
         public bool Activo { get; set; } = true;
         public int Orden { get; set; }
+    }
+
+    public class TipoEPPDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public string Icono { get; set; } = "ti-hardhat";
+        public bool Activo { get; set; } = true;
     }
 }

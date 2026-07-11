@@ -746,6 +746,94 @@ namespace SSTDigitalRD.Server.Controllers
             return NoContent();
         }
 
+        // ══ TIPOS DE EPP ═══════════════════════════════════════════
+
+        [HttpGet("tipos-epp")]
+        public async Task<ActionResult<List<TipoEPPDto>>> GetTiposEPP()
+        {
+            var lista = await _db.TiposEPP
+                .AsNoTracking()
+                .OrderBy(x => x.Categoria)
+                .ThenBy(x => x.Nombre)
+                .ToListAsync();
+
+            // Seed con tipos por defecto si está vacío
+            if (!lista.Any())
+            {
+                var defaults = new List<TipoEPP>
+        {
+            new() { Nombre="Casco de seguridad",  Categoria="Protección craneal",  Icono="ti-hardhat"   },
+            new() { Nombre="Chaleco reflectivo",   Categoria="Visibilidad",          Icono="ti-shirt"     },
+            new() { Nombre="Botas de seguridad",   Categoria="Protección de pies",   Icono="ti-shoe"      },
+            new() { Nombre="Guantes",              Categoria="Protección de manos",  Icono="ti-hand-stop" },
+            new() { Nombre="Arnés de seguridad",   Categoria="Trabajo en altura",    Icono="ti-ripple"    },
+            new() { Nombre="Gafas de seguridad",   Categoria="Protección ocular",    Icono="ti-eyeglass"  },
+        };
+                _db.TiposEPP.AddRange(defaults);
+                await _db.SaveChangesAsync();
+                lista = defaults;
+            }
+
+            return Ok(lista.Select(x => new TipoEPPDto
+            {
+                Id = x.Id,
+                Nombre = x.Nombre,
+                Categoria = x.Categoria,
+                Icono = x.Icono,
+                Activo = x.Activo
+            }).ToList());
+        }
+
+        [HttpPost("tipos-epp")]
+        public async Task<ActionResult<TipoEPPDto>> AgregarTipoEPP(
+            [FromBody] TipoEPPDto dto)
+        {
+            var tipo = new TipoEPP
+            {
+                Nombre = dto.Nombre,
+                Categoria = dto.Categoria,
+                Icono = string.IsNullOrEmpty(dto.Icono)
+                    ? "ti-hardhat" : dto.Icono,
+                Activo = true
+            };
+            _db.TiposEPP.Add(tipo);
+            await _db.SaveChangesAsync();
+
+            return Ok(new TipoEPPDto
+            {
+                Id = tipo.Id,
+                Nombre = tipo.Nombre,
+                Categoria = tipo.Categoria,
+                Icono = tipo.Icono,
+                Activo = tipo.Activo
+            });
+        }
+
+        [HttpPut("tipos-epp/{id:int}")]
+        public async Task<IActionResult> ActualizarTipoEPP(
+            int id, [FromBody] TipoEPPDto dto)
+        {
+            var tipo = await _db.TiposEPP.FindAsync(id);
+            if (tipo is null) return NotFound();
+
+            tipo.Nombre = dto.Nombre;
+            tipo.Categoria = dto.Categoria;
+            tipo.Icono = dto.Icono;
+            tipo.Activo = dto.Activo;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("tipos-epp/{id:int}")]
+        public async Task<IActionResult> EliminarTipoEPP(int id)
+        {
+            var tipo = await _db.TiposEPP.FindAsync(id);
+            if (tipo is null) return NotFound();
+            tipo.Activo = false;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
 
     }
 }

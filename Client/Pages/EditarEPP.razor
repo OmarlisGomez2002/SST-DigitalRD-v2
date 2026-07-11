@@ -1,5 +1,6 @@
 ﻿@page "/epp/{Id:int}/editar"
 @inject NavigationManager Nav
+@inject HttpClient Http
 
 <PageTitle>Editar EPP · SST-Digital RD</PageTitle>
 
@@ -161,8 +162,10 @@
     [Parameter] public int Id { get; set; }
 
     private bool Guardando = false;
+    private bool Cargando = true;
 
     private TrabajadorInfo Trabajador = new();
+
 
     private void VolverAInventario() => Nav.NavigateTo("/epp");
 
@@ -170,8 +173,26 @@
     {
         Guardando = true;
         StateHasChanged();
-        await Task.Delay(1000); // TODO: PUT /api/epp/{Id}
-        Nav.NavigateTo("/epp");
+
+        var dtos = ArticulosEPP.Select(a =>
+            new ActualizarArticuloDto
+            {
+                Id = a.ArticuloId,
+                Marca = a.Marca,
+                FechaVencimiento = a.FechaVencimiento,
+                Estado = a.EstadoActual
+            }).ToList();
+
+        var response = await Http.PutAsJsonAsync(
+            $"api/epp/{Id}", dtos);
+
+        if (response.IsSuccessStatusCode)
+            Nav.NavigateTo("/epp");
+        else
+        {
+            Guardando = false;
+            StateHasChanged();
+        }
     }
 
     private string ProximoVencimiento
@@ -188,28 +209,81 @@
         }
     }
 
-    protected override void OnInitialized()
-    {
-        // TODO: GET /api/epp/trabajador/{Id}
-        Trabajador = new()
+    private static readonly (string icono, string bg, string color, string tipo)[]
+        MapaIconos = new[]
         {
-            Nombre = "Juan Pérez",
-            Iniciales = "JP",
-            Cargo = "Albañil",
-            Cuadrilla = "Cuadrilla A",
-            AvatarBg = "#E6F1FB",
-            AvatarColor = "#185FA5"
+            ("ti-hardhat",   "#E6F1FB", "#185FA5", "Casco de seguridad"),
+            ("ti-shirt",     "#EAF3DE", "#3B6D11", "Chaleco reflectivo"),
+            ("ti-shoe",      "#FAEEDA", "#854F0B", "Botas de seguridad"),
+            ("ti-hand-stop", "#F1EFE8", "#5F5E5A", "Guantes"),
+            ("ti-ripple",    "#FCEBEB", "#A32D2D", "Arnés de seguridad"),
+            ("ti-eyeglass",  "#EAF3DE", "#3B6D11", "Gafas de seguridad"),
         };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var entrega = await Http
+                .GetFromJsonAsync<EntregaEPPDetalleDto>(
+                    $"api/epp/{Id}");
+
+            if (entrega is not null)
+            {
+                Trabajador = new TrabajadorInfo
+                {
+                    Nombre = entrega.NombreTrabajador,
+                    Iniciales = string.Concat(
+                        entrega.NombreTrabajador.Split(' ')
+                            .Take(2)
+                            .Select(p => p.Length > 0
+                                ? p[0].ToString() : ""))
+                        .ToUpper(),
+                    Cargo = entrega.Cargo,
+                    Cuadrilla = entrega.Cuadrilla,
+                    AvatarBg = "#E6F1FB",
+                    AvatarColor = "#185FA5"
+                };
+
+                // Mapear artículos reales con íconos
+                ArticulosEPP = entrega.Articulos.Select(a =>
+                {
+                    var mapa = MapaIconos
+                        .FirstOrDefault(m => m.tipo == a.TipoEPP);
+
+                    return new ArticuloEPPEditable(
+                        mapa.icono ?? "ti-package",
+                        mapa.bg ?? "#E6F1FB",
+                        mapa.color ?? "#185FA5",
+                        a.TipoEPP,
+                        a.Categoria,
+                        a.Marca,
+                        a.FechaVencimiento,
+                        a.Estado)
+                    {
+                        ArticuloId = a.Id
+                    };
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando EPP: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
     }
 
-    private List<ArticuloEPPEditable> ArticulosEPP = new()
-    {
-        new("ti-hardhat",   "#E6F1FB","#185FA5","Casco de seguridad", "Protección craneal",  "MSA V-Gard",  new DateTime(2025,1,1),  "Vencido"),
-        new("ti-shirt",     "#EAF3DE","#3B6D11","Chaleco reflectivo",  "Visibilidad",         "3M Hi-Vis",   new DateTime(2026,3,15), "Vigente"),
-        new("ti-shoe",      "#FAEEDA","#854F0B","Botas de seguridad",  "Protección de pies",  "Caterpillar", new DateTime(2026,5,10), "Vigente"),
-        new("ti-hand-stop", "#F1EFE8","#5F5E5A","Guantes",             "Protección de manos", "3M",          new DateTime(2025,6,5),  "Vigente"),
-        new("ti-ripple",    "#FCEBEB","#A32D2D","Arnés de seguridad",  "Trabajo en altura",   "",            default,                 "N/A"),
-    };
+    private List<ArticuloEPPEditable> ArticulosEPP = new();
+    // {
+    //     new("ti-hardhat",   "#E6F1FB","#185FA5","Casco de seguridad", "Protección craneal",  "MSA V-Gard",  new DateTime(2025,1,1),  "Vencido"),
+    //     new("ti-shirt",     "#EAF3DE","#3B6D11","Chaleco reflectivo",  "Visibilidad",         "3M Hi-Vis",   new DateTime(2026,3,15), "Vigente"),
+    //     new("ti-shoe",      "#FAEEDA","#854F0B","Botas de seguridad",  "Protección de pies",  "Caterpillar", new DateTime(2026,5,10), "Vigente"),
+    //     new("ti-hand-stop", "#F1EFE8","#5F5E5A","Guantes",             "Protección de manos", "3M",          new DateTime(2025,6,5),  "Vigente"),
+    //     new("ti-ripple",    "#FCEBEB","#A32D2D","Arnés de seguridad",  "Trabajo en altura",   "",            default,                 "N/A"),
+    // };
 
     public class TrabajadorInfo
     {
@@ -223,6 +297,7 @@
 
     public class ArticuloEPPEditable
     {
+        public int ArticuloId { get; set; }
         public string Icono { get; set; }
         public string IconoBg { get; set; }
         public string IconoColor { get; set; }

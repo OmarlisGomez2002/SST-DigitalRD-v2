@@ -16,6 +16,7 @@ namespace SSTDigitalRD.Shared.DTOs
         public DateTime FechaCharla { get; set; }
         public int DuracionMinutos { get; set; }
         public int TotalAsistentes { get; set; }
+        public int AsistentesPresentes { get; set; }
         public bool GpsCapturado { get; set; }
         public bool FotoCapturada { get; set; }
         public bool Firmado { get; set; }

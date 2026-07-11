@@ -135,7 +135,10 @@
                 <i class="ti ti-speakerphone" aria-hidden="true"></i>
                 Charlas recientes
             </span>
-            <a class="card-link">Ver todas →</a>
+            @* <a class="card-link">Ver todas →</a> *@
+            <a class="card-link" @onclick="ToggleVerTodas" style="cursor:pointer">
+                @(MostrandoTodas ? "← Solo hoy" : "Ver todas →")
+            </a>
         </div>
         <div class="charla-list">
             @foreach (var charla in CharlasFiltradas)
@@ -408,11 +411,48 @@
             c.AsistentesPresentes * 100.0 / c.TotalAsistentes));
 
     private int TotalCapacitados    => ListaCharlas.Sum(c => c.AsistentesPresentes);
-    private int CuadrillaSinCharla  => 2; // TODO: calcular desde API
+    private int CuadrillaSinCharla
+    {
+        get
+        {
+            if (!CuadrillasDisponibles.Any()) return 0;
+            var hoy = DateTime.Today;
+            var cuadrillasConCharlaHoy = ListaCharlas
+                .Where(x => x.Fecha.Date == hoy)
+                .Select(x => x.Cuadrilla)
+                .Distinct()
+                .ToHashSet();
+            return CuadrillasDisponibles
+                .Count(c => !cuadrillasConCharlaHoy
+                    .Contains(c.Nombre));
+        }
+    }
 
     // ── Filtrado y paginación ──────────────────────────────────
+    // private IEnumerable<CharlaViewModel> CharlasFiltradas =>
+    // ListaCharlas
+    //     .Where(x => string.IsNullOrWhiteSpace(SearchTerm) ||
+    //                 x.Tema.Contains(SearchTerm,
+    //                     StringComparison.OrdinalIgnoreCase) ||
+    //                 x.Instructor.Contains(SearchTerm,
+    //                     StringComparison.OrdinalIgnoreCase))
+    //     .Where(x => string.IsNullOrEmpty(FiltroInstructor) ||
+    //                 x.Instructor == FiltroInstructor)
+    //     .Where(x => string.IsNullOrEmpty(FiltroCuadrilla) ||
+    //                 x.Cuadrilla == FiltroCuadrilla)
+    //     .Where(x => FiltroFirmado == "" ||
+    //                 (FiltroFirmado == "si" && x.Firmado) ||
+    //                 (FiltroFirmado == "no" && !x.Firmado))
+    //     .Where(x => FiltroFechaDesde == null ||
+    //                 x.Fecha.Date >= FiltroFechaDesde.Value.Date)
+    //     .Where(x => FiltroFechaHasta == null ||
+    //                 x.Fecha.Date <= FiltroFechaHasta.Value.Date);
+
     private IEnumerable<CharlaViewModel> CharlasFiltradas =>
     ListaCharlas
+        .Where(x => MostrandoTodas || x.Fecha.Date == DateTime.Today
+            || !string.IsNullOrWhiteSpace(SearchTerm)
+            || FiltrosActivos > 0)
         .Where(x => string.IsNullOrWhiteSpace(SearchTerm) ||
                     x.Tema.Contains(SearchTerm,
                         StringComparison.OrdinalIgnoreCase) ||
@@ -429,6 +469,24 @@
                     x.Fecha.Date >= FiltroFechaDesde.Value.Date)
         .Where(x => FiltroFechaHasta == null ||
                     x.Fecha.Date <= FiltroFechaHasta.Value.Date);
+
+    private bool MostrandoTodas = false;
+
+    private void ToggleVerTodas()
+    {
+        MostrandoTodas = !MostrandoTodas;
+        if (!MostrandoTodas)
+        {
+            FiltroFechaDesde = DateTime.Today;
+            FiltroFechaHasta = DateTime.Today;
+        }
+        else
+        {
+            FiltroFechaDesde = null;
+            FiltroFechaHasta = null;
+        }
+        PaginaActual = 1;
+    }
 
     private List<string> InstructoresDisponibles =>
     ListaCharlas.Select(x => x.Instructor)
@@ -511,6 +569,7 @@
                     Hora = x.FechaCharla.ToString("hh:mm tt"),
                     DuracionMinutos = x.DuracionMinutos,
                     TotalAsistentes = x.TotalAsistentes,
+                    AsistentesPresentes = x.AsistentesPresentes,
                     GpsCapturado = x.GpsCapturado,
                     FotoCapturada = x.FotoCapturada,
                     Firmado = x.Firmado,

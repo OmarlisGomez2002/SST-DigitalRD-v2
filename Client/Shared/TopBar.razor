@@ -1,12 +1,13 @@
 @inject NavigationManager Nav
 @inject HttpClient Http
 @using Microsoft.AspNetCore.Components.Authorization
-@inject SSTDigitalRD.Client.Services.PermisosService Permisos
+@implements IDisposable
+@* @inject SSTDigitalRD.Client.Services.PermisosService Permisos *@
 
 <header class="topbar">
     <div class="topbar-left">
-        <h1 class="page-title">@PageTitle</h1>
-        <span class="page-sub">@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) &middot; Obra: @ObraNombre</span>
+        <h1 class="page-title">@TituloFinal</h1>
+        <span class="page-sub">@DateTime.Now.ToString("dddd, d 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-DO")) </span>
     </div>
     <div class="topbar-actions">
         <button class="icon-btn" title="Buscar">
@@ -16,36 +17,95 @@
             <i class="ti ti-bell"></i>
             <span class="notif-dot"></span>
         </button>
-        @if (_puedeCrear)
+        @* @if (_puedeCrear)
 
         {            
             <button class="btn-primary" @onclick="NuevaInspeccion">
                 <i class="ti ti-plus"></i> Nueva inspección
-            </button>                }
+            </button>                } *@
     </div>
 </header>
 
 @code {
-    [Parameter] public string PageTitle { get; set; } = "Dashboard";
+    [Parameter] public string PageTitle { get; set; } = "";
 
-    private string ObraNombre = "Torre Piantini IV";
-    private bool _puedeCrear = false;
-
-    protected override async Task OnInitializedAsync()
+    private static readonly Dictionary<string, string> Titulos = new()
     {
-        _puedeCrear = await Permisos.PuedeCrear("Inspecciones");
-        try
+        { "/",                  "Dashboard" },
+        { "/inspecciones",      "Inspecciones" },
+        { "/charlas",           "Charlas SST" },
+        { "/epp",               "EPP / Inventario" },
+        { "/incidentes",        "Incidentes" },
+        { "/ia-predictiva",     "IA Predictiva" },
+        { "/vision-obra",       "Visión en Obra" },
+        { "/gemelo-digital",    "Gemelo Digital" },
+        { "/dossier",           "Dossier MTRAB" },
+        { "/empleados",         "Empleados" },
+        { "/configuracion",     "Configuración" },
+    };
+
+    private string TituloFinal
+    {
+        get
         {
-            var obra = await Http
-                .GetFromJsonAsync<SSTDigitalRD.Shared.DTOs.ObraActivaDto>("api/configuracion/obra");
-            if (obra is not null)
-                ObraNombre = obra.Nombre;
+            if (!string.IsNullOrEmpty(PageTitle))
+                return PageTitle;
+
+            var ruta = new Uri(Nav.Uri).AbsolutePath
+                .TrimEnd('/');
+
+            // Buscar coincidencia exacta primero
+            if (Titulos.TryGetValue(
+                    string.IsNullOrEmpty(ruta) ? "/" : ruta,
+                    out var titulo))
+                return titulo;
+
+            // Buscar por prefijo para rutas con parámetros
+            // ej. /inspecciones/nueva, /empleados/1/editar
+            var prefijo = Titulos.Keys
+                .Where(k => k != "/" &&
+                            ruta.StartsWith(k,
+                                StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(k => k.Length)
+                .FirstOrDefault();
+
+            return prefijo is not null
+                ? Titulos[prefijo] : "SST-Digital RD";
         }
-        catch { }
     }
 
-    private void NuevaInspeccion()
+    protected override void OnInitialized()
     {
-        Nav.NavigateTo("/inspecciones/nueva");
+        Nav.LocationChanged += OnLocationChanged;
     }
+
+    private void OnLocationChanged(object? sender,
+        LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+    //private bool _puedeCrear = false;
+
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     //_puedeCrear = await Permisos.PuedeCrear("Inspecciones");
+    //     try
+    //     {
+    //         var obra = await Http
+    //             .GetFromJsonAsync<SSTDigitalRD.Shared.DTOs.ObraActivaDto>("api/configuracion/obra");
+    //         if (obra is not null)
+    //             ObraNombre = obra.Nombre;
+    //     }
+    //     catch { }
+    // }
+
+    // private void NuevaInspeccion()
+    // {
+    //     Nav.NavigateTo("/inspecciones/nueva");
+    // }
 }

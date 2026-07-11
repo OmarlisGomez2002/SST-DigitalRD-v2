@@ -445,6 +445,75 @@
         </div>
     </div>
 
+    <!-- ══ Tipos de EPP ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-hardhat" aria-hidden="true"></i>
+                Tipos de EPP
+            </span>
+        </div>
+
+        @foreach (var grupo in TiposEPP.GroupBy(x => x.Categoria))
+        {
+            <div style="font-size:10px;font-weight:600;
+                        color:var(--text-hint);
+                        text-transform:uppercase;
+                        letter-spacing:.06em;
+                        padding:8px 0 4px;
+                        border-bottom:0.5px solid var(--border);
+                        margin-bottom:4px">
+                @grupo.Key
+            </div>
+            @foreach (var tipo in grupo)
+            {
+                var t = tipo;
+                <div style="display:flex;align-items:center;gap:10px;
+                                padding:7px 4px;
+                                border-bottom:0.5px solid var(--border)">
+                    <i class="ti @t.Icono"
+                       style="font-size:16px;color:var(--text-sec);
+                                  width:20px;text-align:center"
+                       aria-hidden="true"></i>
+                    <span style="flex:1;font-size:12px;
+                                     color:@(t.Activo
+                                                           ? "var(--text-primary)"
+                                                           : "var(--text-hint)")">
+                @t.Nombre
+            </span>
+            <span class="pill @(t.Activo ? "pill-ok" : "pill-gray")"
+                  style="cursor:pointer"
+                  @onclick="() => ToggleTipoEPP(t)">
+                @(t.Activo ? "Activo" : "Inactivo")
+            </span>
+            <button class="icon-action"
+                    @onclick="() => EliminarTipoEPP(t.Id)">
+                <i class="ti ti-trash" aria-hidden="true"></i>
+            </button>
+        </div>
+                }
+        }
+
+        <div style="display:flex;flex-direction:column;
+                gap:8px;margin-top:12px">
+            <div style="display:flex;gap:8px">
+                <input type="text"
+                       @bind="NuevoEPPCategoria"
+                       placeholder="Categoría (ej. Protección craneal)"
+                       style="flex:0 0 200px" />
+                <input type="text"
+                       @bind="NuevoEPPNombre"
+                       placeholder="Nombre del EPP..."
+                       style="flex:1" />
+                <button class="btn-primary btn-sm"
+                        @onclick="AgregarTipoEPP">
+                    <i class="ti ti-plus" aria-hidden="true"></i>
+                    Agregar
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @code {
@@ -476,6 +545,11 @@
     private string NuevoCargo = "";
 
     private bool _tieneAcceso = true;
+
+    private List<TipoEPPDto> TiposEPP = new();
+    private string NuevoEPPNombre = "";
+    private string NuevoEPPCategoria = "";
+    private string NuevoEPPIcono = "ti-hardhat";
 
     protected override async Task OnInitializedAsync()
     {
@@ -526,6 +600,10 @@
             TiposCharla = await Http.GetFromJsonAsync<List<TipoCharlaDto>>("api/configuracion/tipos-charla") ?? new();
 
             Cargos = await Http.GetFromJsonAsync<List<CargoEmpleadoDto>>("api/configuracion/cargos") ?? new();
+
+            TiposEPP = await Http
+    .GetFromJsonAsync<List<TipoEPPDto>>(
+        "api/configuracion/tipos-epp") ?? new();
         }
         catch (Exception ex)
         {
@@ -732,6 +810,48 @@
             $"api/configuracion/checklist/{id}");
         if (response.IsSuccessStatusCode)
             ItemsChecklist.RemoveAll(x => x.Id == id);
+    }
+
+    private async Task AgregarTipoEPP()
+    {
+        if (string.IsNullOrWhiteSpace(NuevoEPPNombre) ||
+            string.IsNullOrWhiteSpace(NuevoEPPCategoria)) return;
+
+        var dto = new TipoEPPDto
+        {
+            Nombre = NuevoEPPNombre.Trim(),
+            Categoria = NuevoEPPCategoria.Trim(),
+            Icono = NuevoEPPIcono
+        };
+
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/tipos-epp", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creado = await response.Content
+                .ReadFromJsonAsync<TipoEPPDto>();
+            if (creado is not null)
+                TiposEPP.Add(creado);
+            NuevoEPPNombre = "";
+            NuevoEPPCategoria = "";
+        }
+    }
+
+    private async Task ToggleTipoEPP(TipoEPPDto tipo)
+    {
+        tipo.Activo = !tipo.Activo;
+        await Http.PutAsJsonAsync(
+            $"api/configuracion/tipos-epp/{tipo.Id}", tipo);
+        StateHasChanged();
+    }
+
+    private async Task EliminarTipoEPP(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/tipos-epp/{id}");
+        if (response.IsSuccessStatusCode)
+            TiposEPP.RemoveAll(x => x.Id == id);
     }
 }
 

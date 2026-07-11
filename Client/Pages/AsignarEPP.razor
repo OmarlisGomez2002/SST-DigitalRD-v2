@@ -63,20 +63,36 @@
 
             <div class="form-field">
                 <label>Cuadrilla <span class="required">*</span></label>
-                <select @bind="CuadrillaSeleccionada"
-                        @bind:after="CargarTrabajadores">
+                <select value="@CuadrillaSeleccionada"
+                        @onchange="OnCuadrillaChange">
                     <option value="">Seleccionar cuadrilla...</option>
                     @foreach (var c in CuadrillasDisponibles)
                     {
                         <option value="@c.Nombre">@c.Nombre</option>
                     }
                 </select>
+                @* <select @bind="CuadrillaSeleccionada"
+                        @bind:after="CargarTrabajadores">
+                    <option value="">Seleccionar cuadrilla...</option>
+                    @foreach (var c in CuadrillasDisponibles)
+                    {
+                        <option value="@c.Nombre">@c.Nombre</option>
+                    }
+                </select> *@
             </div>
 
             <div class="form-field">
                 <label>Trabajador <span class="required">*</span></label>
-                <select @bind="TrabajadorSeleccionadoId"
+                @* <select @bind="TrabajadorSeleccionadoId"
                         @bind:after="CargarEstadoEPP">
+                    <option value="0">Seleccionar trabajador...</option>
+                    @foreach (var t in TrabajadoresDisponibles)
+                    {
+                        <option value="@t.Id">@t.Nombre — @t.Cargo</option>
+                    }
+                </select> *@
+                <select value="@TrabajadorSeleccionadoId"
+                        @onchange="OnTrabajadorChange">
                     <option value="0">Seleccionar trabajador...</option>
                     @foreach (var t in TrabajadoresDisponibles)
                     {
@@ -412,22 +428,119 @@
     private double Longitud = 0;
     private double Precision = 0;
 
+    private TrabajadorItem? _trabajadorActivo;
+    private TrabajadorItem? TrabajadorActivo => _trabajadorActivo;
+
+
+
     // Listas dinámicas
     private List<ObraActivaDto> ObrasDisponibles = new();
     private List<CuadrillaDto> CuadrillasDisponibles = new();
     private List<EmpleadoListDto> TrabajadoresDisponibles = new();
 
-    private TrabajadorItem? TrabajadorActivo =>
-        TrabajadoresDisponibles
-            .Where(t => t.Id == TrabajadorSeleccionadoId)
-            .Select(t => new TrabajadorItem(
-                t.Id, t.Nombre,
-                string.Concat(t.Nombre.Split(' ')
-                    .Take(2).Select(p => p[0].ToString()))
+    // private TrabajadorItem? TrabajadorActivo =>
+    //     TrabajadoresDisponibles
+    //         .Where(t => t.Id == TrabajadorSeleccionadoId)
+    //         .Select(t => new TrabajadorItem(
+    //             t.Id, t.Nombre,
+    //             string.Concat(t.Nombre.Split(' ')
+    //                 .Take(2).Select(p => p[0].ToString()))
+    //                 .ToUpper(),
+    //             t.Cargo, "#E6F1FB", "#185FA5",
+    //             "ok", "ok", "ok"))
+    //         .FirstOrDefault();
+
+    private async Task OnTrabajadorChange(ChangeEventArgs e)
+    {
+        TrabajadorSeleccionadoId = int.TryParse(
+            e.Value?.ToString(), out var id) ? id : 0;
+        await CargarEstadoEPPTrabajador();
+    }
+
+    private async Task CargarEstadoEPPTrabajador()
+    {
+        FirmaCapturada = false;
+        HashGenerado = "";
+
+        foreach (var item in ArticulosEPP)
+        {
+            item.Incluido = false;
+            item.Marca = "";
+            item.FechaVencimiento = default;
+        }
+
+        if (TrabajadorSeleccionadoId == 0)
+        {
+            _trabajadorActivo = null;
+            return;
+        }
+
+        var emp = TrabajadoresDisponibles
+            .FirstOrDefault(t => t.Id == TrabajadorSeleccionadoId);
+
+        if (emp is null) return;
+
+        // Cargar EPP actual del trabajador desde la BD
+        try
+        {
+            var entrega = await Http
+                .GetFromJsonAsync<EntregaEPPDetalleDto>(
+                    $"api/epp/trabajador/{Uri.EscapeDataString(emp.Cedula ?? "")}");
+
+            string casco = "na";
+            string chaleco = "na";
+            string botas = "na";
+
+            if (entrega is not null)
+            {
+                casco = MapEstado(entrega.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Casco de seguridad"));
+                chaleco = MapEstado(entrega.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Chaleco reflectivo"));
+                botas = MapEstado(entrega.Articulos
+                    .FirstOrDefault(a =>
+                        a.TipoEPP == "Botas de seguridad"));
+            }
+
+            _trabajadorActivo = new TrabajadorItem(
+                emp.Id,
+                emp.Nombre,
+                string.Concat(emp.Nombre.Split(' ')
+                    .Take(2)
+                    .Select(p => p.Length > 0
+                        ? p[0].ToString() : ""))
                     .ToUpper(),
-                t.Cargo, "#E6F1FB", "#185FA5",
-                "ok", "ok", "ok"))
-            .FirstOrDefault();
+                emp.Cargo,
+                "#E6F1FB", "#185FA5",
+                casco, chaleco, botas);
+        }
+        catch
+        {
+            _trabajadorActivo = new TrabajadorItem(
+                emp.Id, emp.Nombre,
+                string.Concat(emp.Nombre.Split(' ')
+                    .Take(2)
+                    .Select(p => p.Length > 0
+                        ? p[0].ToString() : ""))
+                    .ToUpper(),
+                emp.Cargo,
+                "#E6F1FB", "#185FA5",
+                "na", "na", "na");
+        }
+
+        StateHasChanged();
+    }
+
+    private static string MapEstado(ArticuloEPPDto? art)
+    {
+        if (art is null) return "na";
+        var dias = (int)(art.FechaVencimiento - DateTime.Today).TotalDays;
+        if (dias < 0) return "vencido";
+        if (dias <= 30) return dias.ToString();
+        return "ok";
+    }
 
     private int ArticulosSeleccionados =>
         ArticulosEPP.Count(x => x.Incluido);
@@ -465,11 +578,63 @@
             CuadrillasDisponibles = await Http
                 .GetFromJsonAsync<List<CuadrillaDto>>(
                     "api/configuracion/cuadrillas") ?? new();
+
+            // Cargar tipos de EPP desde catálogo
+            var tiposEPP = await Http
+                .GetFromJsonAsync<List<TipoEPPDto>>(
+                    "api/configuracion/tipos-epp") ?? new();
+
+            var iconoMap = new Dictionary<string, (string bg, string color)>
+            {
+                ["ti-hardhat"] = ("#E6F1FB", "#185FA5"),
+                ["ti-shirt"] = ("#EAF3DE", "#3B6D11"),
+                ["ti-shoe"] = ("#FAEEDA", "#854F0B"),
+                ["ti-hand-stop"] = ("#F1EFE8", "#5F5E5A"),
+                ["ti-ripple"] = ("#FCEBEB", "#A32D2D"),
+                ["ti-eyeglass"] = ("#EAF3DE", "#3B6D11"),
+            };
+
+            ArticulosEPP = tiposEPP
+                .Where(x => x.Activo)
+                .Select(x =>
+                {
+                    var (bg, color) = iconoMap.ContainsKey(x.Icono)
+                        ? iconoMap[x.Icono]
+                        : ("#E6F1FB", "#185FA5");
+
+                    return new ArticuloEPP(
+                        x.Icono, bg, color,
+                        x.Nombre, x.Categoria, 0);
+                }).ToList();
+
+
+        //     var stockPorTipo = await Http
+        // .GetFromJsonAsync<List<EntregaEPPListDto>>("api/epp");
+
+        //     if (stockPorTipo is not null)
+        //     {
+        //         var todosArticulos = stockPorTipo
+        //             .SelectMany(x => x.Articulos)
+        //             .ToList();
+
+        //         foreach (var art in ArticulosEPP)
+        //         {
+        //             art.Stock = todosArticulos
+        //                 .Count(a => a.TipoEPP == art.Nombre &&
+        //                             a.Estado == "Vigente");
+        //         }
+        //     }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error cargando datos: {ex.Message}");
         }
+    }
+
+    private async Task OnCuadrillaChange(ChangeEventArgs e)
+    {
+        CuadrillaSeleccionada = e.Value?.ToString() ?? "";
+        await CargarTrabajadores();
     }
 
     private async Task CargarTrabajadores()
@@ -481,10 +646,7 @@
         try
         {
             var todos = await Http
-                .GetFromJsonAsync<List<EmpleadoListDto>>(
-                    $"api/empleados?cuadrilla=" +
-                    Uri.EscapeDataString(CuadrillaSeleccionada)
-                    + "&estado=Activo");
+                .GetFromJsonAsync<List<EmpleadoListDto>>($"api/empleados?cuadrilla=" +Uri.EscapeDataString(CuadrillaSeleccionada));
 
             if (todos is not null)
                 TrabajadoresDisponibles = todos;

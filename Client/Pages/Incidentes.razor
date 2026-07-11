@@ -100,24 +100,25 @@
 <div class="insp-stats-row">
     <div class="insp-stat">
         <span class="insp-stat-label">Incidentes este mes</span>
-        <span class="insp-stat-val">@ListaIncidentes.Count <small>reportados</small></span>
+        <span class="insp-stat-val">@IncidentesEsteMes <small>reportados</small></span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Accidentes con lesión</span>
         <span class="insp-stat-val" style="color:#A32D2D">
-            @ListaIncidentes.Count(x => x.Tipo == "Accidente grave" || x.Tipo == "Accidente leve")
-            <small>casos</small>
+            @AccidentesConLesion <small>casos</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Días perdidos</span>
         <span class="insp-stat-val" style="color:#854F0B">
-            @ListaIncidentes.Sum(x => x.DiasPerdidos) <small>días</small>
+            @TotalDiasPerdidos <small>días</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Tasa de frecuencia</span>
-        <span class="insp-stat-val">3.2 <small>por 100 trab.</small></span>
+        <span class="insp-stat-val">
+            @TasaFrecuencia.ToString("F1") <small>× 10⁶ h</small>
+        </span>
     </div>
 </div>
 
@@ -399,6 +400,32 @@
     {
         PaginaActual = 1;
         MostrarPanelFiltros = false;
+    }
+
+    private int IncidentesEsteMes =>
+    ListaIncidentes.Count(x =>
+        x.Fecha.Year == DateTime.Now.Year &&
+        x.Fecha.Month == DateTime.Now.Month);
+
+    private int AccidentesConLesion =>
+        ListaIncidentes.Count(x =>
+            x.Tipo == "Accidente grave" ||
+            x.Tipo == "Accidente leve");
+
+    private int TotalDiasPerdidos =>
+        ListaIncidentes.Sum(x => x.DiasPerdidos);
+
+    // Tasa de frecuencia = (accidentes × 1,000,000) / horas trabajadas
+    // Norma dominicana: se asume 200 trabajadores × 8h × 25 días
+    private double TasaFrecuencia
+    {
+        get
+        {
+            const int horasTrabajadas = 200 * 8 * 25; // 40,000 horas/mes
+            if (AccidentesConLesion == 0) return 0;
+            return Math.Round(
+                AccidentesConLesion * 1_000_000.0 / horasTrabajadas, 2);
+        }
     }
 
     private async Task DescargarPDF(IncidenteViewModel inc)

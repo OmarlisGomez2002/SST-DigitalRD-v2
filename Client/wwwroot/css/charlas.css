@@ -251,3 +251,132 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ── Lista de trabajadores ───────────────────────────────── */
+.trabajador-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 12px;
+}
+
+.trabajador-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    background: var(--bg-surface);
+    transition: background 0.15s;
+}
+
+    .trabajador-item.presente {
+        background: #F4FAF0;
+        border-color: #C5E0A8;
+    }
+
+.trabajador-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.trabajador-nombre {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trabajador-cargo {
+    font-size: 11px;
+    color: var(--text-hint);
+}
+
+/* ── Toggle de asistencia ────────────────────────────────── */
+.toggle-asist {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+    .toggle-asist input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+.toggle-track {
+    width: 36px;
+    height: 20px;
+    background: var(--border-mid);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.toggle-asist input:checked + .toggle-track {
+    background: #3B6D11;
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-asist input:checked + .toggle-track .toggle-thumb {
+    transform: translateX(16px);
+}
+
+/* ── Barra de progreso de asistencia ─────────────────────── */
+.asist-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.asist-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-muted);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.asist-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+.asist-progress-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-sec);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Acciones masivas ────────────────────────────────────── */
+.asist-acciones {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}

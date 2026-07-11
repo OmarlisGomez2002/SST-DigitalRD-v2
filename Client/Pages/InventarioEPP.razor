@@ -90,7 +90,7 @@
         <span class="insp-stat-val">@TotalStock <small>unidades</small></span>
     </div>
     <div class="insp-stat">
-        <span class="insp-stat-label">Vencen en ≤ 30 días</span>
+        <span class="insp-stat-label">Vencen en menos 30 días</span>
         <span class="insp-stat-val" style="color:#A32D2D">
             @VencenProximo <small>artículos</small>
         </span>
@@ -650,6 +650,11 @@
     private bool _puedeCrear = false;
     private bool _puedeEditar = false;
 
+    private static readonly string[] BgColors =
+    { "#E6F1FB", "#EAF3DE", "#FAEEDA", "#FCEBEB" };
+    private static readonly string[] FgColors =
+        { "#185FA5", "#3B6D11", "#854F0B", "#A32D2D" };
+
     // ── Tabs ───────────────────────────────────────────────────
     private List<TabItem> Tabs => new()
     {
@@ -660,10 +665,16 @@
     };
 
     // ── Métricas ───────────────────────────────────────────────
-    private int TotalStock => 248;
-    private int VencenProximo => ListaTrabajadores.Count(t => TieneVencimientoProximo(t));
+    private int TotalStock => ListaTrabajadores
+    .SelectMany(t => new[] { t.Casco, t.Chaleco, t.Botas, t.Guantes, t.Arnes })
+    .Count(x => x != "na");
+    //private int VencenProximo => ListaTrabajadores.Count(t => TieneVencimientoProximo(t));
+    private int VencenProximo => AlertasEPP
+    .Count(a => a.DiasRestantes >= 0 && a.DiasRestantes <= 30);
     private int TrabajadoresCubiertos => ListaTrabajadores.Count;
-    private int ArticulosPorReponer => StockPorTipo.Count(e => e.Disponibles < 5);
+    private int ArticulosPorReponer => ListaTrabajadores
+    .SelectMany(t => new[] { t.Casco, t.Chaleco, t.Botas, t.Guantes, t.Arnes })
+    .Count(x => x == "vencido");
 
     private List<TrabajadorEPP> TrabajadoresVencidos =>
         ListaTrabajadores.Where(t => t.Casco == "vencido" ||
@@ -684,7 +695,8 @@
 
             if (resultado is not null)
             {
-                ListaTrabajadores = resultado.Select(x => new TrabajadorEPP
+                // Tab: Por trabajador
+                ListaTrabajadores = resultado.Select((x, i) => new TrabajadorEPP
                 {
                     Id = x.Id,
                     Nombre = x.NombreTrabajador,
@@ -709,14 +721,117 @@
                     Arnes = MapearEstado(x.Articulos
                     .FirstOrDefault(a =>
                         a.TipoEPP == "Arnés de seguridad")),
+                    AvatarBg = BgColors[i % BgColors.Length],
+                    AvatarColor = FgColors[i % FgColors.Length]
                 }).ToList();
 
-                // Alertas
+                // Tab: Por tipo de EPP
+                // Cargar catálogo de tipos EPP
+                var tiposEPP = await Http
+                    .GetFromJsonAsync<List<TipoEPPDto>>(
+                        "api/configuracion/tipos-epp") ?? new();
+
+                var hoy = DateTime.Today;
+                var en30Dias = hoy.AddDays(30);
+
+                // Todos los artículos de todas las entregas
+                var todosArticulos = resultado
+                    .SelectMany(x => x.Articulos)
+                    .ToList();
+
+                var iconoMap = new Dictionary<string, (string bg, string color)>
+                {
+                    ["ti-hardhat"] = ("#E6F1FB", "#185FA5"),
+                    ["ti-shirt"] = ("#EAF3DE", "#3B6D11"),
+                    ["ti-shoe"] = ("#FAEEDA", "#854F0B"),
+                    ["ti-hand-stop"] = ("#F1EFE8", "#5F5E5A"),
+                    ["ti-ripple"] = ("#FCEBEB", "#A32D2D"),
+                    ["ti-eyeglass"] = ("#EAF3DE", "#3B6D11"),
+                };
+
+                StockPorTipo = tiposEPP
+                    .Where(x => x.Activo)
+                    .Select(tipo =>
+                    {
+                        var arts = todosArticulos
+                            .Where(a => a.TipoEPP == tipo.Nombre)
+                            .ToList();
+
+                        var (bg, color) = iconoMap.ContainsKey(tipo.Icono)
+                            ? iconoMap[tipo.Icono]
+                            : ("#E6F1FB", "#185FA5");
+
+                        return new StockEPP
+                        {
+                            Nombre = tipo.Nombre,
+                            Categoria = tipo.Categoria,
+                            Icono = tipo.Icono,
+                            IconoBg = bg,
+                            IconoColor = color,
+                            StockTotal = arts.Count,
+                            EnUso = arts.Count(a =>
+                                a.Estado == "Vigente"),
+                            Disponibles = arts.Count(a =>
+                                a.Estado == "Vigente" &&
+                                a.FechaVencimiento > en30Dias),
+                            VencenProximo = arts.Count(a =>
+                                a.Estado == "Vigente" &&
+                                a.FechaVencimiento >= hoy &&
+                                a.FechaVencimiento <= en30Dias)
+                        };
+                    }).ToList();
+                // var hoy = DateTime.Today;
+                // var en30Dias = hoy.AddDays(30);
+
+                // var tiposEPP = new[]
+                // {
+                //     ("Casco de seguridad",  "Protección craneal",  "ti-hardhat",
+                //      "#E6F1FB", "#185FA5"),
+                //     ("Chaleco reflectivo",  "Visibilidad",          "ti-shirt",
+                //      "#EAF3DE", "#3B6D11"),
+                //     ("Botas de seguridad",  "Protección de pies",   "ti-shoe",
+                //      "#FAEEDA", "#854F0B"),
+                //     ("Guantes",             "Protección de manos",  "ti-hand-stop",
+                //      "#E6F1FB", "#185FA5"),
+                //     ("Arnés de seguridad",  "Trabajo en altura",    "ti-ripple",
+                //      "#FCEBEB", "#A32D2D"),
+                // };
+
+                // StockPorTipo = tiposEPP.Select(tipo =>
+                // {
+                //     var arts = resultado
+                //         .SelectMany(x => x.Articulos)
+                //         .Where(a => a.TipoEPP == tipo.Item1)
+                //         .ToList();
+
+                //     var hoy = DateTime.Today;
+                //     var en30Dias = hoy.AddDays(30);
+
+                //     return new StockEPP
+                //     {
+                //         Nombre = tipo.Item1,
+                //         Categoria = tipo.Item2,
+                //         Icono = tipo.Item3,
+                //         IconoBg = tipo.Item4,
+                //         IconoColor = tipo.Item5,
+                //         StockTotal = arts.Count,
+                //         EnUso = arts.Count(a => a.Estado == "Vigente"),
+                //         Disponibles = arts.Count(a =>
+                //             a.Estado == "Vigente" &&
+                //             a.FechaVencimiento > en30Dias),
+                //         VencenProximo = arts.Count(a =>
+                //             a.Estado == "Vigente" &&
+                //             a.FechaVencimiento >= hoy &&
+                //             a.FechaVencimiento <= en30Dias)
+                //     };
+                // }).ToList();
+
+                // Tab: Alertas
                 AlertasEPP = await Http
                     .GetFromJsonAsync<List<AlertaEPPDto>>(
                         "api/epp/alertas") ?? new();
 
-                // Historial
+                // Tab: Historial
                 HistorialEPP = await Http
                     .GetFromJsonAsync<List<HistorialEPPDto>>(
                         "api/epp/historial") ?? new();
@@ -731,12 +846,25 @@
     private static string MapearEstado(ArticuloEPPDto? art)
     {
         if (art is null) return "na";
-        return art.Estado switch
-        {
-            "Vigente" => "ok",
-            "Vencido" => "Vencido",
-            _ => art.Estado
-        };
+
+        // Fecha por defecto — artículo sin fecha configurada
+        if (art.FechaVencimiento <= DateTime.MinValue.AddDays(1))
+            return "ok";
+
+        
+        if (art.Estado == "Vencido") return "vencido";
+
+        var dias = (int)(art.FechaVencimiento - DateTime.Today).TotalDays;
+
+        if (dias < 0) return "vencido";
+        if (dias <= 30) return dias.ToString(); // muestra días restantes
+        return "ok";
+        // return art.Estado switch
+        // {
+        //     "Vigente" => "ok",
+        //     "Vencido" => "Vencido",
+        //     _ => art.Estado
+        // };
     }
 
     private async Task DescargarPDFEPP(TrabajadorEPP t)
@@ -904,15 +1032,15 @@ MostrarPanelFiltros = !MostrarPanelFiltros;
     //     new() { Id=8, Nombre="E. Méndez",     Iniciales="EM", Cargo="Soldador",      Cuadrilla="Cuadrilla B", Casco="ok",      Chaleco="7",     Botas="ok",    Guantes="ok", Arnes="ok",  AvatarBg="#EAF3DE", AvatarColor="#3B6D11" },
     // };
 
-    private List<StockEPP> StockPorTipo = new()
-    {
-        new() { Nombre="Casco de seguridad",  Categoria="Protección craneal",  Icono="ti-hardhat",   IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=45, EnUso=38, Disponibles=7,  VencenProximo=4 },
-        new() { Nombre="Chaleco reflectivo",  Categoria="Visibilidad",         Icono="ti-shirt",     IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=50, EnUso=38, Disponibles=12, VencenProximo=2 },
-        new() { Nombre="Botas de seguridad",  Categoria="Protección de pies",  Icono="ti-shoe",      IconoBg="#FAEEDA", IconoColor="#854F0B", StockTotal=40, EnUso=38, Disponibles=2,  VencenProximo=1 },
-        new() { Nombre="Guantes",             Categoria="Protección de manos", Icono="ti-hand-stop", IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=60, EnUso=30, Disponibles=30, VencenProximo=3 },
-        new() { Nombre="Arnés de seguridad",  Categoria="Trabajo en altura",   Icono="ti-ripple",    IconoBg="#FCEBEB", IconoColor="#A32D2D", StockTotal=20, EnUso=15, Disponibles=5,  VencenProximo=2 },
-        new() { Nombre="Gafas de seguridad",  Categoria="Protección ocular",   Icono="ti-eyeglass",  IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=33, EnUso=20, Disponibles=13, VencenProximo=0 },
-    };
+    private List<StockEPP> StockPorTipo = new();
+    // {
+    //     new() { Nombre="Casco de seguridad",  Categoria="Protección craneal",  Icono="ti-hardhat",   IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=45, EnUso=38, Disponibles=7,  VencenProximo=4 },
+    //     new() { Nombre="Chaleco reflectivo",  Categoria="Visibilidad",         Icono="ti-shirt",     IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=50, EnUso=38, Disponibles=12, VencenProximo=2 },
+    //     new() { Nombre="Botas de seguridad",  Categoria="Protección de pies",  Icono="ti-shoe",      IconoBg="#FAEEDA", IconoColor="#854F0B", StockTotal=40, EnUso=38, Disponibles=2,  VencenProximo=1 },
+    //     new() { Nombre="Guantes",             Categoria="Protección de manos", Icono="ti-hand-stop", IconoBg="#E6F1FB", IconoColor="#185FA5", StockTotal=60, EnUso=30, Disponibles=30, VencenProximo=3 },
+    //     new() { Nombre="Arnés de seguridad",  Categoria="Trabajo en altura",   Icono="ti-ripple",    IconoBg="#FCEBEB", IconoColor="#A32D2D", StockTotal=20, EnUso=15, Disponibles=5,  VencenProximo=2 },
+    //     new() { Nombre="Gafas de seguridad",  Categoria="Protección ocular",   Icono="ti-eyeglass",  IconoBg="#EAF3DE", IconoColor="#3B6D11", StockTotal=33, EnUso=20, Disponibles=13, VencenProximo=0 },
+    // };
 
     private List<AlertaEPPDto> AlertasEPP = new();
     // {

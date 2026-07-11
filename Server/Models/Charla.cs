@@ -23,6 +23,7 @@ namespace SSTDigitalRD.Server.Models
         public DateTime FechaCharla { get; set; }
         public int DuracionMinutos { get; set; }
         public int TotalAsistentes { get; set; }
+        public int AsistentesPresentes { get; set; }
 
         // GPS
         public double Latitud { get; set; }

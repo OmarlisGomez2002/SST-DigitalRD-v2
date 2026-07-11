@@ -137,11 +137,54 @@
                     <input type="time" @bind="Modelo.Hora" />
                 </div>
 
-                <div class="form-field">
+                @* <div class="form-field">
                     <label>Trabajador afectado</label>
                     <input type="text"
                            @bind="Modelo.Afectado"
                            placeholder="Nombre del trabajador (si aplica)" />
+                </div> *@
+                <div class="form-field" style="position:relative">
+                    <label>Trabajador afectado</label>
+                    <input type="text"
+                           value="@BusquedaAfectado"
+                           @oninput="OnAfectadoInput"
+                           placeholder="Buscar por nombre..."
+                           autocomplete="off" />
+
+                    @if (AfectadosFiltrados.Any() &&
+                                    !string.IsNullOrWhiteSpace(BusquedaAfectado) &&
+                                    BusquedaAfectado != Modelo.Afectado)
+                    {
+                        <div style="position:absolute;z-index:50;width:100%;
+                            background:var(--bg-surface);
+                            border:0.5px solid var(--border-mid);
+                            border-radius:var(--radius-md);
+                            box-shadow:var(--shadow-sm);
+                            max-height:180px;overflow-y:auto">
+                            @foreach (var emp in AfectadosFiltrados)
+                            {
+                                var e = emp;
+                                <div style="padding:8px 12px;cursor:pointer;
+                                        font-size:13px;
+                                        border-bottom:0.5px solid var(--border)"
+                                     @onclick="() => SeleccionarAfectado(e)">
+                                    <div style="font-weight:500">@e.Nombre</div>
+                                    <div style="font-size:11px;
+                                            color:var(--text-hint)">
+                                        @e.Cargo · @e.Cuadrilla
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(Modelo.Afectado))
+                    {
+                        <span style="font-size:11px;color:var(--green-600)">
+                            <i class="ti ti-check" aria-hidden="true"></i>
+                            @Modelo.Afectado
+                        </span>
+                    }
                 </div>
 
                 <div class="form-field">
@@ -552,6 +595,40 @@
         public string Error { get; set; } = "";
     }
 
+    private string BusquedaAfectado = "";
+    private List<EmpleadoListDto> TodosEmpleados = new();
+    private List<EmpleadoListDto> AfectadosFiltrados = new();
+
+    private void OnAfectadoInput(ChangeEventArgs e)
+    {
+        BusquedaAfectado = e.Value?.ToString() ?? "";
+        Modelo.Afectado = "";
+        FiltrarAfectados();
+    }
+
+    private void FiltrarAfectados()
+    {
+        if (string.IsNullOrWhiteSpace(BusquedaAfectado))
+        {
+            AfectadosFiltrados = new();
+            return;
+        }
+        AfectadosFiltrados = TodosEmpleados
+            .Where(x => x.Nombre.Contains(
+                BusquedaAfectado,
+                StringComparison.OrdinalIgnoreCase))
+            .Take(6)
+            .ToList();
+    }
+
+    private void SeleccionarAfectado(EmpleadoListDto emp)
+    {
+        Modelo.Afectado = emp.Nombre;
+        BusquedaAfectado = emp.Nombre;
+        AfectadosFiltrados = new();
+        StateHasChanged();
+    }
+
     // ── Modelo ─────────────────────────────────────────────────
     private IncidenteFormDto Modelo = new()
     {
@@ -744,6 +821,11 @@
 
             if (obras is not null)
                 ObrasDisponibles = obras;
+
+            var empleados = await Http
+        .GetFromJsonAsync<List<EmpleadoListDto>>("api/empleados");
+            if (empleados is not null)
+                TodosEmpleados = empleados;
         }
         catch (Exception ex)
         {

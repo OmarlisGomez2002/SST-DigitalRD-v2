@@ -102,7 +102,7 @@
                     }
                 </select>
             </div>
-            <div class="form-field">
+            @* <div class="form-field">
                 <label>Cuadrilla</label>
                 <select @bind="Modelo.Cuadrilla">
                     <option>Cuadrilla A</option>
@@ -110,6 +110,23 @@
                     <option>Cuadrilla C</option>
                     <option>Cuadrilla D</option>
                 </select>
+            </div> *@
+            <div class="form-field">
+                <label>Cuadrilla <span class="required">*</span></label>
+                <select @bind="Modelo.Cuadrilla"
+                        class="@(MostrarErrores &&
+                                                    string.IsNullOrEmpty(Modelo.Cuadrilla)
+                                                    ? "input-error" : "")">
+                    <option value="">Seleccionar cuadrilla...</option>
+                    @foreach (var c in CuadrillasDisponibles)
+                    {
+                        <option value="@c.Nombre">@c.Nombre</option>
+                    }
+                </select>
+                @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Cuadrilla))
+                {
+                    <span class="field-error">La cuadrilla es requerida</span>
+                }
             </div>
             <div class="form-field">
                 <label>Fecha de ingreso</label>
@@ -148,6 +165,7 @@
 
     private bool MostrarErrores = false;
     private List<CargoEmpleadoDto> CargosDisponibles = new();
+    private List<CuadrillaDto> CuadrillasDisponibles = new();
 
     // protected override void OnInitialized()
     // {
@@ -195,7 +213,7 @@
                     Correo = resultado.Correo,
                     Direccion = resultado.Direccion,
                     Cargo = resultado.Cargo,
-                    Cuadrilla = resultado.Cuadrilla,
+                    Cuadrilla = resultado.Cuadrilla,                    
                     FechaIngreso = resultado.FechaIngreso,
                     TipoContrato = resultado.TipoContrato,
                     NumeroTSS = resultado.NumeroTSS,
@@ -207,6 +225,10 @@
             
             if (cargos is not null)
                 CargosDisponibles = cargos;
+
+            var cuadrillas = await Http.GetFromJsonAsync<List<CuadrillaDto>>("api/configuracion/cuadrillas");
+            if (cuadrillas is not null)
+                CuadrillasDisponibles = cuadrillas;
         }
         catch (Exception ex)
         {
@@ -230,7 +252,7 @@
             Direccion = Modelo.Direccion,
             Cargo = Modelo.Cargo,
             Cuadrilla = Modelo.Cuadrilla,
-            Obra = "Torre Piantini IV",
+            //Obra = "Torre Piantini IV",
             FechaIngreso = Modelo.FechaIngreso,
             TipoContrato = Modelo.TipoContrato,
             NumeroTSS = Modelo.NumeroTSS,

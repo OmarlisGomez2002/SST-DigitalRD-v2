@@ -155,4 +155,18 @@ namespace SSTDigitalRD.Server.Models
         public int Orden { get; set; } = 0;
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     }
+
+    public class TipoEPP
+    {
+        [Key]
+        public int Id { get; set; }
+        [Required, MaxLength(100)]
+        public string Nombre { get; set; } = "";
+        [MaxLength(100)]
+        public string Categoria { get; set; } = "";
+        [MaxLength(50)]
+        public string Icono { get; set; } = "ti-hardhat";
+        public bool Activo { get; set; } = true;
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+    }
 }

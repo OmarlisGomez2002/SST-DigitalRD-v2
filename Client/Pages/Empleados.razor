@@ -51,28 +51,25 @@
     <div class="insp-stat">
         <span class="insp-stat-label">Total empleados</span>
         <span class="insp-stat-val">
-            @ListaEmpleados.Count <small>registrados</small>
+            @TotalEmpleados <small>registrados</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Activos hoy</span>
         <span class="insp-stat-val" style="color:#3B6D11">
-            @ListaEmpleados.Count(e => e.Estado == "Activo")
-            <small>en obra</small>
+            @EmpleadosActivos <small>en nómina</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Con EPP al día</span>
         <span class="insp-stat-val" style="color:#3B6D11">
-            @ListaEmpleados.Count(e => e.EstadoEPP == "Al día")
-            <small>trabajadores</small>
+            @ConEPPAlDia <small>empleados</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Capacitados este mes</span>
         <span class="insp-stat-val">
-            @ListaEmpleados.Count(e => e.EstadoCharlas == "Al día")
-            <small>personas</small>
+            @CapacitadosEsteMes <small>en charlas</small>
         </span>
     </div>
 </div>
@@ -195,6 +192,9 @@
     private int PaginaActual = 1;
     private const int PerPage = 10;
     private List<CuadrillaDto> CuadrillasDisponibles = new();
+    private List<EntregaEPPListDto> EntregasEPP = new();
+    private List<CharlaListDto> CharlasEsteMes = new();
+
     private bool _tieneAcceso = true;
     private bool _puedeCrear = false;
 
@@ -223,6 +223,41 @@
     private void IrAPagina(int p) => PaginaActual = p;
     private void PaginaAnterior() { if (PaginaActual > 1) PaginaActual--; }
     private void PaginaSiguiente() { if (PaginaActual < TotalPaginas) PaginaActual++; }
+
+    private int TotalEmpleados => ListaEmpleados.Count;
+
+    private int EmpleadosActivos =>
+        ListaEmpleados.Count(x => x.Estado == "Activo");
+
+    private int ConEPPAlDia
+    {
+        get
+        {
+            var hoy = DateTime.Today;
+            var en30Dias = hoy.AddDays(30);
+
+            // Empleados que tienen al menos una entrega EPP
+            // con todos los artículos vigentes y sin vencer pronto
+            var cedulasConEPP = EntregasEPP
+                .Where(e => e.Articulos.Any() &&
+                            e.Articulos.All(a =>
+                                a.Estado == "Vigente" &&
+                                a.FechaVencimiento > en30Dias))
+                .Select(e => e.CedulaTrabajador)
+                .Distinct()
+                .ToHashSet();
+
+            return ListaEmpleados
+                .Count(x => cedulasConEPP.Contains(x.Cedula));
+        }
+    }
+
+    private int CapacitadosEsteMes =>
+    CharlasEsteMes
+        .Where(c =>
+            c.FechaCharla.Year == DateTime.Now.Year &&
+            c.FechaCharla.Month == DateTime.Now.Month)
+        .Sum(c => c.AsistentesPresentes);
 
     protected override async Task OnInitializedAsync()
     {
@@ -261,6 +296,14 @@
                     "#E6F1FB",
                     "#185FA5"
                 )).ToList();
+
+                EntregasEPP = await Http
+        .GetFromJsonAsync<List<EntregaEPPListDto>>(
+            "api/epp") ?? new();
+
+                CharlasEsteMes = await Http
+                    .GetFromJsonAsync<List<CharlaListDto>>(
+                        "api/charlas") ?? new();
             }
         }
         catch (Exception ex)

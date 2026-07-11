@@ -32,6 +32,7 @@ namespace SSTDigitalRD.Server.Data
         public DbSet<CapturaVision> CapturasVision { get; set; }
 
         public DbSet<ItemChecklist> ItemsChecklist { get; set; }
+        public DbSet<TipoEPP> TiposEPP { get; set; }
 
         protected override void OnModelCreating(ModelBuilder mb)
         {

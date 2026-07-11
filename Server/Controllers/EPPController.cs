@@ -283,9 +283,12 @@ namespace SSTDigitalRD.Server.Controllers
             var articulos = await _db.ArticulosEPP
                 .AsNoTracking()
                 .Include(x => x.EntregaEPP)
-                .Where(x => x.Estado == "Vencido" ||
-                       (x.Estado == "Vigente" &&
-                        x.FechaVencimiento <= en30Dias))
+                .Where(x =>
+                    x.FechaVencimiento > DateTime.MinValue.AddDays(1) &&
+                    (x.Estado == "Vencido" ||
+                     (x.Estado == "Vigente" &&
+                      x.FechaVencimiento <= en30Dias &&
+                      x.FechaVencimiento >= hoy.AddYears(-1))))
                 .OrderBy(x => x.FechaVencimiento)
                 .ToListAsync();
 

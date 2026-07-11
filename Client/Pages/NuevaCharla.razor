@@ -106,8 +106,8 @@
 
                 <div class="form-field">
                     <label>Cuadrilla <span class="required">*</span></label>
-                    <select @bind="Modelo.Cuadrilla"
-                            @bind:after="CargarAsistentes">
+                    <select value="@Modelo.Cuadrilla"
+                            @onchange="OnCuadrillaChange">
                         <option value="">Seleccionar cuadrilla...</option>
                         @foreach (var c in CuadrillasDisponibles)
                         {
@@ -437,22 +437,22 @@
 
     private List<CuadrillaDto> CuadrillasDisponibles = new();
 
-    private List<AsistenteFormItem> ListaAsistentes = new()
-    {
-        new() { Nombre="Juan Pérez",   Cedula="001-0000001-1", Cargo="Albañil",     Presente=true },
-        new() { Nombre="M. López",     Cedula="001-0000002-2", Cargo="Carpintero",  Presente=true },
-        new() { Nombre="C. Ramírez",   Cedula="001-0000003-3", Cargo="Ayudante",    Presente=true },
-        new() { Nombre="D. Martínez",  Cedula="001-0000004-4", Cargo="Electricista",Presente=false },
-        new() { Nombre="R. Paulino",   Cedula="001-0000005-5", Cargo="Albañil",     Presente=true },
-    };
+    // private List<AsistenteFormItem> ListaAsistentes = new()
+    // {
+    //     new() { Nombre="Juan Pérez",   Cedula="001-0000001-1", Cargo="Albañil",     Presente=true },
+    //     new() { Nombre="M. López",     Cedula="001-0000002-2", Cargo="Carpintero",  Presente=true },
+    //     new() { Nombre="C. Ramírez",   Cedula="001-0000003-3", Cargo="Ayudante",    Presente=true },
+    //     new() { Nombre="D. Martínez",  Cedula="001-0000004-4", Cargo="Electricista",Presente=false },
+    //     new() { Nombre="R. Paulino",   Cedula="001-0000005-5", Cargo="Albañil",     Presente=true },
+    // };
 
-    public class AsistenteFormItem
-    {
-        public string Nombre { get; set; } = "";
-        public string Cedula { get; set; } = "";
-        public string Cargo { get; set; } = "";
-        public bool Presente { get; set; } = true;
-    }
+    // public class AsistenteFormItem
+    // {
+    //     public string Nombre { get; set; } = "";
+    //     public string Cedula { get; set; } = "";
+    //     public string Cargo { get; set; } = "";
+    //     public bool Presente { get; set; } = true;
+    // }
 
 
     // ── Modelo ─────────────────────────────────────────────────
@@ -530,43 +530,97 @@
     private void Cancelar() => Nav.NavigateTo("/charlas");
 
     // ── Asistencia ─────────────────────────────────────────────
-    private void CargarAsistentes()
+    private async Task CargarAsistentes()
     {
-        Asistentes = Modelo.Cuadrilla switch
+        Console.WriteLine($"[DEBUG] Cargando asistentes para: '{Modelo.Cuadrilla}'");
+
+        if (string.IsNullOrWhiteSpace(Modelo.Cuadrilla))
         {
-            "Cuadrilla A" => GenerarAsistentes(new[]
+            Asistentes = new();
+            return;
+        }
+
+        try
+        {
+            var empleados = await Http
+                .GetFromJsonAsync<List<EmpleadoListDto>>(
+                    $"api/empleados?cuadrilla={Uri.EscapeDataString(Modelo.Cuadrilla)}");
+
+            if (empleados is not null && empleados.Any())
             {
-                ("JP","Juan Pérez","Albañil"),
-                ("ML","M. López","Carpintero"),
-                ("CR","C. Ramírez","Ayudante"),
-                ("DM","D. Martínez","Electricista"),
-                ("RP","R. Paulino","Albañil"),
-                ("LV","L. Valdez","Plomero"),
-            }),
-            "Cuadrilla B" => GenerarAsistentes(new[]
+                Asistentes = empleados.Select((e, i) => new AsistenteEditable
+                {
+                    EmpleadoId = e.Id,
+                    Iniciales = string.Concat(
+                        e.Nombre.Split(' ')
+                            .Take(2)
+                            .Select(p => p.Length > 0
+                                ? p[0].ToString() : ""))
+                        .ToUpper(),
+                    Nombre = e.Nombre,
+                    Cargo = e.Cargo,
+                    Cedula = e.Cedula ?? "",
+                    Presente = true,
+                    AvatarBg = BgColors[i % BgColors.Length],
+                    AvatarColor = FgColors[i % FgColors.Length]
+                }).ToList();
+            }
+            else
             {
-                ("PS","P. Sánchez","Operador"),
-                ("EM","E. Méndez","Soldador"),
-                ("JR","J. Reyes","Ayudante"),
-                ("AR","A. Rosario","Albañil"),
-            }),
-            "Cuadrilla C" => GenerarAsistentes(new[]
-            {
-                ("MT","M. Torres","Electricista"),
-                ("FG","F. García","Ayudante"),
-                ("NA","N. Arias","Albañil"),
-                ("OC","O. Castro","Carpintero"),
-            }),
-            "Cuadrilla D" => GenerarAsistentes(new[]
-            {
-                ("BF","B. Féliz","Operador"),
-                ("IC","I. Cabrera","Albañil"),
-                ("SM","S. Matos","Plomero"),
-                ("VD","V. Díaz","Ayudante"),
-            }),
-            _ => new()
-        };
+                Asistentes = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando asistentes: {ex.Message}");
+            Asistentes = new();
+        }
+
+        StateHasChanged();
     }
+
+    private async Task OnCuadrillaChange(ChangeEventArgs e)
+    {
+        Modelo.Cuadrilla = e.Value?.ToString() ?? "";
+        await CargarAsistentes();
+    }
+    // private void CargarAsistentes()
+    // {
+    //     Asistentes = Modelo.Cuadrilla switch
+    //     {
+    //         "Cuadrilla A" => GenerarAsistentes(new[]
+    //         {
+    //             ("JP","Juan Pérez","Albañil"),
+    //             ("ML","M. López","Carpintero"),
+    //             ("CR","C. Ramírez","Ayudante"),
+    //             ("DM","D. Martínez","Electricista"),
+    //             ("RP","R. Paulino","Albañil"),
+    //             ("LV","L. Valdez","Plomero"),
+    //         }),
+    //         "Cuadrilla B" => GenerarAsistentes(new[]
+    //         {
+    //             ("PS","P. Sánchez","Operador"),
+    //             ("EM","E. Méndez","Soldador"),
+    //             ("JR","J. Reyes","Ayudante"),
+    //             ("AR","A. Rosario","Albañil"),
+    //         }),
+    //         "Cuadrilla C" => GenerarAsistentes(new[]
+    //         {
+    //             ("MT","M. Torres","Electricista"),
+    //             ("FG","F. García","Ayudante"),
+    //             ("NA","N. Arias","Albañil"),
+    //             ("OC","O. Castro","Carpintero"),
+    //         }),
+    //         "Cuadrilla D" => GenerarAsistentes(new[]
+    //         {
+    //             ("BF","B. Féliz","Operador"),
+    //             ("IC","I. Cabrera","Albañil"),
+    //             ("SM","S. Matos","Plomero"),
+    //             ("VD","V. Díaz","Ayudante"),
+    //         }),
+    //         _ => new()
+    //     };
+    // }
 
     private static readonly string[] BgColors =
         { "#E6F1FB","#EAF3DE","#FAEEDA","#FCEBEB" };
@@ -637,7 +691,7 @@
             PrecisionGps = Modelo.PrecisionGps,
             FotoBase64 = Modelo.FotoBase64,
             FirmaBase64 = Modelo.FirmaBase64,
-            Asistentes = ListaAsistentes.Select(a => new AsistenteDto
+            Asistentes = Asistentes.Select(a => new AsistenteDto
             {
                 Nombre = a.Nombre,
                 Cedula = a.Cedula,
@@ -727,8 +781,10 @@
 
     public class AsistenteEditable
     {
+        public int EmpleadoId { get; set; }
         public string Iniciales { get; set; } = "";
         public string Nombre { get; set; } = "";
+        public string Cedula { get; set; } = "";
         public string Cargo { get; set; } = "";
         public bool Presente { get; set; }
         public string AvatarBg { get; set; } = "#E6F1FB";
