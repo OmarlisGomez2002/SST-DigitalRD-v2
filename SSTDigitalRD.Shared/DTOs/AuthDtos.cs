@@ -26,4 +26,27 @@ namespace SSTDigitalRD.Shared.DTOs
         public string PasswordActual { get; set; } = "";
         public string PasswordNuevo { get; set; } = "";
     }
+
+    public class EditarUsuarioDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string Rol { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public bool Activo { get; set; } = true;
+    }
+
+    public class CambiarPasswordAdminDto
+    {
+        public string PasswordNuevo { get; set; } = "";
+    }
+
+    public class CrearUsuarioConPasswordDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string Rol { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
 }

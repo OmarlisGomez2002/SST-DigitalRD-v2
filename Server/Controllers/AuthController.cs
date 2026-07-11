@@ -147,6 +147,94 @@ namespace SSTDigitalRD.Server.Controllers
 
             return NoContent();
         }
+
+        // ── PUT /api/auth/usuarios/{id} ───────────────────────────
+        [HttpPut("usuarios/{id:int}")]
+        public async Task<IActionResult> EditarUsuario(
+            int id, [FromBody] EditarUsuarioDto dto)
+        {
+            var usuario = await _db.UsuariosSistema.FindAsync(id);
+            if (usuario is null) return NotFound();
+
+            // Verificar correo duplicado en otro usuario
+            var correoExiste = await _db.UsuariosSistema
+                .AnyAsync(x => x.Correo == dto.Correo && x.Id != id);
+            if (correoExiste)
+                return Conflict(new
+                {
+                    error = $"El correo {dto.Correo} ya está en uso."
+                });
+
+            usuario.Nombre = dto.Nombre;
+            usuario.Correo = dto.Correo;
+            usuario.Rol = dto.Rol;
+            usuario.Cuadrilla = dto.Cuadrilla;
+            usuario.Activo = dto.Activo;
+
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // ── PUT /api/auth/usuarios/{id}/reset-password ────────────
+        // Solo para Administrador — cambia contraseña sin verificar la actual
+        [HttpPut("usuarios/{id:int}/reset-password")]
+        public async Task<IActionResult> ResetPassword(
+            int id, [FromBody] CambiarPasswordAdminDto dto)
+        {
+            var usuario = await _db.UsuariosSistema.FindAsync(id);
+            if (usuario is null) return NotFound();
+
+            _auth.CrearPasswordHash(
+                dto.PasswordNuevo, out var hash, out var salt);
+
+            usuario.PasswordHash = hash;
+            usuario.PasswordSalt = salt;
+
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // ── POST /api/auth/crear-usuario ──────────────────────────
+        [HttpPost("crear-usuario")]
+        public async Task<ActionResult<UsuarioSistemaDto>> CrearUsuario(
+            [FromBody] CrearUsuarioConPasswordDto dto)
+        {
+            var existe = await _db.UsuariosSistema
+                .AnyAsync(x => x.Correo == dto.Correo);
+
+            if (existe)
+                return Conflict(new
+                {
+                    error = $"Ya existe un usuario con el correo {dto.Correo}."
+                });
+
+            _auth.CrearPasswordHash(
+                dto.Password, out var hash, out var salt);
+
+            var usuario = new UsuarioSistema
+            {
+                Nombre = dto.Nombre,
+                Correo = dto.Correo,
+                Rol = dto.Rol,
+                Cuadrilla = dto.Cuadrilla,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                Activo = true
+            };
+
+            _db.UsuariosSistema.Add(usuario);
+            await _db.SaveChangesAsync();
+
+            return Ok(new UsuarioSistemaDto
+            {
+                Id = usuario.Id,
+                Nombre = usuario.Nombre,
+                Correo = usuario.Correo,
+                Rol = usuario.Rol,
+                Cuadrilla = usuario.Cuadrilla,
+                Activo = usuario.Activo
+            });
+        }
     }
 
 }

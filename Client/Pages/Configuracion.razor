@@ -166,9 +166,261 @@
             </button>
         </div>
     </div>
-
+        
     <!-- ══ Usuarios del sistema ══ -->
     <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-users" aria-hidden="true"></i>
+                Usuarios del sistema
+            </span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;
+                gap:8px;margin-bottom:12px">
+            @foreach (var user in Usuarios)
+            {
+                var u = user;
+                var iniciales = string.Concat(
+                u.Nombre.Split(' ').Take(2)
+                .Select(p => p.Length > 0
+                ? p[0].ToString() : ""))
+                .ToUpper();
+                var avatarBg = u.Rol == "Administrador"
+                ? "#E6F1FB" : u.Rol == "Prevencionista"
+                ? "#EAF3DE" : "#FAEEDA";
+                var avatarColor = u.Rol == "Administrador"
+                ? "#185FA5" : u.Rol == "Prevencionista"
+                ? "#3B6D11" : "#854F0B";
+
+                <div style="display:flex;align-items:center;gap:10px;
+                            padding:8px 10px;
+                            border:0.5px solid var(--border);
+                            border-radius:var(--radius-md)">
+                    <div class="mini-avatar"
+                         style="background:@avatarBg;color:@avatarColor;
+                                width:30px;height:30px;font-size:11px">
+                        @iniciales
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-size:13px;font-weight:500;
+                                    color:var(--text-primary)">
+                            @u.Nombre
+                        </div>
+                        <div class="text-hint">
+                            @u.Rol
+                            @if (!string.IsNullOrEmpty(u.Cuadrilla))
+                            {
+                                <span> · @u.Cuadrilla</span>
+                            }
+                            · @u.Correo
+                        </div>
+                    </div>
+                    <span class="pill @(u.Rol == "Administrador"
+                                              ? "pill-info" : u.Rol == "Prevencionista"
+                                              ? "pill-ok" : "pill-gray")">
+                    @u.Rol
+                </span>
+                <button class="icon-action"
+                        title="Editar usuario"
+                        @onclick="() => AbrirEditarUsuario(u)">
+                    <i class="ti ti-edit" aria-hidden="true"></i>
+                </button>
+                <button class="icon-action"
+                        title="Cambiar contraseña"
+                        @onclick="() => AbrirCambiarPassword(u)">
+                    <i class="ti ti-key" aria-hidden="true"></i>
+                </button>
+            </div>
+                        }
+        </div>
+
+        <button class="btn-primary"
+                style="width:100%;justify-content:center"
+                @onclick="AbrirNuevoUsuario">
+            <i class="ti ti-user-plus" aria-hidden="true"></i>
+            Agregar usuario
+        </button>
+    </div>
+
+    <!-- ══ Modal: Crear / Editar usuario ══ -->
+    @if (MostrarModalUsuario)
+    {
+        <div class="modal-backdrop" @onclick="CerrarModalUsuario">
+            <div class="modal-card" @onclick:stopPropagation="true"
+                 style="max-width:440px">
+                <div class="modal-header">
+                    <span style="font-weight:600;font-size:14px">
+                        @(UsuarioEditando.Id == 0
+                                            ? "Nuevo usuario" : "Editar usuario")
+                </span>
+                <button class="icon-action"
+                        @onclick="CerrarModalUsuario">
+                    <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="modal-body"
+                 style="display:flex;flex-direction:column;gap:12px">
+
+                    <div class="form-field">
+                        <label>Nombre completo</label>
+                        <input type="text"
+                               @bind="UsuarioEditando.Nombre"
+                               placeholder="Juan Pérez" />
+                    </div>
+                    <div class="form-field">
+                        <label>Correo electrónico</label>
+                        <input type="email"
+                               @bind="UsuarioEditando.Correo"
+                               placeholder="usuario@empresa.do" />
+                    </div>
+                    <div class="form-field">
+                        <label>Rol</label>
+                        <select @bind="UsuarioEditando.Rol">
+                            <option value="Administrador">Administrador</option>
+                            <option value="Prevencionista">Prevencionista</option>
+                            <option value="Supervisor">Supervisor</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label>Cuadrilla (opcional)</label>
+                        <select @bind="UsuarioEditando.Cuadrilla">
+                            <option value="">Sin cuadrilla asignada</option>
+                        @foreach (var c in Cuadrillas)
+                            {
+                                <option value="@c.Nombre">@c.Nombre</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (UsuarioEditando.Id == 0)
+                    {
+                        <div class="form-field">
+                            <label>Contraseña inicial</label>
+                            <input type="password"
+                                   @bind="PasswordNuevo"
+                                   placeholder="Mínimo 8 caracteres" />
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(ErrorModal))
+                    {
+                        <div class="alert-banner danger">
+                            <i class="ti ti-alert-circle"
+                               aria-hidden="true"></i>
+                            @ErrorModal
+                        </div>
+                    }
+
+                    <div style="display:flex;gap:8px;
+                                justify-content:flex-end">
+                        <button class="btn-secondary"
+                                @onclick="CerrarModalUsuario">
+                            Cancelar
+                        </button>
+                        <button class="btn-primary"
+                                @onclick="GuardarUsuario"
+                                disabled="@GuardandoUsuario">
+                            @if (GuardandoUsuario)
+                            {
+                                <i class="ti ti-loader-2 spin"
+                                   aria-hidden="true"></i>
+                            }
+                            else
+                            {
+                                <i class="ti ti-device-floppy"
+                                   aria-hidden="true"></i>
+                            }
+                        @(UsuarioEditando.Id == 0
+                                                ? "Crear usuario" : "Guardar cambios")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+        }
+
+    <!-- ══ Modal: Cambiar contraseña ══ -->
+    @if (MostrarModalPassword)
+    {
+        <div class="modal-backdrop" @onclick="CerrarModalPassword">
+            <div class="modal-card" @onclick:stopPropagation="true"
+                 style="max-width:380px">
+                <div class="modal-header">
+                    <span style="font-weight:600;font-size:14px">
+                        Cambiar contraseña
+                    </span>
+                    <button class="icon-action"
+                            @onclick="CerrarModalPassword">
+                        <i class="ti ti-x" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="modal-body"
+                     style="display:flex;flex-direction:column;gap:12px">
+
+                    <div style="font-size:13px;color:var(--text-sec)">
+                        Cambiando contraseña de
+                        <strong>@UsuarioPassword?.Nombre</strong>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Nueva contraseña</label>
+                        <input type="password"
+                               @bind="PasswordNuevo"
+                               placeholder="Mínimo 8 caracteres" />
+                    </div>
+                    <div class="form-field">
+                        <label>Confirmar contraseña</label>
+                        <input type="password"
+                               @bind="PasswordConfirmar"
+                               placeholder="Repetir contraseña" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ErrorModal))
+                    {
+                        <div class="alert-banner danger">
+                            <i class="ti ti-alert-circle"
+                               aria-hidden="true"></i>
+                            @ErrorModal
+                        </div>
+                    }
+                    @if (PasswordCambiado)
+                    {
+                        <div class="alert-banner ok">
+                            <i class="ti ti-check"
+                               aria-hidden="true"></i>
+                            Contraseña actualizada correctamente.
+                        </div>
+                    }
+
+                    <div style="display:flex;gap:8px;
+                                justify-content:flex-end">
+                        <button class="btn-secondary"
+                                @onclick="CerrarModalPassword">
+                            Cerrar
+                        </button>
+                        <button class="btn-primary"
+                                @onclick="GuardarPassword"
+                                disabled="@GuardandoUsuario">
+                            @if (GuardandoUsuario)
+                            {
+                                <i class="ti ti-loader-2 spin"
+                                   aria-hidden="true"></i>
+                            }
+                            else
+                            {
+                                <i class="ti ti-key"
+                                   aria-hidden="true"></i>
+                            }
+                            Cambiar contraseña
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    <!-- ══ Usuarios del sistema ══ -->
+    @* <div class="dashboard-card">
         <div class="card-header">
             <span class="card-title">
                 <i class="ti ti-users" aria-hidden="true"></i>
@@ -237,14 +489,14 @@
                         <i class="ti ti-edit" aria-hidden="true"></i>
                     </button>
                 </div>
-            } *@
+            } 
         </div>
         <button class="btn-primary"
                 style="width:100%;justify-content:center">
             <i class="ti ti-user-plus" aria-hidden="true"></i>
             Agregar usuario
         </button>
-    </div>
+    </div> *@
 
     <!-- ══ Tipos de inspección ══ -->
     <div class="dashboard-card">
@@ -525,8 +777,6 @@
     private string NuevoItemCategoria = "";
     private string NuevoItemDescripcion = "";
 
-
-
     private ConfiguracionEmpresaDto Config = new();
     private ObraActivaDto Obra = new();
     private List<NotificacionConfigDto> Notificaciones = new();
@@ -550,6 +800,17 @@
     private string NuevoEPPNombre = "";
     private string NuevoEPPCategoria = "";
     private string NuevoEPPIcono = "ti-hardhat";
+
+    // ── Gestión de usuarios ────────────────────────────────────
+    private bool MostrarModalUsuario = false;
+    private bool MostrarModalPassword = false;
+    private bool GuardandoUsuario = false;
+    private bool PasswordCambiado = false;
+    private string PasswordNuevo = "";
+    private string PasswordConfirmar = "";
+    private string ErrorModal = "";
+    private UsuarioSistemaDto UsuarioEditando = new();
+    private UsuarioSistemaDto? UsuarioPassword;
 
     protected override async Task OnInitializedAsync()
     {
@@ -852,6 +1113,224 @@
             $"api/configuracion/tipos-epp/{id}");
         if (response.IsSuccessStatusCode)
             TiposEPP.RemoveAll(x => x.Id == id);
+    }
+
+    // ── Gestión de usuarios ────────────────────────────────────
+    private void AbrirNuevoUsuario()
+    {
+        UsuarioEditando = new UsuarioSistemaDto { Rol = "Prevencionista" };
+        PasswordNuevo = "";
+        ErrorModal = "";
+        MostrarModalUsuario = true;
+    }
+
+    private void AbrirEditarUsuario(UsuarioSistemaDto u)
+    {
+        UsuarioEditando = new UsuarioSistemaDto
+        {
+            Id = u.Id,
+            Nombre = u.Nombre,
+            Correo = u.Correo,
+            Rol = u.Rol,
+            Cuadrilla = u.Cuadrilla,
+            Activo = u.Activo
+        };
+        ErrorModal = "";
+        MostrarModalUsuario = true;
+    }
+
+    private void AbrirCambiarPassword(UsuarioSistemaDto u)
+    {
+        UsuarioPassword = u;
+        PasswordNuevo = "";
+        PasswordConfirmar = "";
+        ErrorModal = "";
+        PasswordCambiado = false;
+        MostrarModalPassword = true;
+    }
+
+    private void CerrarModalUsuario()
+    {
+        MostrarModalUsuario = false;
+        ErrorModal = "";
+    }
+
+    private void CerrarModalPassword()
+    {
+        MostrarModalPassword = false;
+        ErrorModal = "";
+        PasswordCambiado = false;
+    }
+
+    private async Task GuardarUsuario()
+    {
+        ErrorModal = "";
+
+        if (string.IsNullOrWhiteSpace(UsuarioEditando.Nombre) ||
+            string.IsNullOrWhiteSpace(UsuarioEditando.Correo))
+        {
+            ErrorModal = "Nombre y correo son requeridos.";
+            return;
+        }
+
+        if (UsuarioEditando.Id == 0 &&
+            string.IsNullOrWhiteSpace(PasswordNuevo))
+        {
+            ErrorModal = "La contraseña inicial es requerida.";
+            return;
+        }
+
+        GuardandoUsuario = true;
+        StateHasChanged();
+
+        try
+        {
+            if (UsuarioEditando.Id == 0)
+            {
+                // Crear nuevo usuario
+                var dto = new CrearUsuarioConPasswordDto
+                {
+                    Nombre = UsuarioEditando.Nombre,
+                    Correo = UsuarioEditando.Correo,
+                    Rol = UsuarioEditando.Rol,
+                    Cuadrilla = UsuarioEditando.Cuadrilla,
+                    Password = PasswordNuevo
+                };
+
+                var response = await Http.PostAsJsonAsync(
+                    "api/auth/crear-usuario", dto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var creado = await response.Content
+                        .ReadFromJsonAsync<UsuarioSistemaDto>();
+                    if (creado is not null)
+                        Usuarios.Add(creado);
+                    CerrarModalUsuario();
+                }
+                else
+                {
+                    var error = await response.Content
+                        .ReadFromJsonAsync<ErrorResponseDto>();
+                    ErrorModal = error?.Error
+                        ?? "Error al crear el usuario.";
+                }
+            }
+            else
+            {
+                // Editar usuario existente
+                var dto = new EditarUsuarioDto
+                {
+                    Nombre = UsuarioEditando.Nombre,
+                    Correo = UsuarioEditando.Correo,
+                    Rol = UsuarioEditando.Rol,
+                    Cuadrilla = UsuarioEditando.Cuadrilla,
+                    Activo = UsuarioEditando.Activo
+                };
+
+                var response = await Http.PutAsJsonAsync(
+                    $"api/auth/usuarios/{UsuarioEditando.Id}", dto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var idx = Usuarios.FindIndex(
+                        x => x.Id == UsuarioEditando.Id);
+                    if (idx >= 0)
+                    {
+                        Usuarios[idx].Nombre = dto.Nombre;
+                        Usuarios[idx].Correo = dto.Correo;
+                        Usuarios[idx].Rol = dto.Rol;
+                        Usuarios[idx].Cuadrilla = dto.Cuadrilla;
+                    }
+                    CerrarModalUsuario();
+                }
+                else
+                {
+                    var error = await response.Content
+                        .ReadFromJsonAsync<ErrorResponseDto>();
+                    ErrorModal = error?.Error
+                        ?? "Error al actualizar el usuario.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorModal = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            GuardandoUsuario = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task GuardarPassword()
+    {
+        ErrorModal = "";
+
+        if (string.IsNullOrWhiteSpace(PasswordNuevo))
+        {
+            ErrorModal = "La contraseña no puede estar vacía.";
+            return;
+        }
+
+        if (PasswordNuevo.Length < 8)
+        {
+            ErrorModal = "La contraseña debe tener al menos 8 caracteres.";
+            return;
+        }
+
+        if (PasswordNuevo != PasswordConfirmar)
+        {
+            ErrorModal = "Las contraseñas no coinciden.";
+            return;
+        }
+
+        GuardandoUsuario = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CambiarPasswordAdminDto
+            { PasswordNuevo = PasswordNuevo };
+            var response = await Http.PutAsJsonAsync(
+                $"api/auth/usuarios/{UsuarioPassword!.Id}/reset-password",
+                dto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                PasswordCambiado = true;
+                PasswordNuevo = "";
+                PasswordConfirmar = "";
+            }
+            else
+            {
+                ErrorModal = "Error al cambiar la contraseña.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorModal = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            GuardandoUsuario = false;
+            StateHasChanged();
+        }
+    }
+
+    private class ErrorResponseDto
+    {
+        public string Error { get; set; } = "";
+    }
+
+    private class CrearUsuarioConPasswordDto
+    {
+        public string Nombre { get; set; } = "";
+        public string Correo { get; set; } = "";
+        public string Rol { get; set; } = "";
+        public string Cuadrilla { get; set; } = "";
+        public string Password { get; set; } = "";
     }
 }
 
