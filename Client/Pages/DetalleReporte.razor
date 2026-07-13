@@ -192,10 +192,43 @@
 
 @code {
     [Parameter] public string Letra { get; set; } = "A";
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "periodo")]
+    public string? PeriodoQuery { get; set; }
+
+    // Fechas calculadas del período
+    private DateTime InicioMes;
+    private DateTime FinMes;
         
     private ReporteDetalle Reporte = new();
 
+    private string EmpresaNombre = "";
+    private string EmpresaRNC = "";
+    private string ResponsableSST = "";
+
     private void VolverAlDossier() => Nav.NavigateTo("/dossier");
+
+    private void ParsearPeriodo()
+    {
+        if (!string.IsNullOrEmpty(PeriodoQuery) &&
+            DateTime.TryParseExact(
+                PeriodoQuery,
+                new[] { "MMMM yyyy", "MMMM\u00a0yyyy" },
+                new System.Globalization.CultureInfo("es-DO"),
+                System.Globalization.DateTimeStyles.None,
+                out var fecha))
+        {
+            InicioMes = new DateTime(fecha.Year, fecha.Month, 1);
+            FinMes = InicioMes.AddMonths(1).AddSeconds(-1);
+        }
+        else
+        {
+            // Sin período: usar mes actual
+            var ahora = DateTime.Now;
+            InicioMes = new DateTime(ahora.Year, ahora.Month, 1);
+            FinMes = InicioMes.AddMonths(1).AddSeconds(-1);
+        }
+    }
     
     private async Task DescargarPDF()
     {
@@ -213,9 +246,9 @@
     private List<(string Label, string Valor)> CamposIdentificacion =>
         new()
         {
-            ("Empresa",           "Constructora Piantini S.R.L."),
-            ("RNC",               "1-31-12345-6"),
-            ("Responsable SST",   "Ramón Gómez · Prevencionista"),
+            ("Empresa",            EmpresaNombre),//"Constructora Piantini S.R.L."),
+            ("RNC",               EmpresaRNC), //"1-31-12345-6"),
+            ("Responsable SST",   $"{ResponsableSST} · Prevencionista"), //"Ramón Gómez · Prevencionista"),
             ("Base legal",        Reporte.BaseLegal),
             ("Período",           Reporte.Periodo),
             ("Fecha generación",  Reporte.FechaGeneracion.ToString("dd/MM/yyyy · hh:mm tt")),
@@ -230,6 +263,16 @@
     {
         try
         {
+            ParsearPeriodo();
+
+            // Cargar empresa
+            var empresa = await Http
+                .GetFromJsonAsync<ConfiguracionEmpresaDto>(
+                    "api/configuracion/empresa");
+            EmpresaNombre = empresa?.RazonSocial ?? "—";
+            EmpresaRNC = empresa?.RNC ?? "—";
+            ResponsableSST = empresa?.ResponsableSST ?? "—";
+
             var resumen = await Http
                 .GetFromJsonAsync<DossierResumenDto>(
                     "api/dossier");
@@ -241,6 +284,9 @@
 
                 if (dto is not null)
                 {
+                    // Cargar registros reales según el tipo
+                    var registros = await CargarRegistrosReales(Letra);
+
                     Reporte = new ReporteDetalle
                     {
                         Titulo = dto.Titulo,
@@ -249,12 +295,12 @@
                         FechaGeneracion = DateTime.TryParse(
                             dto.FechaGeneracion, out var f) ? f : DateTime.Now,
                         HashSha256 = dto.HashSha256,
-                        RegistrosIncluidos = BuildRegistros(Letra, dto),
+                        RegistrosIncluidos = registros, //BuildRegistros(Letra, dto),
                         ArticulosLegales = BuildArticulos(Letra),
                         Versiones = new()
                     {
-                        new(DateTime.Today,              "R. Gómez", true),
-                        new(DateTime.Today.AddYears(-1), "R. Gómez", false),
+                        new(DateTime.Today, ResponsableSST, true), //"R. Gómez"
+                        new(DateTime.Today.AddYears(-1), ResponsableSST, false), //"R. Gómez"
                     }
                     };
                 }
@@ -265,6 +311,249 @@
             Console.WriteLine($"Error cargando reporte: {ex.Message}");
             Reporte = BuildReporte(Letra);
         }
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosReales(string letra)
+    {
+        return letra switch
+        {
+            "A" => await CargarRegistrosA(),
+            "B" => await CargarRegistrosB(),
+            "C" => await CargarRegistrosC(),
+            "D" => await CargarRegistrosD(),
+            "E" => await CargarRegistrosE(),
+            "F" => await CargarRegistrosF(),
+            _ => new()
+        };
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosA()
+    {
+        var prog = await Http
+            .GetFromJsonAsync<ProgramaSSTDto>(
+                "api/configuracion/programa-sst");
+
+        return new()
+    {
+        new("ti-shield-check", "#EAF3DE", "#3B6D11",
+            "Política de Seguridad y Salud",
+            string.IsNullOrEmpty(prog?.Politica)
+                ? "Pendiente de configurar"
+                : prog.Politica.Length > 80
+                    ? prog.Politica[..80] + "..."
+                    : prog.Politica),
+        new("ti-alert-triangle", "#FAEEDA", "#854F0B",
+            "Matriz de identificación de riesgos",
+            string.IsNullOrEmpty(prog?.MatrizRiesgos)
+                ? "Pendiente de configurar"
+                : prog.MatrizRiesgos.Length > 80
+                    ? prog.MatrizRiesgos[..80] + "..."
+                    : prog.MatrizRiesgos),
+        new("ti-flame", "#FCEBEB", "#A32D2D",
+            "Plan de emergencias",
+            string.IsNullOrEmpty(prog?.PlanEmergencia)
+                ? "Pendiente de configurar"
+                : prog.PlanEmergencia.Length > 80
+                    ? prog.PlanEmergencia[..80] + "..."
+                    : prog.PlanEmergencia),
+        new("ti-calendar", "#E6F1FB", "#185FA5",
+            "Vigencia del programa",
+            prog?.Vigencia ?? "No configurada"),
+    };
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosB()
+    {
+        var incidentes = await Http
+            .GetFromJsonAsync<List<IncidenteListDto>>(
+                "api/incidentes") ?? new();
+
+        var filtrados = incidentes
+        .Where(x => x.Fecha >= InicioMes &&
+                    x.Fecha <= FinMes)
+        .OrderByDescending(x => x.Fecha)
+        .Take(10)
+        .ToList();
+
+        var items = filtrados.Select(x => new RegistroItem(
+        x.Tipo == "Accidente grave"
+            ? "ti-first-aid-kit" : "ti-alert-triangle",
+        x.Tipo == "Accidente grave"
+            ? "#FCEBEB" : "#FAEEDA",
+        x.Tipo == "Accidente grave"
+            ? "#A32D2D" : "#854F0B",
+        $"{x.Tipo} — {x.Area}",
+        $"{x.Fecha:dd/MM/yyyy} · {x.Afectado} · {x.Estado}"))
+        .ToList();
+
+        // var items = incidentes
+        //     .OrderByDescending(x => x.Fecha)
+        //     .Take(5)
+        //     .Select(x => new RegistroItem(
+        //         x.Tipo == "Accidente grave"
+        //             ? "ti-first-aid-kit" : "ti-alert-triangle",
+        //         x.Tipo == "Accidente grave"
+        //             ? "#FCEBEB" : "#FAEEDA",
+        //         x.Tipo == "Accidente grave"
+        //             ? "#A32D2D" : "#854F0B",
+        //         $"{x.Tipo} — {x.Area}",
+        //         $"{x.Fecha:dd/MM/yyyy} · {x.Afectado} · {x.Estado}"))
+        //     .ToList();
+
+        if (!items.Any())
+            items.Add(new("ti-check", "#EAF3DE", "#3B6D11",
+                "Sin incidentes registrados",
+                $"No hay incidentes en {InicioMes:MMMM yyyy}"));
+
+        return items;
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosC()
+    {
+        var charlas = await Http
+            .GetFromJsonAsync<List<CharlaListDto>>(
+                "api/charlas") ?? new();
+
+        var filtradas = charlas
+        .Where(x => x.FechaCharla >= InicioMes &&
+                    x.FechaCharla <= FinMes)
+        .OrderByDescending(x => x.FechaCharla)
+        .Take(10)
+        .ToList();
+
+        var items = filtradas.Select(x => new RegistroItem(
+        "ti-users", "#FAEEDA", "#854F0B",
+        $"Acta — {x.FechaCharla:dd/MM/yyyy}",
+        $"{x.AsistentesPresentes}/{x.TotalAsistentes} asistentes · " +
+        $"{x.Cuadrilla} · " +
+        $"{(x.Firmado ? "Firmada" : "Pendiente")}"))
+        .ToList();
+
+        // var items = charlas
+        //     .OrderByDescending(x => x.FechaCharla)
+        //     .Take(5)
+        //     .Select(x => new RegistroItem(
+        //         "ti-users", "#FAEEDA", "#854F0B",
+        //         $"Acta — {x.FechaCharla:dd/MM/yyyy}",
+        //         $"{x.TotalAsistentes} asistentes · {x.Cuadrilla} · " +
+        //         $"{(x.Firmado ? "Firmada" : "Pendiente")}"))
+        //     .ToList();
+
+        if (!items.Any())
+            items.Add(new("ti-alert-circle", "#FAEEDA", "#854F0B",
+                "Sin actas registradas",
+                "No hay reuniones del comité en " +
+            $"{InicioMes:MMMM yyyy}"));
+
+        return items;
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosD()
+    {
+        var charlas = await Http
+            .GetFromJsonAsync<List<CharlaListDto>>(
+                "api/charlas") ?? new();
+
+        var filtradas = charlas
+        .Where(x => x.FechaCharla >= InicioMes &&
+                    x.FechaCharla <= FinMes)
+        .OrderByDescending(x => x.FechaCharla)
+        .Take(10)
+        .ToList();
+
+        var items = filtradas.Select(x => new RegistroItem(
+        "ti-speakerphone", "#E6F1FB", "#185FA5",
+        x.Tema,
+        $"{x.FechaCharla:dd/MM/yyyy} · " +
+        $"{x.AsistentesPresentes}/{x.TotalAsistentes} asistentes · " +
+        $"{x.Cuadrilla} · " +
+        $"{(x.Firmado ? "Firmada" : "Pendiente")}"))
+        .ToList();
+
+
+
+        // var items = charlas
+        //     .OrderByDescending(x => x.FechaCharla)
+        //     .Take(5)
+        //     .Select(x => new RegistroItem(
+        //         "ti-speakerphone", "#E6F1FB", "#185FA5",
+        //         x.Tema,
+        //         $"{x.FechaCharla:dd/MM/yyyy} · " +
+        //         $"{x.TotalAsistentes} asistentes · {x.Cuadrilla}"))
+        //     .ToList();
+
+        if (!items.Any())
+            items.Add(new("ti-alert-circle", "#E6F1FB", "#185FA5",
+                "Sin charlas registradas",
+                "No hay capacitaciones en" + $"{InicioMes:MMMM yyyy}"));
+
+        return items;
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosE()
+    {
+        var entregas = await Http
+            .GetFromJsonAsync<List<EntregaEPPListDto>>(
+                "api/epp") ?? new();
+        
+        var filtradas = entregas
+        .Where(x => x.FechaEntrega >= InicioMes &&
+                    x.FechaEntrega <= FinMes)
+        .OrderByDescending(x => x.FechaEntrega)
+        .Take(10)
+        .ToList();
+
+        var items = filtradas.Select(x => new RegistroItem(
+           "ti-hardhat", "#E6F1FB", "#185FA5",
+           x.NombreTrabajador,
+           $"{x.FechaEntrega:dd/MM/yyyy} · " +
+           $"{x.Articulos.Count} artículo(s) · " +
+           $"{x.EstadoGeneral}"))
+           .ToList();
+
+        // var items = entregas
+        //     .OrderByDescending(x => x.FechaEntrega)
+        //     .Take(5)
+        //     .Select(x => new RegistroItem(
+        //         "ti-hardhat", "#E6F1FB", "#185FA5",
+        //         x.NombreTrabajador,
+        //         $"{x.FechaEntrega:dd/MM/yyyy} · " +
+        //         $"{x.Articulos.Count} artículo(s) · {x.EstadoGeneral}"))
+        //     .ToList();
+
+        if (!items.Any())
+            items.Add(new("ti-alert-circle", "#FAEEDA", "#854F0B",
+                "Sin entregas registradas",
+                "No hay registro de EPP entregado en" + $"{InicioMes:MMMM yyyy}"));
+
+        return items;
+    }
+
+    private async Task<List<RegistroItem>> CargarRegistrosF()
+    {
+        var incidentes = await Http
+            .GetFromJsonAsync<List<IncidenteListDto>>(
+                "api/incidentes") ?? new();
+
+        var graves = incidentes
+            .Where(x => x.Tipo == "Accidente grave" &&
+                    x.Fecha >= InicioMes &&
+                    x.Fecha <= FinMes)
+            .OrderByDescending(x => x.Fecha)
+            .Take(10)//.Take(5)
+            .Select(x => new RegistroItem(
+                "ti-first-aid-kit", "#FCEBEB", "#A32D2D",
+                $"{x.Tipo} — {x.Area}",
+                $"{x.Fecha:dd/MM/yyyy} · {x.Afectado} · {x.Estado}"))
+            .ToList();
+
+        if (!graves.Any())
+            graves.Add(new("ti-check", "#EAF3DE", "#3B6D11",
+                "Sin accidentes graves",
+                "No hay accidentes graves " +
+            $"{InicioMes:MMMM yyyy}"));
+
+        return graves;
     }
 
     private static List<RegistroItem> BuildRegistros(

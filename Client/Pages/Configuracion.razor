@@ -766,6 +766,71 @@
         </div>
     </div>
 
+    <!-- ══ Programa SST (Reporte A) ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-file-certificate" aria-hidden="true"></i>
+                Programa de SST — Reporte A
+            </span>
+            <span class="pill pill-info" style="margin-left:auto">
+                Reg. 522-06 · Art. 8
+            </span>
+        </div>
+
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Vigencia del programa</label>
+            <input type="text"
+                   @bind="ProgramaSST.Vigencia"
+                   placeholder="Ej. 2025 — 2027" />
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Política de SST</label>
+            <textarea @bind="ProgramaSST.Politica"
+                      rows="3"
+                      placeholder="Describa la política de seguridad...">
+        </textarea>
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Matriz de riesgos</label>
+            <textarea @bind="ProgramaSST.MatrizRiesgos"
+                      rows="3"
+                      placeholder="Descripción de la matriz de riesgos...">
+        </textarea>
+        </div>
+        <div class="form-field" style="margin-bottom:12px">
+            <label>Plan de emergencias</label>
+            <textarea @bind="ProgramaSST.PlanEmergencia"
+                      rows="3"
+                      placeholder="Descripción del plan de evacuación...">
+        </textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ProgramaSST.FechaAprobacion))
+        {
+            <div style="font-size:11px;color:var(--text-hint);
+                        margin-bottom:8px">
+                Última actualización: @ProgramaSST.FechaAprobacion
+            </div>
+        }
+
+        <div style="display:flex;justify-content:flex-end">
+            <button class="btn-primary btn-sm"
+                    @onclick="GuardarProgramaSST"
+                    disabled="@GuardandoPrograma">
+                @if (GuardandoPrograma)
+                {
+                    <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+                }
+                else
+                {
+                    <i class="ti ti-device-floppy" aria-hidden="true"></i>
+                }
+                Guardar programa
+            </button>
+        </div>
+    </div>
+
 </div>
 
 @code {
@@ -811,6 +876,9 @@
     private string ErrorModal = "";
     private UsuarioSistemaDto UsuarioEditando = new();
     private UsuarioSistemaDto? UsuarioPassword;
+
+    private ProgramaSSTDto ProgramaSST = new();
+    private bool GuardandoPrograma = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -865,6 +933,10 @@
             TiposEPP = await Http
     .GetFromJsonAsync<List<TipoEPPDto>>(
         "api/configuracion/tipos-epp") ?? new();
+
+            ProgramaSST = await Http
+    .GetFromJsonAsync<ProgramaSSTDto>(
+        "api/configuracion/programa-sst") ?? new();
         }
         catch (Exception ex)
         {
@@ -1331,6 +1403,16 @@
         public string Rol { get; set; } = "";
         public string Cuadrilla { get; set; } = "";
         public string Password { get; set; } = "";
+    }
+
+    private async Task GuardarProgramaSST()
+    {
+        GuardandoPrograma = true;
+        StateHasChanged();
+        await Http.PutAsJsonAsync(
+            "api/configuracion/programa-sst", ProgramaSST);
+        GuardandoPrograma = false;
+        StateHasChanged();
     }
 }
 

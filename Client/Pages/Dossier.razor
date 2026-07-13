@@ -17,10 +17,10 @@
     <div class="toolbar-filters">
 
         <!-- Filtro empresa/obra -->
-        <button class="filter-btn">
+        @* <button class="filter-btn">
             <i class="ti ti-building-factory-2" aria-hidden="true"></i>
             @(ObraActual ?? "Cargando...")
-        </button>
+        </button> *@
 
         <!-- Filtro período -->
         <div class="filtros-panel-wrapper">
@@ -68,7 +68,7 @@
         <i class="ti ti-file-certificate" aria-hidden="true"></i>
         Generar dossier completo
     </button> *@
-    <button class="btn-primary" style="margin-left:auto"
+    @* <button class="btn-primary" style="margin-left:auto"
             @onclick="GenerarDossierCompleto"
             disabled="@GenerandoCompleto">
         @if (GenerandoCompleto)
@@ -81,7 +81,7 @@
             <i class="ti ti-file-certificate" aria-hidden="true"></i>
             <span>Generar dossier completo</span>
         }
-    </button>
+    </button> *@
 </div>
 
 <!-- ===== MÉTRICAS ===== -->
@@ -89,27 +89,26 @@
     <div class="insp-stat">
         <span class="insp-stat-label">Reportes generados</span>
         <span class="insp-stat-val">
-            @Reportes.Count(r => r.Estado == "generado")
-            <small>de @Reportes.Count</small>
+            @_reportesGenerados <small>de @Reportes.Count</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Completitud dossier</span>
         <span class="insp-stat-val" style="color:#3B6D11">
-            @PorcentajeCompletitud<small>%</small>
+            @_pctCompletitud<small>%</small>
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Última generación</span>
         <span class="insp-stat-val" style="font-size:16px">
-            @UltimaGeneracion.ToString("dd/MM")
-            <small>@UltimaGeneracion.Year</small>
+            @_ultimaGeneracion            
+            @* <small>@UltimaGeneracion.Year</small> *@
         </span>
     </div>
     <div class="insp-stat">
         <span class="insp-stat-label">Próxima entrega MTRAB</span>
         <span class="insp-stat-val" style="color:#854F0B">
-            @DiasProximaEntrega <small>días</small>
+            @_diasProximaEntrega <small>días</small>
         </span>
     </div>
 </div>
@@ -179,7 +178,7 @@
                         {
                             <button class="icon-action" title="Ver reporte"
                                     @onclick:stopPropagation="true"
-                                    @onclick='() => Nav.NavigateTo($"/dossier/{r.Letra}")'>
+                                    @onclick='() => Nav.NavigateTo($"/dossier/{r.Letra}?periodo=" + Uri.EscapeDataString(PeriodoActual))'>
                                 <i class="ti ti-eye" aria-hidden="true"></i>
                             </button>
                             <button class="icon-action"
@@ -193,7 +192,7 @@
                         }
                         else
                         {
-                            <button class="icon-action" title="Generar reporte"
+                            @* <button class="icon-action" title="Generar reporte"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => GenerarReporte(r)">
                                 <i class="ti ti-refresh" aria-hidden="true"></i>
@@ -202,7 +201,18 @@
                                     @onclick:stopPropagation="true"
                                     @onclick="() => SeleccionarReporte(r)">
                                 <i class="ti ti-eye" aria-hidden="true"></i>
-                            </button>
+                            </button> *@
+                            <button class="icon-action"
+                                    title="@(r.Estado == "urgente"
+                                                        ? "Notificar al MTRAB"
+                                                        : "Generar reporte")"
+                            @onclick:stopPropagation="true"
+                            @onclick="() => GenerarReporte(r)">
+                        <i class="ti @(r.Estado == "urgente"
+                                           ? "ti-bell-ringing"
+                                           : "ti-refresh")"
+                           aria-hidden="true"></i>
+                    </button>
                         }
                     </div>
                 </div>
@@ -390,7 +400,7 @@
 @code {
     // ── Estado UI ──────────────────────────────────────────
     private string PeriodoActual = DateTime.Now.ToString("MMMM yyyy");
-    private int DiasProximaEntrega = 18;
+    //private int DiasProximaEntrega = 18;
     private ReporteItem? ReporteSeleccionado;
     private bool Cargando = true;
 
@@ -398,12 +408,16 @@
     private List<ReporteItem> Reportes = new();
 
     // ── Métricas ───────────────────────────────────────────
-    private int PorcentajeCompletitud =>
-        Reportes.Count == 0 ? 0 :
-        (int)Math.Round(Reportes.Average(r => r.Completitud));
+    private int _reportesGenerados = 0;
+    private int _pctCompletitud = 0;
+    private string _ultimaGeneracion = "—";
+    private int _diasProximaEntrega = 0;
+    // private int PorcentajeCompletitud =>
+    //     Reportes.Count == 0 ? 0 :
+    //     (int)Math.Round(Reportes.Average(r => r.Completitud));
 
-    private DateTime UltimaGeneracion = DateTime.Now;
-    private string? ObraActual;
+    // private DateTime UltimaGeneracion = DateTime.Now;
+    //private string? ObraActual;
     private string? EmpresaNombre;
 
     private bool MostrarSelectorPeriodo = false;
@@ -477,7 +491,12 @@
 
             if (resumen is not null)
             {
-                DiasProximaEntrega = resumen.DiasProximaEntrega;
+                //DiasProximaEntrega = resumen.DiasProximaEntrega;
+                _reportesGenerados = resumen.ReportesGenerados;
+                _pctCompletitud = resumen.PorcentajeCompletitud;
+                _ultimaGeneracion = resumen.UltimaGeneracion;
+                _diasProximaEntrega = resumen.DiasProximaEntrega;
+
                 Reportes = resumen.Reportes.Select(r => new ReporteItem
             {
                 Letra              = r.Letra,
@@ -516,10 +535,10 @@
 
         try
         {
-            var obra = await Http
+            /*var obra = await Http
         .GetFromJsonAsync<ObraActivaDto>(
             "api/configuracion/obra");
-            ObraActual = obra?.Nombre;
+            ObraActual = obra?.Nombre;*/
 
             var empresa = await Http
         .GetFromJsonAsync<ConfiguracionEmpresaDto>(
@@ -573,13 +592,26 @@
     {
         var response = await Http.PostAsJsonAsync(
             "api/dossier/generar",
-            new GenerarReporteDto { Letra = r.Letra });
+            new GenerarReporteDto { Letra = r.Letra,
+            Periodo = PeriodoActual });
 
         if (response.IsSuccessStatusCode)
         {
-            r.Estado = "generado";
+            /*r.Estado = "generado";
             r.Completitud = 100;
-            r.HashSha256 = GenerarHash();
+            r.HashSha256 = GenerarHash();*/
+            var actualizado = await response.Content
+            .ReadFromJsonAsync<ReporteStatusDto>();
+
+            if (actualizado is not null)
+            {
+                r.Estado = actualizado.Estado;
+                r.Completitud = actualizado.Completitud;
+                r.HashSha256 = actualizado.HashSha256;
+                r.MensajePendiente = actualizado.MensajePendiente;
+                r.RegistrosIncluidos = actualizado.RegistrosIncluidos;
+                r.Detalle = actualizado.Detalle;
+            }
 
             // Si era el seleccionado, refrescar la vista
             if (ReporteSeleccionado?.Letra == r.Letra)
@@ -588,37 +620,37 @@
             StateHasChanged();
         }
     }
-    private bool GenerandoCompleto = false;
+    //private bool GenerandoCompleto = false;
 
     // private void GenerarDossierCompleto()
     // {
     //     foreach (var r in Reportes.Where(r => r.Estado != "generado"))
     //         _ = GenerarReporte(r);
     // }
-    private async Task GenerarDossierCompleto()
-    {
-        GenerandoCompleto = true;
-        StateHasChanged();
+    // private async Task GenerarDossierCompleto()
+    // {
+    //     GenerandoCompleto = true;
+    //     StateHasChanged();
 
-        // Obtener lista de pendientes antes del loop
-        var pendientes = Reportes
-            .Where(r => r.Estado != "generado")
-            .ToList();
-        foreach (var r in pendientes)
-            await GenerarReporte(r);
+    //     // Obtener lista de pendientes antes del loop
+    //     var pendientes = Reportes
+    //         .Where(r => r.Estado != "generado")
+    //         .ToList();
+    //     foreach (var r in pendientes)
+    //         await GenerarReporte(r);
 
-        // Recargar desde la API para sincronizar
-        await CargarDossier();
+    //     // Recargar desde la API para sincronizar
+    //     await CargarDossier();
 
-        // foreach (var r in Reportes.Where(r => r.Estado != "generado").ToList())
-        //     await GenerarReporte(r);
+    //     // foreach (var r in Reportes.Where(r => r.Estado != "generado").ToList())
+    //     //     await GenerarReporte(r);
 
-        GenerandoCompleto = false;
-        StateHasChanged();
-    }
+    //     GenerandoCompleto = false;
+    //     StateHasChanged();
+    // }
 
     private void VerReporte(ReporteItem r) =>
-        Nav.NavigateTo($"/dossier/{r.Letra}");
+        Nav.NavigateTo($"/dossier/{r.Letra}?periodo=" + Uri.EscapeDataString(PeriodoActual));
 
     private async Task DescargarPDF(ReporteItem r)
     {

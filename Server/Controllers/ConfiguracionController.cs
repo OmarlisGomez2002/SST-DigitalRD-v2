@@ -834,6 +834,62 @@ namespace SSTDigitalRD.Server.Controllers
             return NoContent();
         }
 
+        // ══ PROGRAMA SST ═══════════════════════════════════════════
+
+        [HttpGet("programa-sst")]
+        public async Task<ActionResult<ProgramaSSTDto>> GetProgramaSST()
+        {
+            var prog = await _db.ProgramaSST
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+
+            if (prog is null)
+            {
+                prog = new ProgramaSST
+                {
+                    Vigencia = "2025 — 2027",
+                    Politica = "Política de seguridad y salud en el trabajo",
+                    MatrizRiesgos = "Matriz de identificación y evaluación de riesgos",
+                    PlanEmergencia = "Plan de emergencias y evacuación"
+                };
+                _db.ProgramaSST.Add(prog);
+                await _db.SaveChangesAsync();
+            }
+
+            return Ok(new ProgramaSSTDto
+            {
+                Id = prog.Id,
+                Vigencia = prog.Vigencia,
+                Politica = prog.Politica,
+                MatrizRiesgos = prog.MatrizRiesgos,
+                PlanEmergencia = prog.PlanEmergencia,
+                FechaAprobacion = prog.FechaAprobacion
+                    .ToString("dd/MM/yyyy")
+            });
+        }
+
+        [HttpPut("programa-sst")]
+        public async Task<IActionResult> ActualizarProgramaSST(
+            [FromBody] ProgramaSSTDto dto)
+        {
+            var prog = await _db.ProgramaSST.FirstOrDefaultAsync();
+
+            if (prog is null)
+            {
+                prog = new ProgramaSST();
+                _db.ProgramaSST.Add(prog);
+            }
+
+            prog.Vigencia = dto.Vigencia;
+            prog.Politica = dto.Politica;
+            prog.MatrizRiesgos = dto.MatrizRiesgos;
+            prog.PlanEmergencia = dto.PlanEmergencia;
+            prog.FechaActualizacion = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
 
     }
 }

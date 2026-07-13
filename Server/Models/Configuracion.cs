@@ -169,4 +169,20 @@ namespace SSTDigitalRD.Server.Models
         public bool Activo { get; set; } = true;
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     }
+
+    public class ProgramaSST
+    {
+        [Key]
+        public int Id { get; set; }
+        [MaxLength(200)]
+        public string Vigencia { get; set; } = "2025 — 2027";
+        [MaxLength(500)]
+        public string Politica { get; set; } = "";
+        [MaxLength(500)]
+        public string MatrizRiesgos { get; set; } = "";
+        [MaxLength(500)]
+        public string PlanEmergencia { get; set; } = "";
+        public DateTime FechaAprobacion { get; set; } = DateTime.UtcNow;
+        public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
+    }
 }

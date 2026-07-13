@@ -104,4 +104,14 @@ namespace SSTDigitalRD.Shared.DTOs
         public string Icono { get; set; } = "ti-hardhat";
         public bool Activo { get; set; } = true;
     }
+
+    public class ProgramaSSTDto
+    {
+        public int Id { get; set; }
+        public string Vigencia { get; set; } = "2025 — 2027";
+        public string Politica { get; set; } = "";
+        public string MatrizRiesgos { get; set; } = "";
+        public string PlanEmergencia { get; set; } = "";
+        public string FechaAprobacion { get; set; } = "";
+    }
 }

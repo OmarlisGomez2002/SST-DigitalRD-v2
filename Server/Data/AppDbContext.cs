@@ -34,6 +34,8 @@ namespace SSTDigitalRD.Server.Data
         public DbSet<ItemChecklist> ItemsChecklist { get; set; }
         public DbSet<TipoEPP> TiposEPP { get; set; }
 
+        public DbSet<ProgramaSST> ProgramaSST { get; set; }
+
         protected override void OnModelCreating(ModelBuilder mb)
         {
             base.OnModelCreating(mb);
