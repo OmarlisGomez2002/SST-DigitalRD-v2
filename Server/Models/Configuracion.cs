@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SSTDigitalRD.Server.Models
 {
@@ -184,5 +185,21 @@ namespace SSTDigitalRD.Server.Models
         public string PlanEmergencia { get; set; } = "";
         public DateTime FechaAprobacion { get; set; } = DateTime.UtcNow;
         public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
+    }
+
+    public class ZonaObra
+    {
+        [Key]
+        public int Id { get; set; }
+        public int ObraId { get; set; }
+        [Required, MaxLength(150)]
+        public string Nombre { get; set; } = "";
+        [MaxLength(300)]
+        public string Descripcion { get; set; } = "";
+        public bool Activa { get; set; } = true;
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+
+        [ForeignKey(nameof(ObraId))]
+        public ObraActiva? Obra { get; set; }
     }
 }

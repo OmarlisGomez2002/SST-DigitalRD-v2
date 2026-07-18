@@ -831,6 +831,95 @@
         </div>
     </div>
 
+    <!-- ══ Zonas por proyecto ══ -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">
+                <i class="ti ti-map-2" aria-hidden="true"></i>
+                Zonas por proyecto
+            </span>
+        </div>
+
+        @foreach (var grupo in ZonasObra.GroupBy(x => x.ObraNombre))
+        {
+            <div style="font-size:10px;font-weight:600;
+                        color:var(--text-hint);
+                        text-transform:uppercase;
+                        letter-spacing:.06em;
+                        padding:8px 0 4px;
+                        border-bottom:0.5px solid var(--border);
+                        margin-bottom:4px">
+                <i class="ti ti-building-factory-2"
+                   style="font-size:12px" aria-hidden="true"></i>
+                @grupo.Key
+            </div>
+            @foreach (var zona in grupo)
+            {
+                var z = zona;
+                <div style="display:flex;align-items:center;gap:10px;
+                                padding:7px 4px;
+                                border-bottom:0.5px solid var(--border)">
+                    <i class="ti ti-map-pin"
+                       style="font-size:14px;color:var(--text-hint);
+                                  width:18px;flex-shrink:0"
+                       aria-hidden="true"></i>
+                    <div style="flex:1">
+                        <div style="font-size:12px;font-weight:500;
+                                        color:var(--text-primary)">
+                            @z.Nombre
+                        </div>
+                        @if (!string.IsNullOrEmpty(z.Descripcion))
+                        {
+                            <div style="font-size:11px;
+                                                color:var(--text-hint)">
+                                @z.Descripcion
+                            </div>
+                        }
+                    </div>
+                    <button class="icon-action"
+                            @onclick="() => EliminarZona(z.Id)">
+                        <i class="ti ti-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            }
+        }
+
+        @if (!ZonasObra.Any())
+        {
+            <div style="font-size:12px;color:var(--text-hint);
+                        padding:12px 0;text-align:center">
+                No hay zonas configuradas. Agrega zonas por proyecto.
+            </div>
+        }
+
+        <div style="display:flex;flex-direction:column;
+                gap:8px;margin-top:12px">
+            <div style="display:flex;gap:8px">
+                <select @bind="NuevaZonaObraId"
+                        style="flex:0 0 180px">
+                    <option value="0">Seleccionar obra...</option>
+                    @foreach (var obra in ObrasDisponiblesConfig)
+                    {
+                        <option value="@obra.Id">@obra.Nombre</option>
+                    }
+                </select>
+                <input type="text"
+                       @bind="NuevaZonaNombre"
+                       placeholder="Nombre de la zona (ej. Piso 4)"
+                       style="flex:1" />
+                <button class="btn-primary btn-sm"
+                        @onclick="AgregarZona">
+                    <i class="ti ti-plus" aria-hidden="true"></i>
+                    Agregar
+                </button>
+            </div>
+            <input type="text"
+                   @bind="NuevaZonaDescripcion"
+                   placeholder="Descripción opcional..."
+                   style="width:100%" />
+        </div>
+    </div>
+
 </div>
 
 @code {
@@ -879,6 +968,12 @@
 
     private ProgramaSSTDto ProgramaSST = new();
     private bool GuardandoPrograma = false;
+
+    private List<ZonaObraDto> ZonasObra = new();
+    private List<ObraActivaDto> ObrasDisponiblesConfig = new();
+    private int NuevaZonaObraId = 0;
+    private string NuevaZonaNombre = "";
+    private string NuevaZonaDescripcion = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -937,6 +1032,15 @@
             ProgramaSST = await Http
     .GetFromJsonAsync<ProgramaSSTDto>(
         "api/configuracion/programa-sst") ?? new();
+
+            // En OnInitializedAsync agrega:
+            ObrasDisponiblesConfig = await Http
+                .GetFromJsonAsync<List<ObraActivaDto>>(
+                    "api/configuracion/obras") ?? new();
+
+            ZonasObra = await Http
+                .GetFromJsonAsync<List<ZonaObraDto>>(
+                    "api/configuracion/zonas") ?? new();
         }
         catch (Exception ex)
         {
@@ -1413,6 +1517,40 @@
             "api/configuracion/programa-sst", ProgramaSST);
         GuardandoPrograma = false;
         StateHasChanged();
+    }
+
+    private async Task AgregarZona()
+    {
+        if (NuevaZonaObraId == 0 ||
+            string.IsNullOrWhiteSpace(NuevaZonaNombre)) return;
+
+        var dto = new ZonaObraDto
+        {
+            ObraId = NuevaZonaObraId,
+            Nombre = NuevaZonaNombre.Trim(),
+            Descripcion = NuevaZonaDescripcion.Trim()
+        };
+
+        var response = await Http.PostAsJsonAsync(
+            "api/configuracion/zonas", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var creada = await response.Content
+                .ReadFromJsonAsync<ZonaObraDto>();
+            if (creada is not null)
+                ZonasObra.Add(creada);
+            NuevaZonaNombre = "";
+            NuevaZonaDescripcion = "";
+        }
+    }
+
+    private async Task EliminarZona(int id)
+    {
+        var response = await Http.DeleteAsync(
+            $"api/configuracion/zonas/{id}");
+        if (response.IsSuccessStatusCode)
+            ZonasObra.RemoveAll(x => x.Id == id);
     }
 }
 

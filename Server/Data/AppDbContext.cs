@@ -33,8 +33,8 @@ namespace SSTDigitalRD.Server.Data
 
         public DbSet<ItemChecklist> ItemsChecklist { get; set; }
         public DbSet<TipoEPP> TiposEPP { get; set; }
-
         public DbSet<ProgramaSST> ProgramaSST { get; set; }
+        public DbSet<ZonaObra> ZonasObra { get; set; }
 
         protected override void OnModelCreating(ModelBuilder mb)
         {
@@ -173,6 +173,17 @@ namespace SSTDigitalRD.Server.Data
                 e.ToTable("ItemsChecklist");
                 e.HasIndex(x => x.Categoria);
                 e.HasIndex(x => x.Activo);
+            });
+
+            mb.Entity<ZonaObra>(e =>
+            {
+                e.ToTable("ZonasObra");
+                e.HasIndex(x => x.ObraId);
+                e.HasIndex(x => x.Activa);
+                e.HasOne(x => x.Obra)
+                 .WithMany()
+                 .HasForeignKey(x => x.ObraId)
+                 .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

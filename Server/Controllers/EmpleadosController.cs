@@ -19,7 +19,8 @@ namespace SSTDigitalRD.Server.Controllers
         public async Task<ActionResult<List<EmpleadoListDto>>> GetTodos(
             [FromQuery] string? cuadrilla = null,
             [FromQuery] string? estado = null,
-            [FromQuery] string? buscar = null)
+            [FromQuery] string? buscar = null,
+            [FromQuery] string? obra = null)
         {
             var query = _db.Empleados.AsNoTracking().AsQueryable();
 
@@ -34,6 +35,9 @@ namespace SSTDigitalRD.Server.Controllers
                     x.Nombre.Contains(buscar) ||
                     x.Cedula.Contains(buscar) ||
                     x.Cargo.Contains(buscar));
+            
+            if (!string.IsNullOrEmpty(obra))    
+                query = query.Where(x => x.Obra == obra);
 
             var lista = await query
                 .OrderBy(x => x.Nombre)

@@ -120,6 +120,7 @@ namespace SSTDigitalRD.Server.Controllers
                 Descripcion = dto.Descripcion,
                 Tipo = dto.Tipo,
                 Area = dto.Area,
+                ObraId = dto.ObraId,
                 Obra = dto.Obra,
                 Afectado = dto.Afectado,
                 Inspector = dto.Inspector,

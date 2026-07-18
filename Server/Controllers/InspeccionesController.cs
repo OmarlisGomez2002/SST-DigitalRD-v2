@@ -29,7 +29,8 @@ namespace SSTDigitalRD.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<List<InspeccionListDto>>> GetTodas(
             [FromQuery] string? estado = null,
-            [FromQuery] string? inspector = null)
+            [FromQuery] string? inspector = null,
+    [FromQuery] int? obraId = null)
         {
             var query = _db.Inspecciones.AsNoTracking();
 
@@ -39,6 +40,9 @@ namespace SSTDigitalRD.Server.Controllers
             if (!string.IsNullOrEmpty(inspector))
                 query = query.Where(x => x.Inspector
                     .Contains(inspector));
+
+            if (obraId.HasValue && obraId.Value > 0)   
+                query = query.Where(x => x.ObraId == obraId.Value);
 
             var lista = await query
                 .OrderByDescending(x => x.FechaInspeccion)

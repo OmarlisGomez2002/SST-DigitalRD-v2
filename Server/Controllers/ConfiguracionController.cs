@@ -890,6 +890,101 @@ namespace SSTDigitalRD.Server.Controllers
             return NoContent();
         }
 
+        // ══ ZONAS POR OBRA ═════════════════════════════════════════
+
+        [HttpGet("zonas")]
+        public async Task<ActionResult<List<ZonaObraDto>>> GetZonas(
+            [FromQuery] int? obraId = null)
+        {
+            var query = _db.ZonasObra
+                .AsNoTracking()
+                .Include(x => x.Obra)
+                .Where(x => x.Activa)
+                .AsQueryable();
+
+            if (obraId.HasValue)
+                query = query.Where(x => x.ObraId == obraId.Value);
+
+            var lista = await query
+                .OrderBy(x => x.ObraId)
+                .ThenBy(x => x.Nombre)
+                .ToListAsync();
+
+            return Ok(lista.Select(x => new ZonaObraDto
+            {
+                Id = x.Id,
+                ObraId = x.ObraId,
+                ObraNombre = x.Obra?.Nombre ?? "",
+                Nombre = x.Nombre,
+                Descripcion = x.Descripcion,
+                Activa = x.Activa
+            }).ToList());
+        }
+
+        [HttpPost("zonas")]
+        public async Task<ActionResult<ZonaObraDto>> AgregarZona(
+            [FromBody] ZonaObraDto dto)
+        {
+            var existe = await _db.ZonasObra
+                .AnyAsync(x => x.ObraId == dto.ObraId &&
+                               x.Nombre == dto.Nombre &&
+                               x.Activa);
+
+            if (existe)
+                return Conflict(new
+                {
+                    error = $"Ya existe la zona '{dto.Nombre}' " +
+                            "en esta obra."
+                });
+
+            var zona = new ZonaObra
+            {
+                ObraId = dto.ObraId,
+                Nombre = dto.Nombre,
+                Descripcion = dto.Descripcion,
+                Activa = true
+            };
+
+            _db.ZonasObra.Add(zona);
+            await _db.SaveChangesAsync();
+
+            var obra = await _db.ObrasActivas.FindAsync(zona.ObraId);
+
+            return Ok(new ZonaObraDto
+            {
+                Id = zona.Id,
+                ObraId = zona.ObraId,
+                ObraNombre = obra?.Nombre ?? "",
+                Nombre = zona.Nombre,
+                Descripcion = zona.Descripcion,
+                Activa = zona.Activa
+            });
+        }
+
+        [HttpPut("zonas/{id:int}")]
+        public async Task<IActionResult> ActualizarZona(
+            int id, [FromBody] ZonaObraDto dto)
+        {
+            var zona = await _db.ZonasObra.FindAsync(id);
+            if (zona is null) return NotFound();
+
+            zona.Nombre = dto.Nombre;
+            zona.Descripcion = dto.Descripcion;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("zonas/{id:int}")]
+        public async Task<IActionResult> EliminarZona(int id)
+        {
+            var zona = await _db.ZonasObra.FindAsync(id);
+            if (zona is null) return NotFound();
+
+            zona.Activa = false;
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
 
     }
 }

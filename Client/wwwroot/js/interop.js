@@ -240,8 +240,22 @@ window.SSTGemelo = {
             const h = z.h * scaleY;
 
             // Color según riesgo
+            //let fillColor, strokeColor;
+            //if (z.riesgo >= 70) {
+            //    fillColor = 'rgba(226,75,74,0.18)';
+            //    strokeColor = 'rgba(226,75,74,0.7)';
+            //} else if (z.riesgo >= 50) {
+            //    fillColor = 'rgba(239,159,39,0.18)';
+            //    strokeColor = 'rgba(239,159,39,0.7)';
+            //} else {
+            //    fillColor = 'rgba(99,153,34,0.12)';
+            //    strokeColor = 'rgba(99,153,34,0.5)';
+            //}
             let fillColor, strokeColor;
-            if (z.riesgo >= 70) {
+            if (z.incidentes === 0) {
+                fillColor = 'rgba(136,135,128,0.08)';
+                strokeColor = 'rgba(136,135,128,0.35)';
+            } else if (z.riesgo >= 70) {
                 fillColor = 'rgba(226,75,74,0.18)';
                 strokeColor = 'rgba(226,75,74,0.7)';
             } else if (z.riesgo >= 50) {

@@ -8,7 +8,7 @@
 <div class="page-toolbar">
     <div class="toolbar-filters">
 
-        <button class="filter-btn">
+        @* <button class="filter-btn">
             <i class="ti ti-building-factory-2" aria-hidden="true"></i>
             @(ObraActual ?? "Cargando...")
         </button>
@@ -16,7 +16,7 @@
         <button class="filter-btn">
             <i class="ti ti-layers" aria-hidden="true"></i>
             Vista: Planta
-        </button>
+        </button> *@
 
         <div class="filtros-panel-wrapper">
             <button class="filter-btn"
@@ -264,11 +264,14 @@
     private List<ObraActivaDto> ObrasDisponibles = new();
     private int ObraSeleccionadaId = 0;
 
-    private List<string> Pisos = new()
-    {
-        "Todo","Sótano", "Piso 1", "Piso 2", "Piso 3",
-        "Piso 4", "Piso 5", "Piso 6-8"
-    };
+    // private List<string> Pisos = new()
+    // {
+    //     "Todo","Sótano", "Piso 1", "Piso 2", "Piso 3",
+    //     "Piso 4", "Piso 5", "Piso 6-8"
+    // };
+    private List<string> Pisos => new List<string> { "Todo" }
+    .Concat(Zonas.Select(z => z.Nombre).Distinct())
+    .ToList();
 
     private void GenerarPeriodos()
     {
@@ -296,13 +299,17 @@
         ? 100 - (int)Math.Round(Zonas.Average(z => z.PorcentajeRiesgo))
         : 100;
 
+    // private List<ZonaGemelo> ZonasFiltradas =>
+    // PisoActual == "Todo"
+    //     ? Zonas
+    //     : Zonas.Where(z =>
+    //         z.Nombre.Contains(PisoActual,
+    //             StringComparison.OrdinalIgnoreCase))
+    //           .ToList();
     private List<ZonaGemelo> ZonasFiltradas =>
     PisoActual == "Todo"
         ? Zonas
-        : Zonas.Where(z =>
-            z.Nombre.Contains(PisoActual,
-                StringComparison.OrdinalIgnoreCase))
-              .ToList();
+        : Zonas.Where(z => z.Nombre == PisoActual).ToList();
 
     // ── Acciones ───────────────────────────────────────────────
     private void CambiarPiso(string piso)
@@ -438,39 +445,252 @@
         StateHasChanged();
     }
 
+    // private async Task CargarDatosReales()
+    // {
+    //     try
+    //     {
+    //         // Cargar todos los incidentes sin filtrar por obra
+    //         // var incidentes = await Http
+    //         //     .GetFromJsonAsync<List<IncidenteListDto>>(
+    //         //         "api/incidentes") ?? new();
+
+    //         // var inspecciones = await Http
+    //         //     .GetFromJsonAsync<List<InspeccionListDto>>(
+    //         //         "api/inspecciones") ?? new();
+
+    //         var incidentes = await Http
+    // .GetFromJsonAsync<List<IncidenteListDto>>(
+    //     ObraSeleccionadaId > 0
+    //         ? $"api/incidentes?obra={ObraSeleccionadaId}"
+    //         : "api/incidentes")
+    // ?? new();
+
+    //         var inspecciones = await Http
+    //             .GetFromJsonAsync<List<InspeccionListDto>>(
+    //                 ObraSeleccionadaId > 0
+    //                     ? $"api/inspecciones?obraId={ObraSeleccionadaId}"
+    //                     : "api/inspecciones")
+    //             ?? new();
+
+    //         var ahora = DateTime.Now;
+
+    //         var areaGroups = incidentes
+    //             .Where(x => !string.IsNullOrEmpty(x.Area))
+    //             .GroupBy(x => x.Area)
+    //             .ToList();
+
+    //         if (areaGroups.Any())
+    //         {
+    //             var posiciones = new Dictionary<int,
+    //                 (double x, double y, double w, double h)>
+    //             {
+    //                 [0] = (40, 40, 230, 120),
+    //                 [1] = (290, 40, 230, 120),
+    //                 [2] = (40, 180, 110, 120),
+    //                 [3] = (170, 180, 200, 120),
+    //                 [4] = (390, 180, 130, 120),
+    //             };
+
+    //             var nuevasZonas = new List<ZonaGemelo>();
+
+    //             for (int i = 0; i < areaGroups.Count; i++)
+    //             {
+    //                 var grupo = areaGroups[i];
+    //                 var area = grupo.Key;
+    //                 var incs = grupo.ToList();
+    //                 var tieneGrave = incs.Any(x => x.Tipo == "Accidente grave");
+    //                 var numIncs = incs.Count;
+
+    //                 var score = 0;
+    //                 score += Math.Min(numIncs * 15, 40);
+    //                 score += tieneGrave ? 20 : 0;
+    //                 score += 20;
+    //                 score = Math.Min(score, 100);
+
+    //                 var ultimaInsp = inspecciones
+    //                     .Where(x => x.Area == area || x.Obra == area)
+    //                     .OrderByDescending(x => x.Fecha)
+    //                     .FirstOrDefault();
+
+    //                 var diasInsp = ultimaInsp is null ? 30
+    //                     : (int)(ahora - ultimaInsp.Fecha).TotalDays;
+
+    //                 var pos = posiciones.ContainsKey(i)
+    //                     ? posiciones[i]
+    //                     : (40 + i * 100, 40.0, 180.0, 100.0);
+
+    //                 var eventos = incs
+    //                     .Select(inc => new EventoZona(
+    //                         "incidente",
+    //                         $"{inc.Tipo} — {inc.Area}",
+    //                         $"Inspector: {inc.Inspector}",
+    //                         inc.Fecha))
+    //                     .Take(4)
+    //                     .ToList();
+
+    //                 if (ultimaInsp is not null)
+    //                     eventos.Insert(0, new EventoZona(
+    //                         "inspeccion",
+    //                         "Última inspección",
+    //                         $"{ultimaInsp.Inspector} · {ultimaInsp.Estado}",
+    //                         ultimaInsp.Fecha));
+
+    //                 nuevasZonas.Add(new ZonaGemelo
+    //                 {
+    //                     Id = i + 1,
+    //                     Nombre = area,
+    //                     PorcentajeRiesgo = score,
+    //                     IncidentesAcumulados = numIncs,
+    //                     TrabajadoresExpuestos = Math.Max(2, 6 - i),
+    //                     DiasUltimaInspeccion = diasInsp,
+    //                     CanvasX = pos.x,
+    //                     CanvasY = pos.y,
+    //                     CanvasW = pos.w,
+    //                     CanvasH = pos.h,
+    //                     Eventos = eventos
+    //                 });
+    //             }
+
+    //             Zonas = nuevasZonas;
+    //         }
+    //         else
+    //         {
+    //             Zonas = new();
+    //         }
+
+    //         PeriodoActual = ahora.ToString("MMMM yyyy");
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Error cargando gemelo: {ex.Message}");
+    //     }
+    // }
     private async Task CargarDatosReales()
     {
         try
         {
-            // Cargar todos los incidentes sin filtrar por obra
+            var ahora = DateTime.Now;
+
+            // Cargar zonas configuradas para la obra seleccionada
+            var zonasConfig = ObraSeleccionadaId > 0
+                ? await Http.GetFromJsonAsync<List<ZonaObraDto>>(
+                    $"api/configuracion/zonas?obraId={ObraSeleccionadaId}")
+                  ?? new()
+                : new List<ZonaObraDto>();
+
+            // Cargar incidentes e inspecciones de la obra
             var incidentes = await Http
                 .GetFromJsonAsync<List<IncidenteListDto>>(
-                    "api/incidentes") ?? new();
+                    ObraSeleccionadaId > 0
+                        ? $"api/incidentes?obra={ObraSeleccionadaId}"
+                        : "api/incidentes")
+                ?? new();
 
             var inspecciones = await Http
                 .GetFromJsonAsync<List<InspeccionListDto>>(
-                    "api/inspecciones") ?? new();
+                    ObraSeleccionadaId > 0
+                        ? $"api/inspecciones?obraId={ObraSeleccionadaId}"
+                        : "api/inspecciones")
+                ?? new();
 
-            var ahora = DateTime.Now;
-
-            var areaGroups = incidentes
-                .Where(x => !string.IsNullOrEmpty(x.Area))
-                .GroupBy(x => x.Area)
-                .ToList();
-
-            if (areaGroups.Any())
+            // Cargar empleados activos de la obra
+            var totalEmpleadosObra = 0;
+            if (!string.IsNullOrEmpty(ObraActual))
             {
-                var posiciones = new Dictionary<int,
-                    (double x, double y, double w, double h)>
-                {
-                    [0] = (40, 40, 230, 120),
-                    [1] = (290, 40, 230, 120),
-                    [2] = (40, 180, 110, 120),
-                    [3] = (170, 180, 200, 120),
-                    [4] = (390, 180, 130, 120),
-                };
+                var empleados = await Http
+                    .GetFromJsonAsync<List<EmpleadoListDto>>(
+                        $"api/empleados?obra={Uri.EscapeDataString(ObraActual)}&estado=Activo")
+                    ?? new();
+                totalEmpleadosObra = empleados.Count;
+            }
 
-                var nuevasZonas = new List<ZonaGemelo>();
+            var posiciones = new Dictionary<int,
+                (double x, double y, double w, double h)>
+            {
+                [0] = (40, 40, 230, 120),
+                [1] = (290, 40, 230, 120),
+                [2] = (40, 180, 110, 120),
+                [3] = (170, 180, 200, 120),
+                [4] = (390, 180, 130, 120),
+            };
+
+            var nuevasZonas = new List<ZonaGemelo>();
+
+            if (zonasConfig.Any())
+            {
+                // Modo principal — zonas desde catálogo de la BD
+                for (int i = 0; i < zonasConfig.Count; i++)
+                {
+                    var zona = zonasConfig[i];
+                    var incsZona = incidentes
+                        .Where(x => x.Area == zona.Nombre)
+                        .ToList();
+
+                    var tieneGrave = incsZona.Any(x =>
+                        x.Tipo == "Accidente grave");
+                    var numIncs = incsZona.Count;
+
+                    var score = 0;
+                    if (numIncs > 0)
+                    {
+                        score += Math.Min(numIncs * 15, 40);
+                        score += tieneGrave ? 20 : 0;
+                        score += 20;
+                        score = Math.Min(score, 100);
+                    }
+
+                    var ultimaInsp = inspecciones
+                        .Where(x => x.Area == zona.Nombre)
+                        .OrderByDescending(x => x.Fecha)
+                        .FirstOrDefault();
+
+                    var diasInsp = ultimaInsp is null ? 30
+                        : (int)(ahora - ultimaInsp.Fecha).TotalDays;
+
+                    var pos = posiciones.ContainsKey(i)
+                        ? posiciones[i]
+                        : (40 + i * 100, 40.0, 180.0, 100.0);
+
+                    var eventos = incsZona
+                        .OrderByDescending(x => x.Fecha)
+                        .Take(4)
+                        .Select(inc => new EventoZona(
+                            "incidente",
+                            $"{inc.Tipo} — {inc.Area}",
+                            $"Inspector: {inc.Inspector}",
+                            inc.Fecha))
+                        .ToList();
+
+                    if (ultimaInsp is not null)
+                        eventos.Insert(0, new EventoZona(
+                            "inspeccion",
+                            "Última inspección",
+                            $"{ultimaInsp.Inspector} · {ultimaInsp.Estado}",
+                            ultimaInsp.Fecha));
+
+                    nuevasZonas.Add(new ZonaGemelo
+                    {
+                        Id = zona.Id,
+                        Nombre = zona.Nombre,
+                        PorcentajeRiesgo = score,
+                        IncidentesAcumulados = numIncs,
+                        TrabajadoresExpuestos = totalEmpleadosObra, //Math.Max(2, 8 - i),
+                        DiasUltimaInspeccion = diasInsp,
+                        CanvasX = pos.x,
+                        CanvasY = pos.y,
+                        CanvasW = pos.w,
+                        CanvasH = pos.h,
+                        Eventos = eventos
+                    });
+                }
+            }
+            else
+            {
+                // Fallback — sin zonas configuradas, agrupar por Area de incidentes
+                var areaGroups = incidentes
+                    .Where(x => !string.IsNullOrEmpty(x.Area))
+                    .GroupBy(x => x.Area)
+                    .ToList();
 
                 for (int i = 0; i < areaGroups.Count; i++)
                 {
@@ -520,7 +740,7 @@
                         Nombre = area,
                         PorcentajeRiesgo = score,
                         IncidentesAcumulados = numIncs,
-                        TrabajadoresExpuestos = Math.Max(2, 6 - i),
+                        TrabajadoresExpuestos = totalEmpleadosObra, //Math.Max(2, 6 - i),
                         DiasUltimaInspeccion = diasInsp,
                         CanvasX = pos.x,
                         CanvasY = pos.y,
@@ -529,14 +749,9 @@
                         Eventos = eventos
                     });
                 }
-
-                Zonas = nuevasZonas;
-            }
-            else
-            {
-                Zonas = new();
             }
 
+            Zonas = nuevasZonas;
             PeriodoActual = ahora.ToString("MMMM yyyy");
         }
         catch (Exception ex)

@@ -101,7 +101,15 @@
             <div class="form-grid-2">
                 <div class="form-field">
                     <label>Obra / Proyecto <span class="required">*</span></label>
-                    <select @bind="Modelo.ObraId" class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
+                    @* <select @bind="Modelo.ObraId" class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
+                        <option value="0">Seleccionar obra...</option>
+                        @foreach (var obra in ObrasDisponibles)
+                        {
+                            <option value="@obra.Id">@obra.Nombre</option>
+                        }
+                    </select> *@
+                    <select value="@Modelo.ObraId"
+                            @onchange="OnObraIncidenteChange">
                         <option value="0">Seleccionar obra...</option>
                         @foreach (var obra in ObrasDisponibles)
                         {
@@ -117,10 +125,20 @@
 
                 <div class="form-field">
                     <label>Área / Zona <span class="required">*</span></label>
-                    <input type="text"
+                    <select @bind="Modelo.Area"
+                            class="@(MostrarErrores &&
+                                            string.IsNullOrWhiteSpace(Modelo.Area)
+                                            ? "input-error" : "")">
+                    <option value="">Seleccionar zona...</option>
+                    @foreach (var zona in ZonasDisponibles)
+                        {
+                            <option value="@zona.Nombre">@zona.Nombre</option>
+                        }
+                    </select>
+                    @* <input type="text"
                            @bind="Modelo.Area"
                            placeholder="Ej. Piso 4 · Fachada Norte"
-                           class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")" />
+                           class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")" /> *@
                     @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area))
                     {
                         <span class="field-error">El área es requerida</span>
@@ -598,6 +616,33 @@
     private string BusquedaAfectado = "";
     private List<EmpleadoListDto> TodosEmpleados = new();
     private List<EmpleadoListDto> AfectadosFiltrados = new();
+    private List<ZonaObraDto> ZonasDisponibles = new();
+
+    private async Task OnObraIncidenteChange(ChangeEventArgs e)
+    {
+        Modelo.ObraId = int.TryParse(
+            e.Value?.ToString(), out var id) ? id : 0;
+        Modelo.Area = "";
+        await CargarZonas(Modelo.ObraId);
+    }
+
+    private async Task CargarZonas(int obraId)
+    {
+        if (obraId == 0)
+        {
+            ZonasDisponibles = new();
+            return;
+        }
+        try
+        {
+            ZonasDisponibles = await Http
+                .GetFromJsonAsync<List<ZonaObraDto>>(
+                    $"api/configuracion/zonas?obraId={obraId}")
+                ?? new();
+        }
+        catch { ZonasDisponibles = new(); }
+        StateHasChanged();
+    }
 
     private void OnAfectadoInput(ChangeEventArgs e)
     {
@@ -826,6 +871,9 @@
         .GetFromJsonAsync<List<EmpleadoListDto>>("api/empleados");
             if (empleados is not null)
                 TodosEmpleados = empleados;
+
+            if (Modelo.ObraId > 0)
+                await CargarZonas(Modelo.ObraId);
         }
         catch (Exception ex)
         {

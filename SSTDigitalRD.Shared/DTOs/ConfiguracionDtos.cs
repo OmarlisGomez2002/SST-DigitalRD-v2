@@ -114,4 +114,15 @@ namespace SSTDigitalRD.Shared.DTOs
         public string PlanEmergencia { get; set; } = "";
         public string FechaAprobacion { get; set; } = "";
     }
+
+    public class ZonaObraDto
+    {
+        public int Id { get; set; }
+        public int ObraId { get; set; }
+        public string ObraNombre { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public bool Activa { get; set; } = true;
+    }
+
 }

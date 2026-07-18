@@ -72,8 +72,16 @@
             <div class="form-grid-2">
                 <div class="form-field">
                     <label>Obra / Proyecto <span class="required">*</span></label>
-                    <select @bind="Modelo.ObraId"
+                    @* <select @bind="Modelo.ObraId"
                             class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
+                        <option value="0">Seleccionar obra...</option>
+                        @foreach (var obra in ObrasDisponibles)
+                        {
+                            <option value="@obra.Id">@obra.Nombre</option>
+                        }
+                    </select> *@
+                    <select value="@Modelo.ObraId"
+                            @onchange="OnObraInspeccionChange">
                         <option value="0">Seleccionar obra...</option>
                         @foreach (var obra in ObrasDisponibles)
                         {
@@ -89,10 +97,20 @@
 
                 <div class="form-field">
                     <label>Área / Zona inspeccionada <span class="required">*</span></label>
-                    <input type="text"
+                    <select @bind="Modelo.Area"
+                            class="@(MostrarErrores &&
+                                            string.IsNullOrWhiteSpace(Modelo.Area)
+                                            ? "input-error" : "")">
+                    <option value="">Seleccionar zona...</option>
+                    @foreach (var zona in ZonasDisponibles)
+                        {
+                            <option value="@zona.Nombre">@zona.Nombre</option>
+                        }
+                    </select>
+                    @* <input type="text"
                            @bind="Modelo.Area"
                            placeholder="Ej. Piso 8 — Estructura metálica"
-                           class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")" />
+                           class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")" /> *@
                     @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area))
                     {
                         <span class="field-error">El área es requerida</span>
@@ -516,6 +534,7 @@
     private string BusquedaResponsable = "";
     private List<EmpleadoSimpleDto> TodosEmpleados = new();
     private List<EmpleadoSimpleDto> ResponsablesFiltrados = new();
+    private List<ZonaObraDto> ZonasDisponibles = new();
 
     // ── Modelo ─────────────────────────────────────────────────
     private InspeccionFormDto Modelo = new()
@@ -582,6 +601,36 @@
     {
         GpsCargado = false;
         Modelo.Latitud = Modelo.Longitud = Modelo.PrecisionGps = 0;
+    }
+
+    private async Task OnObraInspeccionChange(ChangeEventArgs e)
+    {
+        Modelo.ObraId = int.TryParse(
+            e.Value?.ToString(), out var id) ? id : 0;
+        Modelo.Area = "";
+        await CargarZonas(Modelo.ObraId);
+
+        // Forzar render para el select de zonas
+        StateHasChanged();
+        await Task.Delay(50);
+    }
+
+    private async Task CargarZonas(int obraId)
+    {
+        if (obraId == 0)
+        {
+            ZonasDisponibles = new();
+            return;
+        }
+        try
+        {
+            ZonasDisponibles = await Http
+                .GetFromJsonAsync<List<ZonaObraDto>>(
+                    $"api/configuracion/zonas?obraId={obraId}")
+                ?? new();
+        }
+        catch { ZonasDisponibles = new(); }
+        StateHasChanged();
     }
 
     // ── Firma ──────────────────────────────────────────────────
@@ -857,6 +906,10 @@
                         Cargo = x.Cargo,
                         Cuadrilla = x.Cuadrilla
                     }).ToList();
+
+            // Si es edición y ya hay obra seleccionada, cargar sus zonas
+            if (Modelo.ObraId > 0)
+                await CargarZonas(Modelo.ObraId);
 
             // Si es edición, cargar los datos existentes
             if (EsEdicion && Id.HasValue)
