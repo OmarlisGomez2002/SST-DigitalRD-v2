@@ -36,6 +36,8 @@ namespace SSTDigitalRD.Server.Data
         public DbSet<ProgramaSST> ProgramaSST { get; set; }
         public DbSet<ZonaObra> ZonasObra { get; set; }
 
+        public DbSet<AlertaSistema> AlertasSistema { get; set; }
+
         protected override void OnModelCreating(ModelBuilder mb)
         {
             base.OnModelCreating(mb);
@@ -184,6 +186,14 @@ namespace SSTDigitalRD.Server.Data
                  .WithMany()
                  .HasForeignKey(x => x.ObraId)
                  .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            mb.Entity<AlertaSistema>(e =>
+            {
+                e.ToTable("AlertasSistema");
+                e.HasIndex(x => x.Leida);
+                e.HasIndex(x => x.FechaCreacion);
+                e.HasIndex(x => x.Tipo);
             });
         }
     }

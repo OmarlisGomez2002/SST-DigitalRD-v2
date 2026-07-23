@@ -61,23 +61,36 @@ window.SSTCharts = {
         });
     },
 
-    renderRiesgo: function (canvasId) {
+    renderRiesgo: function (canvasId, labels, datos) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
         if (ctx._chartInstance) ctx._chartInstance.destroy();
 
-        const colors = [
-            '#B5D4F4', '#B5D4F4',
-            '#EF9F27', '#EF9F27',
-            '#E24B4A', '#E24B4A'
-        ];
+        const semanas = labels && labels.length
+            ? labels
+            : ['Sem -5', 'Sem -4', 'Sem -3', 'Sem -2', 'Sem -1', 'Hoy'];
+
+        const valores = datos && datos.length
+            ? datos
+            : [0, 0, 0, 0, 0, 0];
+
+        const maxVal = Math.max(...valores, 1);
+        const colors = valores.map(v => {
+            const pct = (v / maxVal) * 100;
+            return pct >= 70 ? '#E24B4A'
+                : pct >= 40 ? '#EF9F27'
+                    : '#B5D4F4';
+        });
+
+        const Chart = window.Chart;
+        if (!Chart) return;
 
         ctx._chartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'],
+                labels: semanas,
                 datasets: [{
-                    data: [50, 65, 45, 80, 70, 91],
+                    data: valores,
                     backgroundColor: colors,
                     borderRadius: 4,
                     borderSkipped: false,
@@ -90,12 +103,8 @@ window.SSTCharts = {
                     legend: { display: false },
                     tooltip: {
                         backgroundColor: '#1A1A19',
-                        titleFont: { family: 'DM Sans', size: 12 },
-                        bodyFont: { family: 'DM Sans', size: 11 },
-                        padding: 10,
-                        cornerRadius: 8,
                         callbacks: {
-                            label: ctx => ` Riesgo: ${Math.round(ctx.raw)}%`
+                            label: c => ` ${c.raw} incidente(s)`
                         }
                     }
                 },
@@ -103,24 +112,86 @@ window.SSTCharts = {
                     x: {
                         grid: { display: false },
                         border: { display: false },
-                        ticks: { color: '#888780', font: { family: 'DM Sans', size: 11 } }
-                    },
-                    y: {
-                        min: 0, max: 100,
-                        grid: { color: 'rgba(0,0,0,0.05)' },
-                        border: { display: false },
                         ticks: {
                             color: '#888780',
-                            font: { family: 'DM Sans', size: 11 },
-                            stepSize: 25,
-                            callback: v => v + '%'
+                            font: { family: 'DM Sans', size: 11 }
                         }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#888780',
+                            font: { family: 'DM Sans', size: 11 }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
                     }
                 },
                 animation: { duration: 600, easing: 'easeOutQuart' }
             }
         });
     },
+
+    //renderRiesgo: function (canvasId) {
+    //    const ctx = document.getElementById(canvasId);
+    //    if (!ctx) return;
+    //    if (ctx._chartInstance) ctx._chartInstance.destroy();
+
+    //    const colors = [
+    //        '#B5D4F4', '#B5D4F4',
+    //        '#EF9F27', '#EF9F27',
+    //        '#E24B4A', '#E24B4A'
+    //    ];
+
+    //    ctx._chartInstance = new Chart(ctx, {
+    //        type: 'bar',
+    //        data: {
+    //            labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'],
+    //            datasets: [{
+    //                data: [50, 65, 45, 80, 70, 91],
+    //                backgroundColor: colors,
+    //                borderRadius: 4,
+    //                borderSkipped: false,
+    //            }]
+    //        },
+    //        options: {
+    //            responsive: true,
+    //            maintainAspectRatio: false,
+    //            plugins: {
+    //                legend: { display: false },
+    //                tooltip: {
+    //                    backgroundColor: '#1A1A19',
+    //                    titleFont: { family: 'DM Sans', size: 12 },
+    //                    bodyFont: { family: 'DM Sans', size: 11 },
+    //                    padding: 10,
+    //                    cornerRadius: 8,
+    //                    callbacks: {
+    //                        label: ctx => ` Riesgo: ${Math.round(ctx.raw)}%`
+    //                    }
+    //                }
+    //            },
+    //            scales: {
+    //                x: {
+    //                    grid: { display: false },
+    //                    border: { display: false },
+    //                    ticks: { color: '#888780', font: { family: 'DM Sans', size: 11 } }
+    //                },
+    //                y: {
+    //                    min: 0, max: 100,
+    //                    grid: { color: 'rgba(0,0,0,0.05)' },
+    //                    border: { display: false },
+    //                    ticks: {
+    //                        color: '#888780',
+    //                        font: { family: 'DM Sans', size: 11 },
+    //                        stepSize: 25,
+    //                        callback: v => v + '%'
+    //                    }
+    //                }
+    //            },
+    //            animation: { duration: 600, easing: 'easeOutQuart' }
+    //        }
+    //    });
+    //},
 
     destroyChart: function (canvasId) {
         const ctx = document.getElementById(canvasId);

@@ -345,119 +345,119 @@ window.SSTGemelo = {
 };
 
 
-window.SSTCharts = {
+//window.SSTCharts = {
 
-    renderIncidentes: function (canvasId, labels, reportados, graves) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
+//    renderIncidentes: function (canvasId, labels, reportados, graves) {
+//        const canvas = document.getElementById(canvasId);
+//        if (!canvas) return;
 
-        // Destruir instancia anterior si existe
-        if (canvas._chartInstance) {
-            canvas._chartInstance.destroy();
-        }
+//        // Destruir instancia anterior si existe
+//        if (canvas._chartInstance) {
+//            canvas._chartInstance.destroy();
+//        }
 
-        // Labels por defecto si no vienen datos
-        const semanas = labels && labels.length
-            ? labels
-            : ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'];
-        const dataRep = reportados && reportados.length
-            ? reportados : [1, 2, 1, 3, 2, 2];
-        const dataGraves = graves && graves.length
-            ? graves : [0, 1, 0, 1, 0, 1];
+//        // Labels por defecto si no vienen datos
+//        const semanas = labels && labels.length
+//            ? labels
+//            : ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'];
+//        const dataRep = reportados && reportados.length
+//            ? reportados : [1, 2, 1, 3, 2, 2];
+//        const dataGraves = graves && graves.length
+//            ? graves : [0, 1, 0, 1, 0, 1];
 
-        const Chart = window.Chart;
-        if (!Chart) return;
+//        const Chart = window.Chart;
+//        if (!Chart) return;
 
-        canvas._chartInstance = new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: semanas,
-                datasets: [
-                    {
-                        label: 'Reportados',
-                        data: dataRep,
-                        backgroundColor: '#B5D4F4',
-                        borderRadius: 4,
-                        borderSkipped: false,
-                    },
-                    {
-                        label: 'Graves',
-                        data: dataGraves,
-                        backgroundColor: '#E24B4A',
-                        borderRadius: 4,
-                        borderSkipped: false,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 11 }, color: '#888780' }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            font: { size: 11 },
-                            color: '#888780'
-                        },
-                        grid: {
-                            color: 'rgba(0,0,0,0.05)'
-                        }
-                    }
-                }
-            }
-        });
-    },
+//        canvas._chartInstance = new Chart(canvas, {
+//            type: 'bar',
+//            data: {
+//                labels: semanas,
+//                datasets: [
+//                    {
+//                        label: 'Reportados',
+//                        data: dataRep,
+//                        backgroundColor: '#B5D4F4',
+//                        borderRadius: 4,
+//                        borderSkipped: false,
+//                    },
+//                    {
+//                        label: 'Graves',
+//                        data: dataGraves,
+//                        backgroundColor: '#E24B4A',
+//                        borderRadius: 4,
+//                        borderSkipped: false,
+//                    }
+//                ]
+//            },
+//            options: {
+//                responsive: true,
+//                maintainAspectRatio: false,
+//                plugins: {
+//                    legend: { display: false }
+//                },
+//                scales: {
+//                    x: {
+//                        grid: { display: false },
+//                        ticks: { font: { size: 11 }, color: '#888780' }
+//                    },
+//                    y: {
+//                        beginAtZero: true,
+//                        ticks: {
+//                            stepSize: 1,
+//                            font: { size: 11 },
+//                            color: '#888780'
+//                        },
+//                        grid: {
+//                            color: 'rgba(0,0,0,0.05)'
+//                        }
+//                    }
+//                }
+//            }
+//        });
+//    },
 
-    renderRiesgo: function (canvasId) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
+//    renderRiesgo: function (canvasId) {
+//        const canvas = document.getElementById(canvasId);
+//        if (!canvas) return;
 
-        if (canvas._chartInstance)
-            canvas._chartInstance.destroy();
+//        if (canvas._chartInstance)
+//            canvas._chartInstance.destroy();
 
-        const Chart = window.Chart;
-        if (!Chart) return;
+//        const Chart = window.Chart;
+//        if (!Chart) return;
 
-        canvas._chartInstance = new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'],
-                datasets: [{
-                    data: [22, 28, 45, 58, 71, 74],
-                    backgroundColor: [
-                        '#B5D4F4', '#B5D4F4',
-                        '#FAC775', '#FAC775',
-                        '#F09595', '#E24B4A'
-                    ],
-                    borderRadius: 4,
-                    borderSkipped: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 10 }, color: '#888780' }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: { font: { size: 10 }, color: '#888780' },
-                        grid: { color: 'rgba(0,0,0,0.05)' }
-                    }
-                }
-            }
-        });
-    }
-};
+//        canvas._chartInstance = new Chart(canvas, {
+//            type: 'bar',
+//            data: {
+//                labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Hoy'],
+//                datasets: [{
+//                    data: [22, 28, 45, 58, 71, 74],
+//                    backgroundColor: [
+//                        '#B5D4F4', '#B5D4F4',
+//                        '#FAC775', '#FAC775',
+//                        '#F09595', '#E24B4A'
+//                    ],
+//                    borderRadius: 4,
+//                    borderSkipped: false,
+//                }]
+//            },
+//            options: {
+//                responsive: true,
+//                maintainAspectRatio: false,
+//                plugins: { legend: { display: false } },
+//                scales: {
+//                    x: {
+//                        grid: { display: false },
+//                        ticks: { font: { size: 10 }, color: '#888780' }
+//                    },
+//                    y: {
+//                        beginAtZero: true,
+//                        max: 100,
+//                        ticks: { font: { size: 10 }, color: '#888780' },
+//                        grid: { color: 'rgba(0,0,0,0.05)' }
+//                    }
+//                }
+//            }
+//        });
+//    }
+//};

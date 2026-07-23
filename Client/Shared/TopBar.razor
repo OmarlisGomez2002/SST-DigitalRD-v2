@@ -13,10 +13,102 @@
         <button class="icon-btn" title="Buscar">
             <i class="ti ti-search"></i>
         </button>
-        <button class="icon-btn notif" title="Notificaciones">
+        @* <button class="icon-btn notif" title="Notificaciones">
             <i class="ti ti-bell"></i>
             <span class="notif-dot"></span>
-        </button>
+        </button> *@
+        <!-- Botón de notificaciones -->
+        <div style="position:relative">
+            <button class="icon-btn notif" title="Notificaciones"
+                    @onclick="ToggleAlertas">
+                <i class="ti ti-bell"></i>
+                @if (ConteoAlertas > 0)
+                {
+                    <span class="notif-dot">@(ConteoAlertas > 9 ? "9+" : ConteoAlertas.ToString())</span>
+                }
+            </button>
+
+            @if (MostrarAlertas)
+            {
+                <div style="position:absolute;right:0;top:44px;
+                            width:340px;z-index:200;
+                            background:var(--bg-surface);
+                            border:0.5px solid var(--border);
+                            border-radius:var(--radius-lg);
+                            box-shadow:var(--shadow-lg)">
+
+                    <div style="display:flex;align-items:center;
+                                justify-content:space-between;
+                                padding:12px 16px;
+                                border-bottom:0.5px solid var(--border)">
+                        <span style="font-size:13px;font-weight:600;
+                                     color:var(--text-primary)">
+                            Alertas del sistema
+                        </span>
+                        @if (Alertas.Any())
+                        {
+                            <button style="font-size:11px;color:var(--color-text-info);
+                                           background:none;border:none;cursor:pointer"
+                                    @onclick="MarcarTodasLeidas">
+                                Marcar todas como leídas
+                            </button>
+                        }
+                    </div>
+
+                    <div style="max-height:360px;overflow-y:auto">
+                        @if (!Alertas.Any())
+                        {
+                            <div style="padding:24px;text-align:center;
+                                        font-size:13px;color:var(--text-hint)">
+                                <i class="ti ti-bell-off"
+                                   style="font-size:24px;display:block;
+                                          margin-bottom:8px"></i>
+                                Sin alertas pendientes
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var alerta in Alertas)
+                            {
+                                var a = alerta;
+                                <div style="display:flex;gap:10px;
+                                            padding:12px 16px;cursor:pointer;
+                                            border-bottom:0.5px solid var(--border);
+                                            background:@(a.Leida ? "transparent" : "var(--color-background-warn)")"
+                                     @onclick="() => MarcarLeida(a)">
+                                    <div style="width:32px;height:32px;
+                                                border-radius:50%;flex-shrink:0;
+                                                display:flex;align-items:center;
+                                                justify-content:center;
+                                                background:@GetAlertaBg(a.Nivel)">
+                                        <i class="ti @GetAlertaIcono(a.Tipo)"
+                                           style="font-size:15px;
+                                                  color:@GetAlertaColor(a.Nivel)"></i>
+                                    </div>
+                                    <div style="flex:1;min-width:0">
+                                        <div style="font-size:12px;font-weight:500;
+                                                    color:var(--text-primary);
+                                                    margin-bottom:2px">
+                                            @a.Titulo
+                                        </div>
+                                        <div style="font-size:11px;
+                                                    color:var(--text-sec);
+                                                    line-height:1.4">
+                                            @a.Descripcion
+                                        </div>
+                                        <div style="font-size:10px;
+                                                    color:var(--text-hint);
+                                                    margin-top:3px">
+                                            @a.Fecha
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
         @* @if (_puedeCrear)
 
         {            
@@ -28,6 +120,10 @@
 
 @code {
     [Parameter] public string PageTitle { get; set; } = "";
+
+    private bool   MostrarAlertas = false;
+    private int    ConteoAlertas  = 0;
+    private List<AlertaSistemaDto> Alertas = new();
 
     private static readonly Dictionary<string, string> Titulos = new()
     {
@@ -74,14 +170,61 @@
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
+        await CargarConteo();
+    }
+
+    private async Task CargarConteo()
+    {
+        try
+        {
+            ConteoAlertas = await Http
+                .GetFromJsonAsync<int>("api/alertas/conteo");
+        }
+        catch { }
+    }
+
+    private async Task ToggleAlertas()
+    {
+        MostrarAlertas = !MostrarAlertas;
+        if (MostrarAlertas)
+        {
+            try
+            {
+                Alertas = await Http
+                    .GetFromJsonAsync<List<AlertaSistemaDto>>(
+                        "api/alertas?soloNoLeidas=false")
+                    ?? new();
+            }
+            catch { }
+        }
+    }
+
+    private async Task MarcarLeida(AlertaSistemaDto alerta)
+    {
+        if (alerta.Leida) return;
+        await Http.PutAsJsonAsync(
+            $"api/alertas/{alerta.Id}/leer", new { });
+        alerta.Leida = true;
+        ConteoAlertas = Math.Max(0, ConteoAlertas - 1);
+        StateHasChanged();
+    }
+
+    private async Task MarcarTodasLeidas()
+    {
+        await Http.PutAsJsonAsync("api/alertas/leer-todas", new { });
+        foreach (var a in Alertas) a.Leida = true;
+        ConteoAlertas = 0;
+        StateHasChanged();
     }
 
     private void OnLocationChanged(object? sender,
         LocationChangedEventArgs e)
     {
+        MostrarAlertas = false;
+        _ = CargarConteo();
         StateHasChanged();
     }
 
@@ -89,6 +232,28 @@
     {
         Nav.LocationChanged -= OnLocationChanged;
     }
+
+    private static string GetAlertaBg(string nivel) => nivel switch
+    {
+        "danger" => "#FCEBEB",
+        "warn" => "#FAEEDA",
+        _ => "#E6F1FB"
+    };
+
+    private static string GetAlertaColor(string nivel) => nivel switch
+    {
+        "danger" => "#A32D2D",
+        "warn" => "#854F0B",
+        _ => "#185FA5"
+    };
+
+    private static string GetAlertaIcono(string tipo) => tipo switch
+    {
+        "ia" => "ti-brain",
+        "epp" => "ti-hardhat",
+        "incidente" => "ti-alert-triangle",
+        _ => "ti-bell"
+    };
     //private bool _puedeCrear = false;
 
     // protected override async Task OnInitializedAsync()

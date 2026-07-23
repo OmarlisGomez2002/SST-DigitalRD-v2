@@ -7,6 +7,8 @@
         public string HoraAnalisis { get; set; } = "";
         public int TotalEmpleados { get; set; }
         public List<ZonaRiesgoDto> Zonas { get; set; } = new();
+        public List<string> TendenciaLabels { get; set; } = new(); // ← agregar
+        public List<int> TendenciaDatos { get; set; } = new();
     }
 
     public class ZonaRiesgoDto

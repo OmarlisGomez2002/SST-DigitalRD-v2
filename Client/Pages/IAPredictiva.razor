@@ -8,10 +8,48 @@
 <!-- ===== TOOLBAR ===== -->
 <div class="page-toolbar">
     <div class="toolbar-filters">
-        <button class="filter-btn">
+        @* <button class="filter-btn">
             <i class="ti ti-building-factory-2" aria-hidden="true"></i>
             @(ObraActual ?? "Cargando...")
-        </button>
+        </button> *@
+        <!-- REEMPLAZAR el botón estático por el selector con panel: -->
+        <div class="filtros-panel-wrapper">
+            <button class="filter-btn"
+                    @onclick="() => MostrarSelectorObra = !MostrarSelectorObra">
+                <i class="ti ti-building-factory-2" aria-hidden="true"></i>
+                @(ObraActual ?? "Cargando...")
+            </button>
+            @if (MostrarSelectorObra)
+            {
+                <div class="filtros-panel" style="width:220px">
+                    <div class="filtros-panel-header">
+                        <span>Proyecto / Obra</span>
+                        <button class="icon-action"
+                                @onclick="() => MostrarSelectorObra = false">
+                            <i class="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="filtros-panel-body" style="padding:6px 8px">
+                        @foreach (var obra in ObrasDisponibles)
+                        {
+                            var o = obra;
+                            <div style="padding:7px 8px;cursor:pointer;
+                                        border-radius:var(--radius-md);
+                                        font-size:13px;
+                                        background:@(ObraActual == o.Nombre
+                                                                     ? "var(--color-background-info)"
+                                                                     : "transparent");
+                                color:@(ObraActual == o.Nombre
+                                                             ? "var(--color-text-info)"
+                                                             : "var(--color-text-primary)")"
+                         @onclick="() => CambiarObra(o)">
+                        @o.Nombre
+                    </div>
+                                        }
+                    </div>
+                </div>
+            }
+        </div>
 
         <div class="filtros-panel-wrapper">
             <button class="filter-btn"
@@ -302,16 +340,33 @@
     private string MensajeAlerta = "";
     private bool _puedeEjecutar = false;
 
+    private List<ObraActivaDto> ObrasDisponibles = new();
+    private int ObraSeleccionadaId = 0;
+    private bool MostrarSelectorObra = false;
+
+    private List<string> TendenciaLabels = new();
+    private List<int> TendenciaDatos = new();
+
     protected override async Task OnInitializedAsync()
     {
         _puedeEjecutar = await Permisos.PuedeEjecutarModelo();
         GenerarPeriodos();
         try
         {
-            var obra = await Http
-                .GetFromJsonAsync<ObraActivaDto>(
-                    "api/configuracion/obra");
-            ObraActual = obra?.Nombre;
+            // var obra = await Http
+            //     .GetFromJsonAsync<ObraActivaDto>(
+            //         "api/configuracion/obra");
+            // ObraActual = obra?.Nombre;
+            var obras = await Http
+    .GetFromJsonAsync<List<ObraActivaDto>>(
+        "api/configuracion/obras");
+            if (obras is not null)
+            {
+                ObrasDisponibles = obras;
+                var primera = obras.FirstOrDefault();
+                ObraActual = primera?.Nombre;
+                ObraSeleccionadaId = primera?.Id ?? 0;
+            }
         }
         catch { }
 
@@ -319,14 +374,20 @@
         ZonaSeleccionada = Zonas
             .OrderByDescending(z => z.PorcentajeRiesgo)
             .FirstOrDefault();
+        
+        // Esperar a que el DOM esté listo para el canvas
+        await Task.Delay(200);
+        await RenderizarGrafica();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-            await JS.InvokeVoidAsync(
-                "SSTCharts.renderRiesgo", "riesgoChart");
-    }
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     if (firstRender)
+    //         await JS.InvokeVoidAsync(
+    //             "SSTCharts.renderRiesgo", "riesgoChart",
+    //         TendenciaLabels.ToArray(),
+    //         TendenciaDatos.ToArray());
+    // }
 
     private void GenerarPeriodos()
     {
@@ -345,6 +406,7 @@
         ZonaSeleccionada = Zonas
             .OrderByDescending(z => z.PorcentajeRiesgo)
             .FirstOrDefault();
+        await RenderizarGrafica();
         StateHasChanged();
     }
 
@@ -352,8 +414,13 @@
     {
         try
         {
-            var dto = await Http
-                .GetFromJsonAsync<IAAnalisisDto>("api/ia/analisis");
+            var url = $"api/ia/analisis?periodo=" +
+                  Uri.EscapeDataString(PeriodoActual);
+
+            if (ObraSeleccionadaId > 0)
+                url += $"&obraId={ObraSeleccionadaId}";
+
+            var dto = await Http.GetFromJsonAsync<IAAnalisisDto>(url); //("api/ia/analisis");
 
             if (dto is not null)
             {
@@ -361,7 +428,10 @@
                 PrecisionModelo = dto.PrecisionModelo;
                 HoraAnalisis = dto.HoraAnalisis;
                 Zonas = dto.Zonas;
+                TendenciaLabels = dto.TendenciaLabels;
+                TendenciaDatos = dto.TendenciaDatos;
             }
+            await RenderizarGrafica();
         }
         catch (Exception ex)
         {
@@ -379,13 +449,23 @@
 
         try
         {
-            var dto = await Http
-                .PostAsJsonAsync("api/ia/ejecutar", new { })
-                .ContinueWith(async t =>
-                    await t.Result.Content
-                        .ReadFromJsonAsync<IAAnalisisDto>());
+            // var dto = await Http
+            //     .PostAsJsonAsync("api/ia/ejecutar", new { })
+            //     .ContinueWith(async t =>
+            //         await t.Result.Content
+            //             .ReadFromJsonAsync<IAAnalisisDto>());
 
-            var resultado = await dto;
+            // var resultado = await dto;
+            var url = $"api/ia/ejecutar?periodo=" +
+                  Uri.EscapeDataString(PeriodoActual);
+
+            if (ObraSeleccionadaId > 0)
+                url += $"&obraId={ObraSeleccionadaId}";
+
+            var response = await Http.PostAsJsonAsync(url, new { });
+            var resultado = await response.Content
+                .ReadFromJsonAsync<IAAnalisisDto>();
+
             if (resultado is not null)
             {
                 IndiceRiesgoGlobal = resultado.IndiceRiesgoGlobal;
@@ -450,6 +530,28 @@
         //     ZonaNombre = z.Nombre,
         //     NivelRiesgo = z.PorcentajeRiesgo
         // });
+    }
+
+    private async Task CambiarObra(ObraActivaDto obra)
+    {
+        ObraActual = obra.Nombre;
+        ObraSeleccionadaId = obra.Id;
+        MostrarSelectorObra = false;
+        await CargarAnalisis();
+        ZonaSeleccionada = Zonas
+            .OrderByDescending(z => z.PorcentajeRiesgo)
+            .FirstOrDefault();
+        await RenderizarGrafica();
+        StateHasChanged();
+    }
+
+    private async Task RenderizarGrafica()
+    {
+        await JS.InvokeVoidAsync(
+            "SSTCharts.renderRiesgo",
+            "riesgoChart",
+            TendenciaLabels.ToArray(),
+            TendenciaDatos.ToArray());
     }
 
     // ── Helpers visuales ───────────────────────────────────
