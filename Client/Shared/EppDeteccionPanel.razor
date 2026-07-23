@@ -9,13 +9,17 @@
 
     <div class="epp-camara-badge">
         <div class="epp-camara-dot"></div>
-        <span>
+        @* <span>
             YOLOv4-Tiny · En vivo —
             Cámara Área 2-A · Actualizado hace 12s
+        </span> *@
+        <span>
+            YOLOv4-Tiny · Datos desde inventario EPP ·
+            Actualizado: @DateTime.Now.ToString("hh:mm tt")
         </span>
     </div>
 
-    <div class="epp-stats-grid">
+    @* <div class="epp-stats-grid">
         <div class="epp-stat">
             <div class="epp-stat-val">@PctCascos<small>%</small></div>
             <div class="epp-stat-label">Cascos</div>
@@ -43,6 +47,114 @@
                 </div>
             </div>
         </div>
+    </div> *@
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
+
+        <!-- Cascos -->
+        <div style="display:flex;align-items:center;gap:12px;
+                    padding:10px 12px;border-radius:var(--radius-md);
+                    border:0.5px solid var(--border)">
+            <div style="width:36px;height:36px;border-radius:50%;
+                        background:#E6F1FB;flex-shrink:0;
+                        display:flex;align-items:center;
+                        justify-content:center">
+                <i class="ti ti-hardhat"
+                   style="font-size:18px;color:#185FA5"
+                   aria-hidden="true"></i>
+            </div>
+            <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:5px">
+                    <span style="font-size:12px;font-weight:500;
+                                 color:var(--text-primary)">
+                        Cascos de seguridad
+                    </span>
+                    <span style="font-size:13px;font-weight:700;
+                                 color:@GetColor(PctCascos)">
+                        @PctCascos%
+                    </span>
+                </div>
+                <div class="epp-bar-track">
+                    <div class="epp-bar-fill epp-bar-blue"
+                         style="width:@PctCascos%"></div>
+                </div>
+                <div style="font-size:10px;color:var(--text-hint);
+                            margin-top:3px">
+                    @GetEstado(PctCascos)
+                </div>
+            </div>
+        </div>
+
+        <!-- Chalecos -->
+        <div style="display:flex;align-items:center;gap:12px;
+                    padding:10px 12px;border-radius:var(--radius-md);
+                    border:0.5px solid var(--border)">
+            <div style="width:36px;height:36px;border-radius:50%;
+                        background:#EAF3DE;flex-shrink:0;
+                        display:flex;align-items:center;
+                        justify-content:center">
+                <i class="ti ti-shirt"
+                   style="font-size:18px;color:#3B6D11"
+                   aria-hidden="true"></i>
+            </div>
+            <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:5px">
+                    <span style="font-size:12px;font-weight:500;
+                                 color:var(--text-primary)">
+                        Chalecos reflectivos
+                    </span>
+                    <span style="font-size:13px;font-weight:700;
+                                 color:@GetColor(PctChalecos)">
+                        @PctChalecos%
+                    </span>
+                </div>
+                <div class="epp-bar-track">
+                    <div class="epp-bar-fill epp-bar-green"
+                         style="width:@PctChalecos%"></div>
+                </div>
+                <div style="font-size:10px;color:var(--text-hint);
+                            margin-top:3px">
+                    @GetEstado(PctChalecos)
+                </div>
+            </div>
+        </div>
+
+        <!-- Botas -->
+        <div style="display:flex;align-items:center;gap:12px;
+                    padding:10px 12px;border-radius:var(--radius-md);
+                    border:0.5px solid var(--border)">
+            <div style="width:36px;height:36px;border-radius:50%;
+                        background:#FAEEDA;flex-shrink:0;
+                        display:flex;align-items:center;
+                        justify-content:center">
+                <i class="ti ti-shoe"
+                   style="font-size:18px;color:#854F0B"
+                   aria-hidden="true"></i>
+            </div>
+            <div style="flex:1">
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:5px">
+                    <span style="font-size:12px;font-weight:500;
+                                 color:var(--text-primary)">
+                        Botas de seguridad
+                    </span>
+                    <span style="font-size:13px;font-weight:700;
+                                 color:@GetColor(PctBotas)">
+                        @PctBotas%
+                    </span>
+                </div>
+                <div class="epp-bar-track">
+                    <div class="epp-bar-fill epp-bar-amber"
+                         style="width:@PctBotas%"></div>
+                </div>
+                <div style="font-size:10px;color:var(--text-hint);
+                            margin-top:3px">
+                    @GetEstado(PctBotas)
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -50,6 +162,20 @@
     [Parameter] public int PctCascos { get; set; } = 92;
     [Parameter] public int PctChalecos { get; set; } = 85;
     [Parameter] public int PctBotas { get; set; } = 78;
+
+    private static string GetColor(int pct) => pct switch
+    {
+        >= 90 => "#3B6D11",
+        >= 70 => "#854F0B",
+        _ => "#A32D2D"
+    };
+
+    private static string GetEstado(int pct) => pct switch
+    {
+        >= 90 => "Cumplimiento óptimo",
+        >= 70 => "Cumplimiento aceptable — revisar pendientes",
+        _ => "Cumplimiento bajo — acción inmediata requerida"
+    };
 }
 @* <div class="dashboard-card">
     <div class="card-header">

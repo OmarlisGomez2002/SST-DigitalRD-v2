@@ -32,8 +32,12 @@ namespace SSTDigitalRD.Server.Controllers
                             x.FechaInspeccion < hace30Dias)
                 .CountAsync();
 
-            var inspPendientes = await _db.Inspecciones
-                .CountAsync(x => x.Estado == "En proceso");
+            //var inspPendientes = await _db.Inspecciones
+            //    .CountAsync(x => x.Estado == "En proceso");
+
+            var charlasMes = await _db.Charlas
+    .Where(x => x.FechaCharla >= inicioMes)
+    .CountAsync();
 
             var conformes = inspMes.Count(x => x.Estado == "Conforme");
             var cumplimiento = inspMes.Any()
@@ -73,22 +77,64 @@ namespace SSTDigitalRD.Server.Controllers
                     };
                 }).ToList();
 
-            // ── EPP ────────────────────────────────────────────
-            var totalEPP = await _db.ArticulosEPP.CountAsync();
+            //// ── EPP ────────────────────────────────────────────
+            //var totalEPP = await _db.ArticulosEPP.CountAsync();
+            //var vigentesEPP = await _db.ArticulosEPP
+            //    .CountAsync(x => x.Estado == "Vigente");
+
+            //var pctEPP = totalEPP > 0
+            //    ? (int)Math.Round((double)vigentesEPP / totalEPP * 100)
+            //    : 88;
+            // ── EPP ────────────────────────────────────────────────────
+            var totalTrabajadores = await _db.Empleados
+                .CountAsync(x => x.Estado == "Activo");
+
+            // Trabajadores que tienen al menos una entrega de EPP vigente
+            var trabajadoresConEPP = await _db.EntregasEPP
+                .Where(x => x.Articulos.Any(a => a.Estado == "Vigente"))
+                .Select(x => x.CedulaTrabajador)
+                .Distinct()
+                .CountAsync();
+
+            var pctEPP = totalTrabajadores > 0
+                ? (int)Math.Round(
+                    (double)trabajadoresConEPP / totalTrabajadores * 100)
+                : 0;
+
+            // Para el panel de EPP — por tipo
+            var totalEPPArticulos = await _db.ArticulosEPP.CountAsync();
             var vigentesEPP = await _db.ArticulosEPP
                 .CountAsync(x => x.Estado == "Vigente");
+            var pctGeneral = totalEPPArticulos > 0
+                ? (int)Math.Round(
+                    (double)vigentesEPP / totalEPPArticulos * 100)
+                : 0;
 
-            var pctEPP = totalEPP > 0
-                ? (int)Math.Round((double)vigentesEPP / totalEPP * 100)
-                : 88;
-
-            // ── Alertas activas ────────────────────────────────
+            // ── Alertas activas — desde tabla AlertasSistema + reglas ──
             var alertas = new List<DashboardAlertaDto>();
+
+            // Alertas de IA guardadas (no leídas, últimas 3)
+            var alertasIA = await _db.AlertasSistema
+                .Where(x => !x.Leida)
+                .OrderByDescending(x => x.FechaCreacion)
+                .Take(3)
+                .ToListAsync();
+
+            foreach (var ia in alertasIA)
+            {
+                alertas.Add(new DashboardAlertaDto
+                {
+                    Titulo = ia.Titulo,
+                    Descripcion = ia.Descripcion,
+                    Tipo = ia.Nivel,
+                    Tiempo = TiempoRelativo(ia.FechaCreacion, ahora)
+                });
+            }
 
             var eppVencidos = await _db.ArticulosEPP
                 .Include(x => x.EntregaEPP)
                 .Where(x => x.Estado == "Vencido")
-                .Take(3)
+                .Take(2)
                 .ToListAsync();
 
             foreach (var epp in eppVencidos)
@@ -101,7 +147,8 @@ namespace SSTDigitalRD.Server.Controllers
                     Tiempo = "Hoy"
                 });
             }
-
+            
+            // Sin charla hoy
             var sinCharlaHoy = await _db.Charlas
                 .Where(x => x.FechaCharla.Date == ahora.Date)
                 .CountAsync() == 0;
@@ -163,7 +210,7 @@ namespace SSTDigitalRD.Server.Controllers
                     CumplimientoNormativo = cumplimiento,
                     IncidentesEsteMes = incMes,
                     UsoEPPDetectado = pctEPP,
-                    InspeccionesPendientes = inspPendientes,
+                    CharlasMes = charlasMes, //InspeccionesPendientes = inspPendientes,
                     TendenciaInspecciones = tendInsp,
                     TendenciaIncidentes = tendInc,
                     TendenciaEPP = 0,
@@ -172,12 +219,22 @@ namespace SSTDigitalRD.Server.Controllers
                 IncidentesPorSemana = porSemana,
                 AlertasActivas = alertas,
                 UltimasInspecciones = ultimasInsp,
-                PctCascos = pctEPP,
-                PctChalecos = Math.Max(pctEPP - 7, 70),
-                PctBotas = Math.Max(pctEPP - 10, 65)
+                PctCascos = pctGeneral, //pctEPP,
+                PctChalecos = pctGeneral, //Math.Max(pctEPP - 7, 70),
+                PctBotas = pctGeneral, //Math.Max(pctEPP - 10, 65)
             };
 
             return Ok(resumen);
+        }
+
+        private static string TiempoRelativo(DateTime fecha, DateTime ahora)
+        {
+            var diff = ahora - fecha;
+            if (diff.TotalMinutes < 1) return "Ahora mismo";
+            if (diff.TotalMinutes < 60) return $"Hace {(int)diff.TotalMinutes} min";
+            if (diff.TotalHours < 24) return $"Hace {(int)diff.TotalHours} h";
+            if (diff.TotalDays < 7) return $"Hace {(int)diff.TotalDays} días";
+            return fecha.ToString("dd/MM/yyyy");
         }
     }
 }

@@ -51,17 +51,27 @@
                 TendenciaPositiva="@(Datos.Metricas.TendenciaIncidentes >= 0)"
                 Icono="ti-alert-triangle" />
 
-    <MetricCard Titulo="Uso de EPP detectado"
+    @* <MetricCard Titulo="Uso de EPP detectado"
                 Valor="@($"{Datos.Metricas.UsoEPPDetectado}%")"
                 Tendencia="+5%"
                 TendenciaPositiva="true"
+                Icono="ti-hardhat" /> *@
+    <MetricCard Titulo="Trabajadores con EPP al día"
+                Valor="@($"{Datos.Metricas.UsoEPPDetectado}%")"
+                Tendencia="@($"{Datos.Metricas.TendenciaEPP:+#;-#;0}%")"
+                TendenciaPositiva="@(Datos.Metricas.TendenciaEPP >= 0)"
                 Icono="ti-hardhat" />
 
-    <MetricCard Titulo="Inspecciones pendientes"
+    @* <MetricCard Titulo="Inspecciones pendientes"
                 Valor="@Datos.Metricas.InspeccionesPendientes.ToString()"
                 Tendencia="@($"Próx. {Datos.Metricas.ProximaEntregaMTRAB}")"
                 TendenciaPositiva="false"
-                Icono="ti-calendar" />
+                Icono="ti-calendar" /> *@
+    <MetricCard Titulo="Charlas este mes"
+                Valor="@Datos.Metricas.CharlasMes.ToString()"
+                Tendencia="SST activa"
+                TendenciaPositiva="true"
+                Icono="ti-speakerphone" />
 
     
 </section>
@@ -79,14 +89,14 @@
 </section> *@
 <section class="mid-grid">
     <IncidentesChart Datos="Datos.IncidentesPorSemana" />
-    <AlertasPanel Alertas="Datos.AlertasActivas" />
+    <EppDeteccionPanel PctCascos="Datos.PctCascos"
+                       PctChalecos="Datos.PctChalecos"
+                       PctBotas="Datos.PctBotas" />
 </section>
 
 <section class="bottom-grid">
     <InspeccionesTable Inspecciones="Datos.UltimasInspecciones" />
-    <EppDeteccionPanel PctCascos="Datos.PctCascos"
-                       PctChalecos="Datos.PctChalecos"
-                       PctBotas="Datos.PctBotas" />
+    <AlertasPanel Alertas="Datos.AlertasActivas" />    
 </section>
 
 @code {

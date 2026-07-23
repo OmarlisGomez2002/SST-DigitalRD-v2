@@ -5,7 +5,7 @@ public class DashboardMetricasDto
     public int CumplimientoNormativo { get; set; }
     public int IncidentesEsteMes { get; set; }
     public int UsoEPPDetectado { get; set; }
-    public int InspeccionesPendientes { get; set; }
+    public int CharlasMes { get; set; }    //public int InspeccionesPendientes { get; set; }
     public int TendenciaInspecciones { get; set; }
     public int TendenciaIncidentes { get; set; }
     public int TendenciaEPP { get; set; }

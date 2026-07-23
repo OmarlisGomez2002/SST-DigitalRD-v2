@@ -15,7 +15,7 @@
     }
     else
     {
-        <div class="alertas-list">
+        @* <div class="alertas-list">
             @foreach (var alerta in Alertas)
             {
                 <div class="alerta-item">
@@ -29,6 +29,42 @@
                     </div>
                 </div>
             }
+        </div> *@
+        <div class="alertas-list">
+            @foreach (var alerta in Alertas)
+            {
+                <div class="alerta-item">
+                    <div style="display:flex;align-items:flex-start;gap:10px">
+                        <div style="width:28px;height:28px;border-radius:50%;
+                                    flex-shrink:0;display:flex;
+                                    align-items:center;justify-content:center;
+                                    background:@(alerta.Tipo == "danger"
+                                                             ? "#FCEBEB" : "#FAEEDA")">
+                    <i class="ti @(alerta.Tipo == "danger"
+                                                       ? "ti-alert-circle" : "ti-alert-triangle")"
+                       style="font-size:14px;
+                              color:@(alerta.Tipo == "danger"
+                                                       ? "#A32D2D" : "#854F0B")"
+                       aria-hidden="true"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;
+                                gap:6px;margin-bottom:2px">
+                        <span class="pill @(alerta.Tipo == "danger"
+                                                          ? "pill-danger" : "pill-warn")"
+                              style="font-size:9px;padding:1px 6px">
+                            @(alerta.Tipo == "danger" ? "Crítico" : "Advertencia")
+                        </span>
+                        <span style="font-size:10px;color:var(--text-hint)">
+                            @alerta.Tiempo
+                        </span>
+                    </div>
+                    <div class="alerta-titulo">@alerta.Titulo</div>
+                    <div class="alerta-desc">@alerta.Descripcion</div>
+                </div>
+            </div>
+        </div>
+                }
         </div>
     }
 </div>
