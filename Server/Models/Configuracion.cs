@@ -90,6 +90,8 @@ namespace SSTDigitalRD.Server.Models
         public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
         public byte[] PasswordSalt { get; set; } = Array.Empty<byte>();
         public DateTime? UltimoAcceso { get; set; }
+        public bool AceptoPolitica { get; set; } = false;
+        public DateTime? FechaAceptoPolitica { get; set; }
     }
 
     public class TipoInspeccion

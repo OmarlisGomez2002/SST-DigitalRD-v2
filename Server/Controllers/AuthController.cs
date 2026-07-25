@@ -45,6 +45,8 @@ namespace SSTDigitalRD.Server.Controllers
                 });
 
             usuario.UltimoAcceso = DateTime.UtcNow;
+            usuario.AceptoPolitica = true;              
+            usuario.FechaAceptoPolitica = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
             return Ok(new LoginResponseDto

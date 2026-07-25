@@ -1,0 +1,98 @@
+﻿@page "/privacidad"
+@layout LoginLayout
+
+<PageTitle>Política de Privacidad · SST-Digital RD</PageTitle>
+
+<div class="login-wrap" style="max-width:720px;margin:0 auto;
+                                padding:32px 16px">
+    <div class="login-card" style="max-width:100%">
+
+        <div class="login-brand" style="margin-bottom:24px">
+            <div class="login-logo">
+                <i class="ti ti-shield-lock" aria-hidden="true"></i>
+            </div>
+            <div>
+                <div class="login-title">Política de Privacidad</div>
+                <div class="login-subtitle">SST-Digital RD · Versión 1.0 · 2026</div>
+            </div>
+        </div>
+
+        <div style="font-size:13px;color:var(--text-primary);
+                    line-height:1.7;display:flex;flex-direction:column;gap:16px">
+
+            <p>SST-Digital RD es una plataforma desarrollada por Ramón Gómez
+            como proyecto de grado de la Universidad Iberoamericana (UNIBE)
+            para la gestión de Seguridad y Salud en el Trabajo en empresas
+            del sector construcción de la República Dominicana.</p>
+
+            <div>
+                <strong>1. Datos que recopilamos</strong>
+                <p style="margin-top:6px">El sistema recopila los siguientes
+                datos necesarios para su funcionamiento: nombre y correo
+                electrónico de los usuarios registrados, datos de empleados
+                ingresados por la empresa cliente (nombre, cédula, cargo),
+                registros de inspecciones e incidentes incluyendo coordenadas
+                GPS y firmas digitales, fotografías de evidencia capturadas
+                en campo, y datos de entrega y estado de Equipos de Protección
+                Personal.</p>
+            </div>
+
+            <div>
+                <strong>2. Finalidad del tratamiento</strong>
+                <p style="margin-top:6px">Los datos recopilados se utilizan
+                exclusivamente para: generar los reportes reglamentarios del
+                Reglamento 522-06 requeridos por el Ministerio de Trabajo,
+                calcular indicadores de riesgo y cumplimiento normativo,
+                y proporcionar evidencia documental inmutable ante inspecciones
+                laborales. Los datos no se utilizan con fines comerciales
+                ni se comparten con terceros salvo requerimiento expreso de
+                autoridad competente.</p>
+            </div>
+
+            <div>
+                <strong>3. Seguridad de los datos</strong>
+                <p style="margin-top:6px">Todos los registros del sistema
+                son sellados con hash SHA-256 al momento de su creación,
+                garantizando su integridad conforme al Artículo 7 de la
+                Ley 126-02 sobre Comercio Electrónico y Firmas Digitales
+                de la República Dominicana. Las contraseñas se almacenan
+                como hashes HMAC-SHA512 con salt aleatorio y nunca en texto
+                plano. La comunicación entre el cliente y el servidor se
+                realiza mediante HTTPS con certificado SSL.</p>
+            </div>
+
+            <div>
+                <strong>4. Derechos del usuario</strong>
+                <p style="margin-top:6px">El administrador de la empresa
+                cliente puede solicitar la exportación o eliminación de
+                los datos de su organización contactando al responsable
+                del sistema. Los empleados registrados tienen derecho a
+                conocer los datos almacenados sobre ellos mediante solicitud
+                formal a su empleador.</p>
+            </div>
+
+            <div>
+                <strong>5. Retención de datos</strong>
+                <p style="margin-top:6px">Los registros de SST se conservan
+                por un mínimo de tres años conforme al Artículo 8 del
+                Reglamento 522-06, que establece ese período como vigencia
+                mínima del Programa de SST. Los datos pueden ser eliminados
+                por el administrador una vez vencido ese período.</p>
+            </div>
+
+            <div>
+                <strong>6. Contacto</strong>
+                <p style="margin-top:6px">Para consultas sobre esta política
+                o el tratamiento de sus datos puede contactar al responsable
+                del sistema a través del correo institucional registrado
+                en la configuración de la plataforma.</p>
+            </div>
+        </div>
+
+        <div style="margin-top:24px;text-align:center">
+            <a href="/login" style="font-size:13px;color:var(--color-text-info)">
+                ← Volver al inicio de sesión
+            </a>
+        </div>
+    </div>
+</div>
