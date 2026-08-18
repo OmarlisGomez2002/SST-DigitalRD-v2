@@ -92,6 +92,38 @@ namespace SSTDigitalRD.Server.Models
         public DateTime? UltimoAcceso { get; set; }
         public bool AceptoPolitica { get; set; } = false;
         public DateTime? FechaAceptoPolitica { get; set; }
+
+        [MaxLength(10)]
+        public string? Codigo2FA { get; set; }
+        public DateTime? Expiracion2FA { get; set; }
+    }
+
+    public class TokenRevocado
+    {
+        [Key]
+        public int Id { get; set; }
+        [Required, MaxLength(500)]
+        public string Token { get; set; } = "";
+        public DateTime FechaRevocacion { get; set; } = DateTime.UtcNow;
+        public DateTime FechaExpiracion { get; set; }
+    }
+
+    public class AuditoriaLog
+    {
+        [Key]
+        public int Id { get; set; }
+        public int? UsuarioId { get; set; }
+        [MaxLength(150)]
+        public string UsuarioNombre { get; set; } = "";
+        [MaxLength(50)]
+        public string Accion { get; set; } = "";
+        [MaxLength(100)]
+        public string Entidad { get; set; } = "";
+        [MaxLength(300)]
+        public string Detalle { get; set; } = "";
+        [MaxLength(45)]
+        public string IpAddress { get; set; } = "";
+        public DateTime Fecha { get; set; } = DateTime.UtcNow;
     }
 
     public class TipoInspeccion

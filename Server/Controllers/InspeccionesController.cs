@@ -27,10 +27,7 @@ namespace SSTDigitalRD.Server.Controllers
 
         // ── GET /api/inspecciones ──────────────────────────────
         [HttpGet]
-        public async Task<ActionResult<List<InspeccionListDto>>> GetTodas(
-            [FromQuery] string? estado = null,
-            [FromQuery] string? inspector = null,
-    [FromQuery] int? obraId = null)
+        public async Task<ActionResult<List<InspeccionListDto>>> GetTodas([FromQuery] string? estado = null, [FromQuery] string? inspector = null, [FromQuery] int? obraId = null)
         {
             var query = _db.Inspecciones.AsNoTracking();
 
@@ -52,6 +49,7 @@ namespace SSTDigitalRD.Server.Controllers
                     Area = x.Area,
                     Obra = x.Obra,
                     Inspector = x.Inspector,
+                    Descripcion = x.Descripcion,
                     Fecha = x.FechaInspeccion,
                     Estado = x.Estado,
                     GpsCapturado = x.GpsCapturado,

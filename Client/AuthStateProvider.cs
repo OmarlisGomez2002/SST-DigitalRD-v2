@@ -1,28 +1,26 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using SSTDigitalRD.Shared.DTOs;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Claims;
-using Blazored.LocalStorage;
 
 
 namespace SSTDigitalRD.Client
 {
-    public class SSTAuthStateProvider
-        : AuthenticationStateProvider
+    public class SSTAuthStateProvider : AuthenticationStateProvider
     {
         private readonly HttpClient _http;
         private readonly ILocalStorageService _storage;
 
-        public SSTAuthStateProvider(
-            HttpClient http, ILocalStorageService storage)
+        public SSTAuthStateProvider(HttpClient http, ILocalStorageService storage)
         {
             _http = http;
             _storage = storage;
         }
 
-        public override async Task<AuthenticationState>
-            GetAuthenticationStateAsync()
+        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             var token = await _storage.GetItemAsync<string>("token");
 
@@ -39,14 +37,11 @@ namespace SSTDigitalRD.Client
                 return EstadoAnonimo();
             }
 
-            _http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var identity = new ClaimsIdentity(
-                jwt.Claims, "jwt");
+            var identity = new ClaimsIdentity(jwt.Claims, "jwt");
 
-            return new AuthenticationState(
-                new ClaimsPrincipal(identity));
+            return new AuthenticationState(new ClaimsPrincipal(identity));
         }
 
         public async Task Login(LoginResponseDto response)
@@ -56,22 +51,26 @@ namespace SSTDigitalRD.Client
             await _storage.SetItemAsync("rol", response.Rol);
             await _storage.SetItemAsync("usuarioId", response.UsuarioId.ToString());
 
-            _http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue(
-                    "Bearer", response.Token);
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", response.Token);
 
             var handler = new JwtSecurityTokenHandler();
             var jwt = handler.ReadJwtToken(response.Token);
             var identity = new ClaimsIdentity(jwt.Claims, "jwt");
             var user = new ClaimsPrincipal(identity);
 
-            NotifyAuthenticationStateChanged(
-                Task.FromResult(
-                    new AuthenticationState(user)));
+            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(user)));
         }
 
         public async Task Logout()
         {
+
+            // Revocar token en el servidor
+            try
+            {
+                await _http.PostAsJsonAsync("api/auth/logout", new { });
+            }
+            catch { /* si falla la red, continúa igual */ }
+
             await _storage.RemoveItemAsync("token");
             await _storage.RemoveItemAsync("nombre");
             await _storage.RemoveItemAsync("rol");
@@ -79,8 +78,7 @@ namespace SSTDigitalRD.Client
 
             _http.DefaultRequestHeaders.Authorization = null;
 
-            NotifyAuthenticationStateChanged(
-                Task.FromResult(EstadoAnonimo()));
+            NotifyAuthenticationStateChanged(Task.FromResult(EstadoAnonimo()));
         }
 
         private static AuthenticationState EstadoAnonimo()

@@ -144,7 +144,7 @@
                     <input type="checkbox" @onchange="ToggleSeleccionarTodos" />
                 </th>
                 <th>Área / Actividad</th>
-                <th>Inspector</th>
+                <th>Descripción</th>
                 <th>Fecha</th>
                 <th>GPS</th>
                 <th>Estado</th>
@@ -180,10 +180,10 @@
                         </td>
                         <td>
                             <div class="inspector-cell">
-                                <div class="mini-avatar" style="background:@item.AvatarBg; color:@item.AvatarColor">
+                                @* <div class="mini-avatar" style="background:@item.AvatarBg; color:@item.AvatarColor">
                                     @item.InspectorIniciales
-                                </div>
-                                @item.Inspector
+                                </div> *@
+                                @item.Descripcion
                             </div>
                         </td>
                         <td>
@@ -392,8 +392,7 @@
 
     private async Task ExportarCSV()
     {
-        var query = TabActivo == "todas"
-            ? "" : $"?estado={Uri.EscapeDataString(GetEstadoPorTab(TabActivo))}";
+        var query = TabActivo == "todas" ? "" : $"?estado={Uri.EscapeDataString(GetEstadoPorTab(TabActivo))}";
 
         var response = await Http.GetAsync($"api/inspecciones/export{query}");
 
@@ -403,8 +402,7 @@
             var base64 = Convert.ToBase64String(bytes);
             var fileName = $"Inspecciones_{DateTime.Now:yyyyMMdd}.csv";
 
-            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
-                fileName, base64, "text/csv");
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo", fileName, base64, "text/csv");
         }
     }
 
@@ -484,6 +482,7 @@
                     SubArea = "",
                     Obra = x.Obra,
                     Inspector = x.Inspector,
+                    Descripcion = x.Descripcion,
                     //InspectorIniciales = x.Inspector.Length >= 2 ? string.Concat(x.Inspector.Split(' ').Take(2).Select(p => p[0].ToString())).ToUpper() : x.Inspector[..1].ToUpper(),
                     InspectorIniciales = GenerarIniciales(x.Inspector),
                     Fecha = x.Fecha,
@@ -506,11 +505,12 @@
     private static string GenerarIniciales(string nombre)
     {
         if (string.IsNullOrWhiteSpace(nombre)) return "??";
-        var partes = nombre.Split(' ',
-            StringSplitOptions.RemoveEmptyEntries);
+        
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
         if (partes.Length == 1)
-            return partes[0].Length > 0
-                ? partes[0][0].ToString().ToUpper() : "?";
+            return partes[0].Length > 0 ? partes[0][0].ToString().ToUpper() : "?";
+
         return $"{partes[0][0]}{partes[1][0]}".ToUpper();
     }
 
@@ -522,6 +522,7 @@
         public string SubArea { get; set; } = "";
         public string Obra { get; set; } = "";
         public string Inspector { get; set; } = "";
+        public string Descripcion { get; set; } = "";
         public string InspectorIniciales { get; set; } = "";
         public DateTime Fecha { get; set; }
         public string Hora { get; set; } = "";

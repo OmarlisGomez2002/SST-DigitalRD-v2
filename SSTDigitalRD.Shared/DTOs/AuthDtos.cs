@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace SSTDigitalRD.Shared.DTOs
 {
     public class LoginDto
     {
+        [Required, EmailAddress, MaxLength(150)]
         public string Correo { get; set; } = "";
+
+        [Required, MinLength(8), MaxLength(100)]
         public string Password { get; set; } = "";
     }
 
@@ -19,6 +18,7 @@ namespace SSTDigitalRD.Shared.DTOs
         public string Correo { get; set; } = "";
         public string Rol    { get; set; } = "";
         public int UsuarioId { get; set; }
+        public bool Requiere2FA { get; set; } = false;
     }
 
     public class CambiarPasswordDto
@@ -43,10 +43,15 @@ namespace SSTDigitalRD.Shared.DTOs
 
     public class CrearUsuarioConPasswordDto
     {
+        [Required, MaxLength(150)]
         public string Nombre { get; set; } = "";
+        [Required, EmailAddress, MaxLength(150)]
         public string Correo { get; set; } = "";
+        [Required, MaxLength(50)]
         public string Rol { get; set; } = "";
+        [MaxLength(100)]
         public string Cuadrilla { get; set; } = "";
+        [Required, MinLength(8), MaxLength(100)]
         public string Password { get; set; } = "";
     }
 }

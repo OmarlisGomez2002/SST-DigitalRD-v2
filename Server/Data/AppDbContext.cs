@@ -21,22 +21,18 @@ namespace SSTDigitalRD.Server.Data
         public DbSet<NotificacionConfig> NotificacionesConfig { get; set; }
         public DbSet<UsuarioSistema> UsuariosSistema { get; set; }
         public DbSet<Empleado> Empleados { get; set; }
-
         public DbSet<TipoInspeccion> TiposInspeccion { get; set; }
-
         public DbSet<Cuadrilla> Cuadrillas { get; set; }
         public DbSet<TipoCharla> TiposCharla { get; set; }
-
         public DbSet<CargoEmpleado> CargosEmpleado { get; set; }
-
         public DbSet<CapturaVision> CapturasVision { get; set; }
-
         public DbSet<ItemChecklist> ItemsChecklist { get; set; }
         public DbSet<TipoEPP> TiposEPP { get; set; }
         public DbSet<ProgramaSST> ProgramaSST { get; set; }
         public DbSet<ZonaObra> ZonasObra { get; set; }
-
         public DbSet<AlertaSistema> AlertasSistema { get; set; }
+        public DbSet<TokenRevocado> TokensRevocados { get; set; }
+        public DbSet<AuditoriaLog> AuditoriaLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder mb)
         {
@@ -194,6 +190,21 @@ namespace SSTDigitalRD.Server.Data
                 e.HasIndex(x => x.Leida);
                 e.HasIndex(x => x.FechaCreacion);
                 e.HasIndex(x => x.Tipo);
+            });
+
+            mb.Entity<TokenRevocado>(e =>
+            {
+                e.ToTable("TokensRevocados");
+                e.HasIndex(x => x.Token);
+                e.HasIndex(x => x.FechaExpiracion);
+            });
+
+            mb.Entity<AuditoriaLog>(e =>
+            {
+                e.ToTable("AuditoriaLogs");
+                e.HasIndex(x => x.UsuarioId);
+                e.HasIndex(x => x.Fecha);
+                e.HasIndex(x => x.Accion);
             });
         }
     }

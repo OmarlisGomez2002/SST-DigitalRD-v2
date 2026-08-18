@@ -13,40 +13,107 @@ namespace SSTDigitalRD.Server.Controllers
     {
         private readonly AppDbContext _db;
         private readonly IAuthService _auth;
+        private readonly ILoginAttemptService _intentos;
+        private readonly IAuditoriaService _auditoria;
 
-        public AuthController(AppDbContext db, IAuthService auth)
+        public AuthController(AppDbContext db, IAuthService auth, ILoginAttemptService intentos, IAuditoriaService auditoria)
         {
             _db = db;
             _auth = auth;
+            _intentos = intentos;
+            _auditoria = auditoria;
         }
 
         // ── POST /api/auth/login ───────────────────────────────
         [HttpPost("login")]
-        public async Task<ActionResult<LoginResponseDto>>
-            Login([FromBody] LoginDto dto)
+        public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginDto dto)
         {
-            var usuario = await _db.UsuariosSistema
-                .FirstOrDefaultAsync(x =>
-                    x.Correo == dto.Correo && x.Activo);
-
-            if (usuario is null)
-                return Unauthorized(new
+            // Verificar bloqueo
+            if (_intentos.EstaBloquedo(dto.Correo))
+                return StatusCode(429, new
                 {
-                    error = "Correo o contraseña incorrectos."
+                    error = "Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo en 15 minutos."
                 });
 
-            if (!_auth.VerificarPassword(
-                    dto.Password,
-                    usuario.PasswordHash,
-                    usuario.PasswordSalt))
-                return Unauthorized(new
-                {
-                    error = "Correo o contraseña incorrectos."
-                });
+            var usuario = await _db.UsuariosSistema.FirstOrDefaultAsync(x => x.Correo == dto.Correo && x.Activo);
 
+            if (usuario is null || !_auth.VerificarPassword(dto.Password, usuario.PasswordHash, usuario.PasswordSalt))
+            { 
+                _intentos.RegistrarIntento(dto.Correo);
+
+                // En login fallido:
+                await _auditoria.RegistrarAsync("LOGIN_FALLIDO", "UsuarioSistema", $"Intento fallido para: {dto.Correo}", ip: HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+                return Unauthorized(new{ error = "Correo o contraseña incorrectos."});
+            }
+
+            // Login exitoso — limpiar intentos
+            _intentos.LimpiarIntentos(dto.Correo);
+
+            // En login exitoso:
+            await _auditoria.RegistrarAsync("LOGIN", "UsuarioSistema", $"Inicio de sesión exitoso — {usuario.Correo}", usuario.Id, usuario.Nombre, HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
+            //if (!_auth.VerificarPassword(dto.Password, usuario.PasswordHash,usuario.PasswordSalt))
+            //    return Unauthorized(new
+            //    {
+            //        error = "Correo o contraseña incorrectos."
+            //    });
+            
+            // Generar código 2FA de 6 dígitos
+            var codigo = new Random().Next(100000, 999999).ToString();
+
+            usuario.Codigo2FA = codigo;
+            usuario.Expiracion2FA = DateTime.UtcNow.AddMinutes(10);
             usuario.UltimoAcceso = DateTime.UtcNow;
             usuario.AceptoPolitica = true;              
             usuario.FechaAceptoPolitica = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            // Enviar código por correo
+            await _auth.EnviarCodigo2FA(usuario.Correo,usuario.Nombre, codigo);
+
+            //return Ok(new LoginResponseDto
+            //{
+            //    Token = _auth.GenerarToken(usuario),
+            //    Nombre = usuario.Nombre,
+            //    Correo = usuario.Correo,
+            //    Rol = usuario.Rol,
+            //    UsuarioId = usuario.Id
+            //});
+
+            // Respuesta provisional — no incluye token aún
+            return Ok(new LoginResponseDto
+            {
+                Requiere2FA = true,
+                Correo = usuario.Correo,
+                Nombre = usuario.Nombre
+            });
+        }
+
+        [HttpPost("verificar-2fa")]
+        public async Task<ActionResult<LoginResponseDto>> Verificar2FA([FromBody] Verificar2FADto dto)
+        {
+            var usuario = await _db.UsuariosSistema.FirstOrDefaultAsync(x => x.Correo == dto.Correo && x.Activo);
+
+            if (usuario is null)
+                return Unauthorized(new { error = "Usuario no encontrado." });
+
+            if (usuario.Codigo2FA != dto.Codigo)
+                return Unauthorized(new { error = "Código incorrecto." });
+
+            if (usuario.Expiracion2FA < DateTime.UtcNow)
+                return Unauthorized(new
+                {
+                    error = "El código ha expirado. Inicia sesión de nuevo."
+                });
+
+            // Limpiar código usado
+            usuario.Codigo2FA = null;
+            usuario.Expiracion2FA = null;
+            
+            // En verificación 2FA exitosa:
+            await _auditoria.RegistrarAsync("2FA_VERIFICADO", "UsuarioSistema", $"2FA verificado para: {usuario.Correo}", usuario.Id, usuario.Nombre, HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+
             await _db.SaveChangesAsync();
 
             return Ok(new LoginResponseDto
@@ -55,7 +122,8 @@ namespace SSTDigitalRD.Server.Controllers
                 Nombre = usuario.Nombre,
                 Correo = usuario.Correo,
                 Rol = usuario.Rol,
-                UsuarioId = usuario.Id
+                UsuarioId = usuario.Id,
+                Requiere2FA = false
             });
         }
 
@@ -64,8 +132,7 @@ namespace SSTDigitalRD.Server.Controllers
         [HttpPost("seed")]
         public async Task<IActionResult> SeedAdmin()
         {
-            var existe = await _db.UsuariosSistema
-                .AnyAsync(x => x.Correo == "admin@sst.do");
+            var existe = await _db.UsuariosSistema.AnyAsync(x => x.Correo == "admin@sst.do");
 
             if (existe)
                 return Conflict(new
@@ -73,8 +140,7 @@ namespace SSTDigitalRD.Server.Controllers
                     error = "El usuario admin ya existe."
                 });
 
-            _auth.CrearPasswordHash(
-                "Admin2026!", out var hash, out var salt);
+            _auth.CrearPasswordHash("Admin2026!", out var hash, out var salt);
 
             var usuarios = new List<UsuarioSistema>
             {
@@ -124,24 +190,18 @@ namespace SSTDigitalRD.Server.Controllers
 
         // ── PUT /api/auth/cambiar-password ────────────────────
         [HttpPut("cambiar-password/{id:int}")]
-        public async Task<IActionResult> CambiarPassword(
-            int id, [FromBody] CambiarPasswordDto dto)
+        public async Task<IActionResult> CambiarPassword(int id, [FromBody] CambiarPasswordDto dto)
         {
             var usuario = await _db.UsuariosSistema.FindAsync(id);
             if (usuario is null) return NotFound();
 
-            if (!_auth.VerificarPassword(
-                    dto.PasswordActual,
-                    usuario.PasswordHash,
-                    usuario.PasswordSalt))
+            if (!_auth.VerificarPassword(dto.PasswordActual,usuario.PasswordHash,usuario.PasswordSalt))
                 return BadRequest(new
                 {
                     error = "La contraseña actual es incorrecta."
                 });
 
-            _auth.CrearPasswordHash(
-                dto.PasswordNuevo,
-                out var hash, out var salt);
+            _auth.CrearPasswordHash(dto.PasswordNuevo, out var hash, out var salt);
 
             usuario.PasswordHash = hash;
             usuario.PasswordSalt = salt;
@@ -152,15 +212,13 @@ namespace SSTDigitalRD.Server.Controllers
 
         // ── PUT /api/auth/usuarios/{id} ───────────────────────────
         [HttpPut("usuarios/{id:int}")]
-        public async Task<IActionResult> EditarUsuario(
-            int id, [FromBody] EditarUsuarioDto dto)
+        public async Task<IActionResult> EditarUsuario(int id, [FromBody] EditarUsuarioDto dto)
         {
             var usuario = await _db.UsuariosSistema.FindAsync(id);
             if (usuario is null) return NotFound();
 
             // Verificar correo duplicado en otro usuario
-            var correoExiste = await _db.UsuariosSistema
-                .AnyAsync(x => x.Correo == dto.Correo && x.Id != id);
+            var correoExiste = await _db.UsuariosSistema.AnyAsync(x => x.Correo == dto.Correo && x.Id != id);
             if (correoExiste)
                 return Conflict(new
                 {
@@ -180,14 +238,12 @@ namespace SSTDigitalRD.Server.Controllers
         // ── PUT /api/auth/usuarios/{id}/reset-password ────────────
         // Solo para Administrador — cambia contraseña sin verificar la actual
         [HttpPut("usuarios/{id:int}/reset-password")]
-        public async Task<IActionResult> ResetPassword(
-            int id, [FromBody] CambiarPasswordAdminDto dto)
+        public async Task<IActionResult> ResetPassword(int id, [FromBody] CambiarPasswordAdminDto dto)
         {
             var usuario = await _db.UsuariosSistema.FindAsync(id);
             if (usuario is null) return NotFound();
 
-            _auth.CrearPasswordHash(
-                dto.PasswordNuevo, out var hash, out var salt);
+            _auth.CrearPasswordHash(dto.PasswordNuevo, out var hash, out var salt);
 
             usuario.PasswordHash = hash;
             usuario.PasswordSalt = salt;
@@ -198,11 +254,9 @@ namespace SSTDigitalRD.Server.Controllers
 
         // ── POST /api/auth/crear-usuario ──────────────────────────
         [HttpPost("crear-usuario")]
-        public async Task<ActionResult<UsuarioSistemaDto>> CrearUsuario(
-            [FromBody] CrearUsuarioConPasswordDto dto)
+        public async Task<ActionResult<UsuarioSistemaDto>> CrearUsuario([FromBody] CrearUsuarioConPasswordDto dto)
         {
-            var existe = await _db.UsuariosSistema
-                .AnyAsync(x => x.Correo == dto.Correo);
+            var existe = await _db.UsuariosSistema.AnyAsync(x => x.Correo == dto.Correo);
 
             if (existe)
                 return Conflict(new
@@ -210,8 +264,7 @@ namespace SSTDigitalRD.Server.Controllers
                     error = $"Ya existe un usuario con el correo {dto.Correo}."
                 });
 
-            _auth.CrearPasswordHash(
-                dto.Password, out var hash, out var salt);
+            _auth.CrearPasswordHash(dto.Password, out var hash, out var salt);
 
             var usuario = new UsuarioSistema
             {
@@ -236,6 +289,33 @@ namespace SSTDigitalRD.Server.Controllers
                 Cuadrilla = usuario.Cuadrilla,
                 Activo = usuario.Activo
             });
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            var token = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                _db.TokensRevocados.Add(new TokenRevocado
+                {
+                    Token = token,
+                    FechaRevocacion = DateTime.UtcNow,
+                    FechaExpiracion = DateTime.UtcNow.AddHours(8)
+                });
+                await _db.SaveChangesAsync();
+
+                // Limpiar tokens expirados para no crecer indefinidamente
+                var expirados = await _db.TokensRevocados.Where(x => x.FechaExpiracion < DateTime.UtcNow).ToListAsync();
+                _db.TokensRevocados.RemoveRange(expirados);
+                await _db.SaveChangesAsync();
+
+                // En logout:
+                await _auditoria.RegistrarAsync("LOGOUT", "UsuarioSistema", $"Cierre de sesión", ip: HttpContext.Connection.RemoteIpAddress?.ToString() ?? "");
+            }
+
+            return NoContent();
         }
     }
 
