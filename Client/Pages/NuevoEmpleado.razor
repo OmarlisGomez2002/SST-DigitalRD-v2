@@ -18,8 +18,8 @@
     </div>
     <div class="form-page-actions">        
         <button class="btn-primary"
-                @onclick="RegistrarEmpleado"
-                disabled="@(!FormularioValido || Guardando)">
+                @onclick="RegistrarEmpleado">
+                @* disabled="@(!FormularioValido || Guardando)"> *@
             @if (Guardando)
             {
                 <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -131,7 +131,7 @@
             </div> *@
 
             <div class="form-field">
-                <label>Obra / Proyecto <span class="required">*</span></label>
+                <label>Obra / Proyecto </label>
                 <select @bind="Modelo.ObraId">
                     <option value="0">Seleccionar obra...</option>
                     @foreach (var obra in ObrasDisponibles)
@@ -206,10 +206,7 @@
     };
 
     private bool FormularioValido =>
-        !string.IsNullOrWhiteSpace(Modelo.Nombre) &&
-        !string.IsNullOrWhiteSpace(Modelo.Cedula) &&
-        !string.IsNullOrEmpty(Modelo.Cargo) &&
-        !string.IsNullOrEmpty(Modelo.Cuadrilla);
+        !string.IsNullOrWhiteSpace(Modelo.Nombre) && !string.IsNullOrWhiteSpace(Modelo.Cedula) && !string.IsNullOrEmpty(Modelo.Cargo) && !string.IsNullOrEmpty(Modelo.Cuadrilla);
 
     private async Task RegistrarEmpleado()
     {

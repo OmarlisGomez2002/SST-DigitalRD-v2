@@ -2,6 +2,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Asignar EPP · SST-Digital RD</PageTitle>
 
@@ -19,8 +20,8 @@
     </div>
     <div class="form-page-actions">        
         <button class="btn-primary"
-                @onclick="ConfirmarEntrega"
-                disabled="@(!FormularioValido || Guardando)">
+                @onclick="ConfirmarEntrega" >
+                @* disabled="@(!FormularioValido || Guardando)"> *@
             @if (Guardando)
             {
                 <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -52,25 +53,35 @@
 
             <div class="form-field">
                 <label>Obra / Proyecto <span class="required">*</span></label>
-                <select @bind="ObraSeleccionada">
+                <select @bind="ObraSeleccionada" class="@(MostrarErrores && string.IsNullOrWhiteSpace(ObraSeleccionada) ? "input-error" : "")">
                     <option value="">Seleccionar obra...</option>
                     @foreach (var obra in ObrasDisponibles)
                     {
                         <option value="@obra.Nombre">@obra.Nombre</option>
                     }
                 </select>
+
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(ObraSeleccionada))
+                {
+                    <span class="field-error">La obra es requerida</span>
+                }
             </div>
 
             <div class="form-field">
                 <label>Cuadrilla <span class="required">*</span></label>
                 <select value="@CuadrillaSeleccionada"
-                        @onchange="OnCuadrillaChange">
+                        @onchange="OnCuadrillaChange" class="@(MostrarErrores && string.IsNullOrWhiteSpace(CuadrillaSeleccionada) ? "input-error" : "")">
                     <option value="">Seleccionar cuadrilla...</option>
                     @foreach (var c in CuadrillasDisponibles)
                     {
                         <option value="@c.Nombre">@c.Nombre</option>
                     }
                 </select>
+
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(CuadrillaSeleccionada))
+                {
+                    <span class="field-error">La cuadrilla es requerida</span>
+                }
                 @* <select @bind="CuadrillaSeleccionada"
                         @bind:after="CargarTrabajadores">
                     <option value="">Seleccionar cuadrilla...</option>
@@ -92,7 +103,7 @@
                     }
                 </select> *@
                 <select value="@TrabajadorSeleccionadoId"
-                        @onchange="OnTrabajadorChange">
+                        @onchange="OnTrabajadorChange" class="@(MostrarErrores && TrabajadorSeleccionadoId == 0 ? "input-error" : "")">
                     <option value="0">Seleccionar trabajador...</option>
                     @foreach (var t in TrabajadoresDisponibles)
                     {
@@ -101,7 +112,7 @@
                 </select>
                 @if (MostrarErrores && TrabajadorSeleccionadoId == 0)
                 {
-                    <span class="field-error">Seleccione un trabajador</span>
+                    <span class="field-error">El trabajador es requerido</span>
                 }
             </div>
 
@@ -287,6 +298,15 @@
                 </button>
             </div>
 
+            @* Error firma requerida *@
+            @if (MostrarErrorFirma && !FirmaCapturada)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-signature-off" aria-hidden="true"></i>
+                    <span>La firma es requerida.</span>
+                </div>
+            }
+
             @if (FirmaCapturada)
             {
                 <div class="hash-box" style="margin-top:10px">
@@ -338,6 +358,15 @@
                         color:#3B6D11">
                     @Latitud.ToString("F6"), @Longitud.ToString("F6")
                     · ±@Precision.ToString("F0")m
+                </div>
+            }
+
+            @* Error GPS requerido *@
+            @if (MostrarErrorGps && !GpsCargado)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-map-pin-off" aria-hidden="true"></i>
+                    <span>La geolocalización es requerida.</span>
                 </div>
             }
 
@@ -430,8 +459,11 @@
 
     private TrabajadorItem? _trabajadorActivo;
     private TrabajadorItem? TrabajadorActivo => _trabajadorActivo;
+    
+    private string UsuarioNombre = "";
 
-
+    private bool MostrarErrorFirma = false;
+    private bool MostrarErrorGps = false;
 
     // Listas dinámicas
     private List<ObraActivaDto> ObrasDisponibles = new();
@@ -513,6 +545,7 @@
                         ? p[0].ToString() : ""))
                     .ToUpper(),
                 emp.Cargo,
+                emp.Cedula,
                 "#E6F1FB", "#185FA5",
                 casco, chaleco, botas);
         }
@@ -526,6 +559,7 @@
                         ? p[0].ToString() : ""))
                     .ToUpper(),
                 emp.Cargo,
+                emp.Cedula,
                 "#E6F1FB", "#185FA5",
                 "na", "na", "na");
         }
@@ -571,6 +605,12 @@
     {
         try
         {
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            UsuarioNombre = authState.User.FindFirst("nombre")?.Value
+                         ?? authState.User.Identity?.Name
+                         ?? "Sistema";
+
             ObrasDisponibles = await Http
                 .GetFromJsonAsync<List<ObraActivaDto>>(
                     "api/configuracion/obras") ?? new();
@@ -745,6 +785,20 @@
     {
         MostrarErrores = true;
         ErrorGeofencing = "";
+        
+        if (string.IsNullOrWhiteSpace(ObraSeleccionada) || TrabajadorSeleccionadoId == 0 || string.IsNullOrWhiteSpace(CuadrillaSeleccionada)) return;
+
+        MostrarErrorFirma = true;
+        if (!FirmaCapturada)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        MostrarErrorGps = true;
+        if (!GpsCargado) return;
+        MostrarErrorGps = false;
+
         if (!FormularioValido) return;
         Guardando = true;
         StateHasChanged();
@@ -755,12 +809,12 @@
         var dto = new CrearEntregaEPPDto
         {
             NombreTrabajador = trabajador?.Nombre ?? "",
-            CedulaTrabajador = "",
+            CedulaTrabajador = TrabajadorActivo?.Cedula ?? "",
             Cargo = trabajador?.Cargo ?? "",
             Cuadrilla = CuadrillaSeleccionada,
             Obra = ObraSeleccionada,
             ObraId = obraId,
-            EntregadoPor = "Ramón Gómez",
+            EntregadoPor = UsuarioNombre,
             FechaEntrega = DateTime.Now,
             FirmaBase64 = FirmaCapturada ? HashGenerado : null,
             Latitud = Latitud,   // ← variables GPS
@@ -848,6 +902,7 @@
         public string Nombre { get; set; } = "";
         public string Iniciales { get; set; } = "";
         public string Cargo { get; set; } = "";
+        public string Cedula { get; set; } = "";
         public string AvatarBg { get; set; } = "#E6F1FB";
         public string AvatarColor { get; set; } = "#185FA5";
         public string Casco { get; set; } = "ok";
@@ -855,12 +910,12 @@
         public string Botas { get; set; } = "ok";
 
         public TrabajadorItem(int id, string nombre, string ini,
-            string cargo, string bg, string color,
+            string cargo, string cedula, string bg, string color,
             string casco, string chaleco, string botas)
         {
             Id = id; Nombre = nombre; Iniciales = ini;
-            Cargo = cargo; AvatarBg = bg; AvatarColor = color;
-            Casco = casco; Chaleco = chaleco; Botas = botas;
+            Cargo = cargo; Cedula = cedula; AvatarBg = bg; AvatarColor = color;
+            Casco = casco; Chaleco = chaleco; Botas = botas; 
         }
     }
 

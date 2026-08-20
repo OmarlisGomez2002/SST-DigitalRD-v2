@@ -470,7 +470,7 @@
         .Where(x => FiltroFechaHasta == null ||
                     x.Fecha.Date <= FiltroFechaHasta.Value.Date);
 
-    private bool MostrandoTodas = false;
+    private bool MostrandoTodas = true;
 
     private void ToggleVerTodas()
     {

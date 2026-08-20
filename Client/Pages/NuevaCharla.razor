@@ -16,12 +16,12 @@
         <span class="form-page-sub">Complete los datos, registre la asistencia y firme al finalizar</span>
     </div>
     <div class="form-page-actions">
-        <button class="btn-secondary" @onclick="GuardarBorrador" disabled="@Guardando">
+        @* <button class="btn-secondary" @onclick="GuardarBorrador" disabled="@Guardando">
             <i class="ti ti-device-floppy" aria-hidden="true"></i>
             Guardar borrador
-        </button>
-        <button class="btn-primary" @onclick="EnviarFormulario"
-                disabled="@(!FormularioValido || Guardando)">
+        </button> *@
+        <button class="btn-primary" @onclick="EnviarFormulario">
+                @* disabled="@(!FormularioValido || Guardando)"> *@
             @if (Guardando)
             {
                 <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -100,20 +100,25 @@
 
                     @if (MostrarErrores && Modelo.ObraId == 0)
                     {
-                        <span class="field-error">Seleccione una obra</span>
+                        <span class="field-error">La obra es requerida</span>
                     }
                 </div>
 
                 <div class="form-field">
                     <label>Cuadrilla <span class="required">*</span></label>
                     <select value="@Modelo.Cuadrilla"
-                            @onchange="OnCuadrillaChange">
+                            @onchange="OnCuadrillaChange" class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Cuadrilla) ? "input-error" : "")">
                         <option value="">Seleccionar cuadrilla...</option>
                         @foreach (var c in CuadrillasDisponibles)
                         {
                             <option value="@c.Nombre">@c.Nombre</option>
                         }
                     </select>
+
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Cuadrilla))
+                    {
+                        <span class="field-error">La cuadrilla es requerida</span>
+                    }
                 </div>
 
                 <div class="form-field">
@@ -133,13 +138,18 @@
 
                 <div class="form-field">
                     <label>Tipo de charla</label>
-                    <select @bind="Modelo.Tipo">
+                    <select @bind="Modelo.Tipo" class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Tipo) ? "input-error" : "")">
                         <option value="">Seleccionar tipo...</option>
                         @foreach (var tipo in TiposCharlaDisponibles)
                         {
                             <option value="@tipo.Nombre">@tipo.Nombre</option>
                         }
                     </select>
+
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Tipo))
+                    {
+                        <span class="field-error">El tipo de charla es requerido</span>
+                    }
                 </div>
             </div>
 
@@ -147,8 +157,13 @@
                 <label>Descripción / Puntos tratados</label>
                 <textarea @bind="Modelo.Descripcion"
                           rows="3"
-                          placeholder="Resuma los temas discutidos durante la charla...">
+                          placeholder="Resuma los temas discutidos durante la charla..." class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Descripcion) ? "input-error" : "")">
                     </textarea>
+
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Descripcion))
+                {
+                    <span class="field-error">La descripción es requerida</span>
+                }
             </div>
         </div>
 
@@ -232,6 +247,17 @@
                     <span>Seleccione una cuadrilla en el paso anterior para ver los trabajadores</span>
                 </div>
             }
+
+            @if (MostrarErrores && @Asistentes.Count(a => a.Presente) == 0)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-users" aria-hidden="true"></i>
+                    <span>Debe seleccionar al menos una persona antes de continuar.</span>
+                </div>
+        
+                <span class="field-error"></span>
+            }
+
         </div>
 
         <div class="form-nav">
@@ -366,6 +392,15 @@
                 </button>
             </div>
 
+            @* Error firma requerida *@
+            @if (MostrarErrorFirma && !FirmaCapturada)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-signature-off" aria-hidden="true"></i>
+                    <span>La firma es requerida. Firme en el canvas y confirme antes de enviar.</span>
+                </div>
+            }
+
             @if (FirmaCapturada)
             {
                 <div class="alert-banner ok">
@@ -396,8 +431,8 @@
                 <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
             </button>
             <button class="btn-primary"
-                    @onclick="EnviarFormulario"
-                    disabled="@(!FirmaCapturada || Guardando)">
+                    @onclick="EnviarFormulario">
+                    @* disabled="@(!FirmaCapturada || Guardando)"> *@
                 @if (Guardando)
                 {
                     <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -425,6 +460,7 @@
     private bool GpsCargando = false;
     private bool GpsCargado = false;
     private string GpsError = "";
+    private bool MostrarErrorFirma = false;
 
     private List<TipoCharlaDto> TiposCharlaDisponibles = new();
 
@@ -513,12 +549,22 @@
         if (PasoActual == 1)
         {
             MostrarErrores = true;
-            if (string.IsNullOrWhiteSpace(Modelo.Tema) || Modelo.ObraId == 0) return;
+            if (string.IsNullOrWhiteSpace(Modelo.Tema) || Modelo.ObraId == 0 || string.IsNullOrWhiteSpace(Modelo.Tipo) || string.IsNullOrWhiteSpace(Modelo.Descripcion) || string.IsNullOrWhiteSpace(Modelo.Cuadrilla)) return;
             MostrarErrores = false;
         }
+
+        if (PasoActual == 2)
+        {
+            MostrarErrores = true;
+            if (@Asistentes.Count(a => a.Presente) == 0) return;
+            MostrarErrores = false;
+        }
+
         if (PasoActual < Pasos.Count)
         {
             PasoActual++;
+
+            
 
             // Capturar GPS automáticamente al llegar al paso de firma
             if (PasoActual == 3)
@@ -672,6 +718,13 @@
     // ── Envío ──────────────────────────────────────────────────
     private async Task EnviarFormulario()
     {
+        MostrarErrorFirma = true;
+        if (!FirmaCapturada)
+        {
+            StateHasChanged();
+            return;
+        }
+
         if (!FormularioValido) return;
         Guardando = true;
         ErrorGeofencing = "";
@@ -720,14 +773,14 @@
         }
     }
 
-    private async Task GuardarBorrador()
-    {
-        Guardando = true;
-        StateHasChanged();
-        await Task.Delay(800); // TODO: POST /api/charlas/borrador
-        Guardando = false;
-        StateHasChanged();
-    }
+    // private async Task GuardarBorrador()
+    // {
+    //     Guardando = true;
+    //     StateHasChanged();
+    //     await Task.Delay(800); // TODO: POST /api/charlas/borrador
+    //     Guardando = false;
+    //     StateHasChanged();
+    // }
 
     private List<ObraActivaDto> ObrasDisponibles = new();
 

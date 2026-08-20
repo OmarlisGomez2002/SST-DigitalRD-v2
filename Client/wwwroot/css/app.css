@@ -809,7 +809,31 @@ input, select, textarea {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
+    width: 100%;
     padding: 24px;
+    /* Imagen de fondo */
+    background-image: url('/images/background_login.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /*background-attachment: fixed;*/
+    /* Overlay oscuro para que el card se lea bien */
+    position: relative;
+}
+
+/* Capa de oscurecimiento sobre la imagen */
+.login-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 0;
+}
+
+/* El card queda encima del overlay */
+.login-wrap .login-card {
+    position: relative;
+    z-index: 1;
 }
 
 .login-card {

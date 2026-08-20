@@ -257,8 +257,7 @@
             var nombre   = Entrega.NombreTrabajador.Replace(" ", "_");
             var fileName = $"EPP_{nombre}.pdf";
 
-            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
-                fileName, base64, "application/pdf");
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo", fileName, base64, "application/pdf");
         }
     }
 

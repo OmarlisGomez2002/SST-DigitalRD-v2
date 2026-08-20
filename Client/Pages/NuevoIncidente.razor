@@ -20,8 +20,8 @@
     <div class="form-page-actions">
         
         <button class="btn-primary"
-                @onclick="EnviarFormulario"
-                disabled="@(!FormularioValido || Guardando)">
+                @onclick="EnviarFormulario">
+                @* disabled="@(!FormularioValido || Guardando)"> *@
             @if (Guardando)
             {
                 <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -94,7 +94,7 @@
                 </div>
                 @if (MostrarErrores && string.IsNullOrEmpty(Modelo.Tipo))
                 {
-                    <span class="field-error">Seleccione el tipo de incidente</span>
+                    <span class="field-error">El tipo de incidente es requerido</span>
                 }
             </div>
 
@@ -109,7 +109,7 @@
                         }
                     </select> *@
                     <select value="@Modelo.ObraId"
-                            @onchange="OnObraIncidenteChange">
+                            @onchange="OnObraIncidenteChange" class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
                         <option value="0">Seleccionar obra...</option>
                         @foreach (var obra in ObrasDisponibles)
                         {
@@ -119,16 +119,14 @@
 
                     @if (MostrarErrores && Modelo.ObraId == 0)
                     {
-                        <span class="field-error">Seleccione una obra</span>
+                        <span class="field-error">La obra es requerida</span>
                     }
                 </div>
 
                 <div class="form-field">
                     <label>Área / Zona <span class="required">*</span></label>
                     <select @bind="Modelo.Area"
-                            class="@(MostrarErrores &&
-                                            string.IsNullOrWhiteSpace(Modelo.Area)
-                                            ? "input-error" : "")">
+                            class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Area) ? "input-error" : "")">
                     <option value="">Seleccionar zona...</option>
                     @foreach (var zona in ZonasDisponibles)
                         {
@@ -167,7 +165,7 @@
                            value="@BusquedaAfectado"
                            @oninput="OnAfectadoInput"
                            placeholder="Buscar por nombre..."
-                           autocomplete="off" />
+                           autocomplete="off" class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Afectado) ? "input-error" : "")">
 
                     @if (AfectadosFiltrados.Any() &&
                                     !string.IsNullOrWhiteSpace(BusquedaAfectado) &&
@@ -196,13 +194,18 @@
                         </div>
                     }
 
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Afectado))
+                    {
+                        <span class="field-error">El trabajador afectado es requerido</span>
+                    }
+
                     @if (!string.IsNullOrEmpty(Modelo.Afectado))
                     {
                         <span style="font-size:11px;color:var(--green-600)">
                             <i class="ti ti-check" aria-hidden="true"></i>
                             @Modelo.Afectado
                         </span>
-                    }
+                    }                    
                 </div>
 
                 <div class="form-field">
@@ -218,6 +221,11 @@
                     <input type="text"
                            @bind="Modelo.Inspector"
                            placeholder="Nombre del inspector" />
+
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Inspector))
+                    {
+                        <span class="field-error">El Inspector es requerido</span>
+                    }
                 </div>
 
                 <div class="form-field">
@@ -228,6 +236,11 @@
                         <option>Sí — traslado a clínica</option>
                         <option>No requirió atención</option>
                     </select>
+                    
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.AtencionMedica))
+                    {
+                        <span class="field-error">La atención médica es requerida</span>
+                    }
                 </div>
             </div>
         </div>
@@ -300,6 +313,16 @@
                         </button>
                     </div>
                 }
+
+                @* Error GPS requerido *@
+                @if (MostrarErrorGps && !GpsCargado)
+                {
+                    <div class="alert-banner danger" style="margin-top:12px">
+                        <i class="ti ti-map-pin-off" aria-hidden="true"></i>
+                        <span>La geolocalización es requerida. Capture su ubicación antes de continuar.</span>
+                    </div>
+                }
+
                 @if (!string.IsNullOrEmpty(GpsError))
                 {
                     <div class="alert-banner danger">
@@ -381,8 +404,8 @@
             <button class="btn-secondary" @onclick="Anterior">
                 <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
             </button>
-            <button class="btn-primary" @onclick="Siguiente"
-                    disabled="@(!GpsCargado || !Fotos.Any())">
+            <button class="btn-primary" @onclick="Siguiente">
+                    @* disabled="@(!GpsCargado || !Fotos.Any())"> *@
                 Siguiente <i class="ti ti-arrow-right" aria-hidden="true"></i>
             </button>
         </div>
@@ -543,6 +566,15 @@
                 </button>
             </div>
 
+            @* Error firma requerida *@
+            @if (MostrarErrorFirma && !FirmaCapturada)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-signature-off" aria-hidden="true"></i>
+                    <span>La firma es requerida. Firme en el canvas y confirme antes de enviar.</span>
+                </div>
+            }
+
             @if (FirmaCapturada)
             {
                 <div class="alert-banner ok">
@@ -574,8 +606,8 @@
                 <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
             </button>
             <button class="btn-primary"
-                    @onclick="EnviarFormulario"
-                    disabled="@(!FirmaCapturada || Guardando)">
+                    @onclick="EnviarFormulario">
+                    @* disabled="@(!FirmaCapturada || Guardando)"> *@
                 @if (Guardando)
                 {
                     <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -602,11 +634,13 @@
     private bool MostrarErrores = false;
     private bool Guardando = false;
     private bool FirmaCapturada = false;
+    private bool MostrarErrorFirma = false;
     private bool GpsCargado = false;
     private bool GpsCargando = false;
     private string GpsError = "";
 
     private string ErrorGeofencing = "";
+    private bool MostrarErrorGps = false;
 
     private class ErrorDto
     {
@@ -679,7 +713,7 @@
     {
         Fecha = DateTime.Today,
         Hora = new TimeOnly(DateTime.Now.Hour, DateTime.Now.Minute),
-        Inspector = "Ramón Gómez"
+        Inspector = "" //Ramón Gómez
     };
 
     // ── Fotos ──────────────────────────────────────────────────
@@ -707,7 +741,7 @@
         !string.IsNullOrWhiteSpace(Modelo.Area) &&
         !string.IsNullOrWhiteSpace(Modelo.Descripcion) &&
         GpsCargado &&
-        Fotos.Any() &&
+        //Fotos.Any() &&
         FirmaCapturada;
 
     // ── Navegación ─────────────────────────────────────────────
@@ -716,13 +750,16 @@
         if (PasoActual == 1)
         {
             MostrarErrores = true;
-            if (string.IsNullOrEmpty(Modelo.Tipo) ||
-                Modelo.ObraId == 0 ||
-                string.IsNullOrWhiteSpace(Modelo.Area)) return;
+            if (string.IsNullOrEmpty(Modelo.Tipo) || Modelo.ObraId == 0 || string.IsNullOrWhiteSpace(Modelo.Area) || string.IsNullOrWhiteSpace(Modelo.Afectado) || string.IsNullOrWhiteSpace(Modelo.Inspector) || string.IsNullOrWhiteSpace(Modelo.AtencionMedica)) return;
             MostrarErrores = false;
         }
+
         if (PasoActual == 2)
         {
+            MostrarErrorGps = true;
+            if (!GpsCargado) return;
+            MostrarErrorGps = false;
+
             MostrarErrores = true;
             if (string.IsNullOrWhiteSpace(Modelo.Descripcion)) return;
             MostrarErrores = false;
@@ -732,8 +769,8 @@
             PasoActual++;
 
             // Si llegamos a firma y no hay GPS, intentar capturar
-            if (PasoActual == 4 && !GpsCargado)
-                await CapturarGPSAutomatico();
+            // if (PasoActual == 4 && !GpsCargado)
+            //     await CapturarGPSAutomatico();
         }
     }
 
@@ -803,6 +840,8 @@
     // ── Envío ──────────────────────────────────────────────────
     private async Task EnviarFormulario()
     {
+        MostrarErrorFirma = true;
+
         if (!FormularioValido) return;
         Guardando = true;
         ErrorGeofencing = "";
@@ -881,14 +920,14 @@
         }
     }
 
-    private async Task GuardarBorrador()
-    {
-        Guardando = true;
-        StateHasChanged();
-        await Task.Delay(800); // TODO: POST /api/incidentes/borrador
-        Guardando = false;
-        StateHasChanged();
-    }
+    // private async Task GuardarBorrador()
+    // {
+    //     Guardando = true;
+    //     StateHasChanged();
+    //     await Task.Delay(800); // TODO: POST /api/incidentes/borrador
+    //     Guardando = false;
+    //     StateHasChanged();
+    // }
 
     // ── Tipos de incidente ─────────────────────────────────────
     private List<TipoIncidente> TiposIncidente = new()

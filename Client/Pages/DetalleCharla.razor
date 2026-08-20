@@ -255,8 +255,7 @@
             var nombre = Charla.Tema.Replace(" ", "_");
             var fileName = $"Charla_{nombre}.pdf";
 
-            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo",
-                fileName, base64, "application/pdf");
+            await JS.InvokeVoidAsync("SSTUtil.descargarArchivo", fileName, base64, "application/pdf");
         }
     }
 

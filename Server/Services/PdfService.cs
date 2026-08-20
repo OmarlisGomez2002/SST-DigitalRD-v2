@@ -32,22 +32,16 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("SST-Digital RD")
-                                    .FontSize(16).Bold()
-                                    .FontColor(Colors.Blue.Darken2);
-                                c.Item().Text("Reporte de Inspección de Seguridad")
-                                    .FontSize(11).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text("SST-Digital RD").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                c.Item().Text("Reporte de Inspección de Seguridad").FontSize(11).FontColor(Colors.Grey.Darken1);
                             });
                             row.ConstantItem(120).AlignRight().Column(c =>
                             {
-                                c.Item().Text($"ID: {insp.Id:D6}")
-                                    .FontSize(9).FontColor(Colors.Grey.Darken1);
-                                c.Item().Text(insp.FechaInspeccion.ToString("dd/MM/yyyy"))
-                                    .FontSize(9).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text($"ID: {insp.Id:D6}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text(insp.FechaInspeccion.ToString("dd/MM/yyyy")).FontSize(9).FontColor(Colors.Grey.Darken1);
                             });
                         });
-                        col.Item().PaddingTop(8).LineHorizontal(1)
-                            .LineColor(Colors.Grey.Lighten2);
+                        col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                     });
 
                     // ── Contenido ────────────────────────────────
@@ -66,15 +60,12 @@ namespace SSTDigitalRD.Server.Services
 
                         col.Item().Background(colorFondo).Padding(10).Row(row =>
                         {
-                            row.RelativeItem().Text(etiqueta)
-                                .FontSize(13).Bold().FontColor(colorTexto);
-                            row.AutoItem().Text($"{insp.Items.Count(i => i.Resultado == "ok")}/{insp.Items.Count(i => i.Resultado != "na")} ítems cumplidos")
-                                .FontSize(10).FontColor(colorTexto);
+                            row.RelativeItem().Text(etiqueta).FontSize(13).Bold().FontColor(colorTexto);
+                            row.AutoItem().Text($"{insp.Items.Count(i => i.Resultado == "ok")}/{insp.Items.Count(i => i.Resultado != "na")} ítems cumplidos").FontSize(10).FontColor(colorTexto);
                         });
 
                         // Información general
-                        col.Item().Text("Información general")
-                            .FontSize(12).Bold();
+                        col.Item().Text("Información general").FontSize(12).Bold();
 
                         col.Item().Table(table =>
                         {
@@ -94,13 +85,11 @@ namespace SSTDigitalRD.Server.Services
                         });
 
                         // Checklist
-                        col.Item().PaddingTop(8).Text("Lista de verificación")
-                            .FontSize(12).Bold();
+                        col.Item().PaddingTop(8).Text("Lista de verificación").FontSize(12).Bold();
 
                         foreach (var grupo in insp.Items.GroupBy(x => x.Categoria))
                         {
-                            col.Item().Text(grupo.Key)
-                                .FontSize(10).Bold().FontColor(Colors.Blue.Darken1);
+                            col.Item().Text(grupo.Key).FontSize(10).Bold().FontColor(Colors.Blue.Darken1);
 
                             foreach (var item in grupo)
                             {
@@ -114,15 +103,12 @@ namespace SSTDigitalRD.Server.Services
 
                                 col.Item().Row(row =>
                                 {
-                                    row.ConstantItem(20).Text(icono)
-                                        .FontColor(color).Bold();
+                                    row.ConstantItem(20).Text(icono).FontColor(color).Bold();
                                     row.RelativeItem().Text(text =>
                                     {
                                         text.Span(item.Descripcion).FontSize(9.5f);
                                         if (!string.IsNullOrEmpty(item.Observacion))
-                                            text.Span($"  ·  Obs: {item.Observacion}")
-                                                .FontSize(9).Italic()
-                                                .FontColor(Colors.Grey.Darken1);
+                                            text.Span($"  ·  Obs: {item.Observacion}").FontSize(9).Italic().FontColor(Colors.Grey.Darken1);
                                     });
                                 });
                             }
@@ -138,18 +124,14 @@ namespace SSTDigitalRD.Server.Services
                                     row.RelativeItem().PaddingLeft(5).Text(
                                     $"Geolocalización capturada: " +
                                     $"{insp.Latitud:F6}, {insp.Longitud:F6} " +
-                                    $"(±{insp.PrecisionGps:F0}m)")
-                                    .FontSize(9).FontColor(Colors.Green.Darken2);
+                                    $"(±{insp.PrecisionGps:F0}m)").FontSize(9).FontColor(Colors.Green.Darken2);
                                 });
                         }
 
                         if (!string.IsNullOrEmpty(insp.PlanAccion))
                         {
-                            col.Item().PaddingTop(4).Text("Plan de acción")
-                                .FontSize(11).Bold();
-                            col.Item().Background(Colors.Grey.Lighten4)
-                                .Padding(8)
-                                .Text(insp.PlanAccion).FontSize(9.5f);
+                            col.Item().PaddingTop(4).Text("Plan de acción").FontSize(11).Bold();
+                            col.Item().Background(Colors.Grey.Lighten4).Padding(8).Text(insp.PlanAccion).FontSize(9.5f);
                         }
                     });
 
@@ -161,20 +143,12 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("Documento sellado digitalmente")
-                                    .FontSize(8).Bold();
-                                c.Item().Text($"SHA-256: {insp.HashSha256}")
-                                    .FontSize(7).FontColor(Colors.Grey.Darken1)
-                                    .FontFamily("Courier New");
+                                c.Item().Text("Documento sellado digitalmente").FontSize(8).Bold();
+                                c.Item().Text($"SHA-256: {insp.HashSha256}").FontSize(7).FontColor(Colors.Grey.Darken1).FontFamily("Courier New");
                             });
-                            row.ConstantItem(100).AlignRight().Text(
-                                insp.Firmado ? $"Firmado {insp.HoraFirma}" : "Sin firma")
-                                .FontSize(8)
-                                .FontColor(insp.Firmado ? Colors.Green.Darken1 : Colors.Red.Darken1);
+                            row.ConstantItem(100).AlignRight().Text(insp.Firmado ? $"Firmado {insp.HoraFirma}" : "Sin firma").FontSize(8).FontColor(insp.Firmado ? Colors.Green.Darken1 : Colors.Red.Darken1);
                         });
-                        col.Item().AlignCenter().PaddingTop(3).Text(
-                            "Generado por SST-Digital RD · Conforme al Reglamento 522-06")
-                            .FontSize(7).FontColor(Colors.Grey.Medium);
+                        col.Item().AlignCenter().PaddingTop(3).Text("Generado por SST-Digital RD · Conforme al Reglamento 522-06").FontSize(7).FontColor(Colors.Grey.Medium);
                     });
                 });
             });
@@ -190,8 +164,7 @@ namespace SSTDigitalRD.Server.Services
                 {
                     page.Size(PageSizes.Letter);
                     page.Margin(40);
-                    page.DefaultTextStyle(x =>
-                        x.FontSize(10).FontFamily("Arial"));
+                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
 
                     // ── Encabezado ───────────────────────────────
                     page.Header().Column(col =>
@@ -200,27 +173,16 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("SST-Digital RD")
-                                    .FontSize(16).Bold()
-                                    .FontColor(Colors.Blue.Darken2);
-                                c.Item().Text("Registro de Charla de Seguridad")
-                                    .FontSize(11)
-                                    .FontColor(Colors.Grey.Darken1);
+                                c.Item().Text("SST-Digital RD").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                c.Item().Text("Registro de Charla de Seguridad").FontSize(11).FontColor(Colors.Grey.Darken1);
                             });
                             row.ConstantItem(120).AlignRight().Column(c =>
                             {
-                                c.Item().Text($"ID: {charla.Id:D6}")
-                                    .FontSize(9)
-                                    .FontColor(Colors.Grey.Darken1);
-                                c.Item().Text(charla.FechaCharla
-                                    .ToString("dd/MM/yyyy"))
-                                    .FontSize(9)
-                                    .FontColor(Colors.Grey.Darken1);
+                                c.Item().Text($"ID: {charla.Id:D6}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text(charla.FechaCharla.ToString("dd/MM/yyyy")).FontSize(9).FontColor(Colors.Grey.Darken1);
                             });
                         });
-                        col.Item().PaddingTop(8)
-                            .LineHorizontal(1)
-                            .LineColor(Colors.Grey.Lighten2);
+                        col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                     });
 
                     // ── Contenido ────────────────────────────────
@@ -229,8 +191,7 @@ namespace SSTDigitalRD.Server.Services
                         col.Spacing(12);
 
                         // Datos generales
-                        col.Item().Text("Datos de la charla")
-                            .FontSize(12).Bold();
+                        col.Item().Text("Datos de la charla").FontSize(12).Bold();
 
                         col.Item().Table(table =>
                         {
@@ -240,27 +201,17 @@ namespace SSTDigitalRD.Server.Services
                                 c.RelativeColumn(2);
                             });
 
-                            AddRow(table, "Tema",
-                                charla.Tema);
-                            AddRow(table, "Instructor",
-                                charla.Instructor);
-                            AddRow(table, "Obra",
-                                charla.Obra);
-                            AddRow(table, "Cuadrilla",
-                                charla.Cuadrilla);
-                            AddRow(table, "Fecha y hora",
-                                charla.FechaCharla
-                                    .ToString("dd/MM/yyyy hh:mm tt"));
-                            AddRow(table, "Duración",
-                                $"{charla.DuracionMinutos} minutos");
-                            AddRow(table, "Total asistentes",
-                                $"{charla.TotalAsistentes} trabajadores");
+                            AddRow(table, "Tema", charla.Tema);
+                            AddRow(table, "Instructor", charla.Instructor);
+                            AddRow(table, "Obra", charla.Obra);
+                            AddRow(table, "Cuadrilla", charla.Cuadrilla);
+                            AddRow(table, "Fecha y hora", charla.FechaCharla.ToString("dd/MM/yyyy hh:mm tt"));
+                            AddRow(table, "Duración", $"{charla.DuracionMinutos} minutos");
+                            AddRow(table, "Total asistentes", $"{charla.TotalAsistentes} trabajadores");
                         });
 
                         // Lista de asistencia
-                        col.Item().PaddingTop(4)
-                            .Text("Lista de asistencia")
-                            .FontSize(12).Bold();
+                        col.Item().PaddingTop(4).Text("Lista de asistencia").FontSize(12).Bold();
 
                         col.Item().Table(table =>
                         {
@@ -273,42 +224,20 @@ namespace SSTDigitalRD.Server.Services
                             });
 
                             // Encabezado tabla
-                            table.Cell().Background(Colors.Grey.Lighten3)
-                                .Padding(4).Text("#")
-                                .FontSize(9).Bold();
-                            table.Cell().Background(Colors.Grey.Lighten3)
-                                .Padding(4).Text("Nombre")
-                                .FontSize(9).Bold();
-                            table.Cell().Background(Colors.Grey.Lighten3)
-                                .Padding(4).Text("Cargo")
-                                .FontSize(9).Bold();
-                            table.Cell().Background(Colors.Grey.Lighten3)
-                                .Padding(4).Text("Presente")
-                                .FontSize(9).Bold();
+                            table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("#").FontSize(9).Bold();
+                            table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Nombre").FontSize(9).Bold();
+                            table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Cargo").FontSize(9).Bold();
+                            table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text("Presente").FontSize(9).Bold();
 
                             var idx = 1;
                             foreach (var asistente in charla.Asistentes)
                             {
-                                var bg = idx % 2 == 0
-                                    ? Colors.Grey.Lighten5
-                                    : Colors.White;
+                                var bg = idx % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
 
-                                table.Cell().Background(bg)
-                                    .Padding(4).Text(idx.ToString())
-                                    .FontSize(9);
-                                table.Cell().Background(bg)
-                                    .Padding(4).Text(asistente.Nombre)
-                                    .FontSize(9);
-                                table.Cell().Background(bg)
-                                    .Padding(4).Text(asistente.Cargo)
-                                    .FontSize(9);
-                                table.Cell().Background(bg)
-                                    .Padding(4)
-                                    .Text(asistente.Presente ? "✓" : "✗")
-                                    .FontSize(9)
-                                    .FontColor(asistente.Presente
-                                        ? Colors.Green.Darken1
-                                        : Colors.Red.Darken1);
+                                table.Cell().Background(bg).Padding(4).Text(idx.ToString()).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(asistente.Nombre).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(asistente.Cargo).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(asistente.Presente ? "✓" : "✗").FontSize(9).FontColor(asistente.Presente ? Colors.Green.Darken1 : Colors.Red.Darken1);
                                 idx++;
                             }
                         });
@@ -316,34 +245,22 @@ namespace SSTDigitalRD.Server.Services
                         // Resumen de asistencia
                         var presentes = charla.Asistentes.Count(a => a.Presente);
                         var total = charla.Asistentes.Count;
-                        var pct = total > 0
-                            ? (int)Math.Round(presentes * 100.0 / total) : 0;
+                        var pct = total > 0 ? (int)Math.Round(presentes * 100.0 / total) : 0;
 
                         col.Item().Background(Colors.Green.Lighten5)
                             .Padding(8).Row(row =>
                             {
-                                row.RelativeItem().Text(
-                            $"Asistencia: {presentes}/{total} trabajadores " +
-                            $"({pct}%)")
-                            .FontSize(10).Bold()
-                            .FontColor(Colors.Green.Darken2);
+                                row.RelativeItem().Text($"Asistencia: {presentes}/{total} trabajadores " + $"({pct}%)").FontSize(10).Bold().FontColor(Colors.Green.Darken2);
                             });
 
                         // GPS
                         if (charla.GpsCapturado)
                         {
-                            col.Item().PaddingTop(4)
-                                .Background(Colors.Green.Lighten5)
+                            col.Item().PaddingTop(4).Background(Colors.Green.Lighten5)
                                 .Padding(8).Row(row =>
                                 {
                                     row.AutoItem().Text("📍").FontSize(11);
-                                    row.RelativeItem().PaddingLeft(5).Text(
-                                $"Geolocalización capturada: " +
-                                $"{charla.Latitud:F6}, " +
-                                $"{charla.Longitud:F6} " +
-                                $"(±{charla.PrecisionGps:F0}m)")
-                                .FontSize(9)
-                                .FontColor(Colors.Green.Darken2);
+                                    row.RelativeItem().PaddingLeft(5).Text($"Geolocalización capturada: " + $"{charla.Latitud:F6}, " + $"{charla.Longitud:F6} " + $"(±{charla.PrecisionGps:F0}m)").FontSize(9).FontColor(Colors.Green.Darken2);
                                 });
                         }
 
@@ -352,37 +269,15 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("Firma del instructor")
-                                    .FontSize(10).Bold();
-                                c.Item().PaddingTop(4)
-                                    .Border(1).BorderColor(Colors.Grey.Lighten2)
-                                    .Height(50).Background(
-                                        charla.Firmado
-                                            ? Colors.Green.Lighten5
-                                            : Colors.Grey.Lighten4)
-                                    .AlignCenter().AlignMiddle()
-                                    .Text(charla.Firmado
-                                        ? $"✓ Firmado digitalmente · {charla.HoraFirma}"
-                                        : "Sin firma")
-                                    .FontSize(9)
-                                    .FontColor(charla.Firmado
-                                        ? Colors.Green.Darken1
-                                        : Colors.Grey.Darken1);
+                                c.Item().Text("Firma del instructor").FontSize(10).Bold();
+                                c.Item().PaddingTop(4).Border(1).BorderColor(Colors.Grey.Lighten2).Height(50).Background(charla.Firmado ? Colors.Green.Lighten5 : Colors.Grey.Lighten4).AlignCenter().AlignMiddle()
+                                    .Text(charla.Firmado ? $"✓ Firmado digitalmente · {charla.HoraFirma}" : "Sin firma") .FontSize(9).FontColor(charla.Firmado ? Colors.Green.Darken1 : Colors.Grey.Darken1);
                             });
                             row.ConstantItem(20);
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("Base legal")
-                                    .FontSize(10).Bold();
-                                c.Item().PaddingTop(4)
-                                    .Background(Colors.Grey.Lighten4)
-                                    .Padding(8)
-                                    .Text("Art. 9.6, Reglamento 522-06 — " +
-                                          "El empleador garantizará la " +
-                                          "formación de los trabajadores " +
-                                          "manteniendo registros firmados.")
-                                    .FontSize(8)
-                                    .FontColor(Colors.Grey.Darken1);
+                                c.Item().Text("Base legal").FontSize(10).Bold();
+                                c.Item().PaddingTop(4).Background(Colors.Grey.Lighten4).Padding(8).Text("Art. 9.6, Reglamento 522-06 — El empleador garantizará la formación de los trabajadores manteniendo registros firmados.").FontSize(8).FontColor(Colors.Grey.Darken1);
                             });
                         });
                     });
@@ -390,32 +285,17 @@ namespace SSTDigitalRD.Server.Services
                     // ── Pie de página ────────────────────────────
                     page.Footer().Column(col =>
                     {
-                        col.Item().LineHorizontal(1)
-                            .LineColor(Colors.Grey.Lighten2);
+                        col.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                         col.Item().PaddingTop(5).Row(row =>
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("Documento sellado digitalmente")
-                                    .FontSize(8).Bold();
-                                c.Item().Text($"SHA-256: {charla.HashSha256}")
-                                    .FontSize(7)
-                                    .FontColor(Colors.Grey.Darken1)
-                                    .FontFamily("Courier New");
+                                c.Item().Text("Documento sellado digitalmente").FontSize(8).Bold();
+                                c.Item().Text($"SHA-256: {charla.HashSha256}").FontSize(7).FontColor(Colors.Grey.Darken1).FontFamily("Courier New");
                             });
-                            row.ConstantItem(120).AlignRight()
-                                .Text(charla.Firmado
-                                    ? $"Firmado {charla.HoraFirma}"
-                                    : "Sin firma")
-                                .FontSize(8)
-                                .FontColor(charla.Firmado
-                                    ? Colors.Green.Darken1
-                                    : Colors.Red.Darken1);
+                            row.ConstantItem(120).AlignRight().Text(charla.Firmado ? $"Firmado {charla.HoraFirma}" : "Sin firma").FontSize(8).FontColor(charla.Firmado ? Colors.Green.Darken1 : Colors.Red.Darken1);
                         });
-                        col.Item().AlignCenter().PaddingTop(3)
-                            .Text("Generado por SST-Digital RD · " +
-                                  "Conforme al Reglamento 522-06")
-                            .FontSize(7).FontColor(Colors.Grey.Medium);
+                        col.Item().AlignCenter().PaddingTop(3).Text("Generado por SST-Digital RD · Conforme al Reglamento 522-06").FontSize(7).FontColor(Colors.Grey.Medium);
                     });
                 });
             });
@@ -431,8 +311,7 @@ namespace SSTDigitalRD.Server.Services
                 {
                     page.Size(PageSizes.Letter);
                     page.Margin(40);
-                    page.DefaultTextStyle(x =>
-                        x.FontSize(10).FontFamily("Arial"));
+                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
 
                     // ── Encabezado ───────────────────────────────
                     page.Header().Column(col =>
@@ -441,28 +320,16 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("SST-Digital RD")
-                                    .FontSize(16).Bold()
-                                    .FontColor(Colors.Blue.Darken2);
-                                c.Item().Text(
-                                    "Constancia de Entrega de EPP")
-                                    .FontSize(11)
-                                    .FontColor(Colors.Grey.Darken1);
+                                c.Item().Text("SST-Digital RD").FontSize(16).Bold().FontColor(Colors.Blue.Darken2);
+                                c.Item().Text("Constancia de Entrega de EPP").FontSize(11).FontColor(Colors.Grey.Darken1);
                             });
                             row.ConstantItem(120).AlignRight().Column(c =>
                             {
-                                c.Item().Text($"ID: {entrega.Id:D6}")
-                                    .FontSize(9)
-                                    .FontColor(Colors.Grey.Darken1);
-                                c.Item().Text(entrega.FechaEntrega
-                                    .ToString("dd/MM/yyyy"))
-                                    .FontSize(9)
-                                    .FontColor(Colors.Grey.Darken1);
+                                c.Item().Text($"ID: {entrega.Id:D6}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text(entrega.FechaEntrega.ToString("dd/MM/yyyy")).FontSize(9).FontColor(Colors.Grey.Darken1);
                             });
                         });
-                        col.Item().PaddingTop(8)
-                            .LineHorizontal(1)
-                            .LineColor(Colors.Grey.Lighten2);
+                        col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                     });
 
                     // ── Contenido ────────────────────────────────
@@ -471,8 +338,7 @@ namespace SSTDigitalRD.Server.Services
                         col.Spacing(12);
 
                         // Datos del trabajador
-                        col.Item().Text("Datos del trabajador")
-                            .FontSize(12).Bold();
+                        col.Item().Text("Datos del trabajador").FontSize(12).Bold();
 
                         col.Item().Table(table =>
                         {
@@ -482,27 +348,17 @@ namespace SSTDigitalRD.Server.Services
                                 c.RelativeColumn(2);
                             });
 
-                            AddRow(table, "Nombre",
-                                entrega.NombreTrabajador);
-                            AddRow(table, "Cédula",
-                                entrega.CedulaTrabajador);
-                            AddRow(table, "Cargo",
-                                entrega.Cargo);
-                            AddRow(table, "Cuadrilla",
-                                entrega.Cuadrilla);
-                            AddRow(table, "Obra",
-                                entrega.Obra);
-                            AddRow(table, "Fecha de entrega",
-                                entrega.FechaEntrega
-                                    .ToString("dd/MM/yyyy hh:mm tt"));
-                            AddRow(table, "Entregado por",
-                                entrega.EntregadoPor);
+                            AddRow(table, "Nombre", entrega.NombreTrabajador);
+                            AddRow(table, "Cédula", entrega.CedulaTrabajador);
+                            AddRow(table, "Cargo", entrega.Cargo);
+                            AddRow(table, "Cuadrilla", entrega.Cuadrilla);
+                            AddRow(table, "Obra",  entrega.Obra);
+                            AddRow(table, "Fecha de entrega", entrega.FechaEntrega.ToString("dd/MM/yyyy hh:mm tt"));
+                            AddRow(table, "Entregado por", entrega.EntregadoPor);
                         });
 
                         // Artículos entregados
-                        col.Item().PaddingTop(4)
-                            .Text("Artículos de EPP entregados")
-                            .FontSize(12).Bold();
+                        col.Item().PaddingTop(4).Text("Artículos de EPP entregados").FontSize(12).Bold();
 
                         col.Item().Table(table =>
                         {
@@ -518,22 +374,16 @@ namespace SSTDigitalRD.Server.Services
                             // Encabezado
                             foreach (var h in new[]
                             {
-                        "#", "Tipo de EPP", "Marca",
-                        "Vencimiento", "Estado"
-                    })
+                                "#", "Tipo de EPP", "Marca", "Vencimiento", "Estado"
+                            })
                             {
-                                table.Cell()
-                                    .Background(Colors.Grey.Lighten3)
-                                    .Padding(4).Text(h)
-                                    .FontSize(9).Bold();
+                                table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(h).FontSize(9).Bold();
                             }
 
                             var idx = 1;
                             foreach (var art in entrega.Articulos)
                             {
-                                var bg = idx % 2 == 0
-                                    ? Colors.Grey.Lighten5
-                                    : Colors.White;
+                                var bg = idx % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
 
                                 var (colorEst, textoEst) = art.Estado switch
                                 {
@@ -542,44 +392,24 @@ namespace SSTDigitalRD.Server.Services
                                     _ => (Colors.Grey.Darken1, art.Estado)
                                 };
 
-                                table.Cell().Background(bg).Padding(4)
-                                    .Text(idx.ToString()).FontSize(9);
-                                table.Cell().Background(bg).Padding(4)
-                                    .Text(art.TipoEPP).FontSize(9);
-                                table.Cell().Background(bg).Padding(4)
-                                    .Text(art.Marca).FontSize(9);
-                                table.Cell().Background(bg).Padding(4)
-                                    .Text(art.FechaVencimiento
-                                        .ToString("dd/MM/yyyy"))
-                                    .FontSize(9);
-                                table.Cell().Background(bg).Padding(4)
-                                    .Text(textoEst).FontSize(9)
-                                    .FontColor(colorEst);
+                                table.Cell().Background(bg).Padding(4).Text(idx.ToString()).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(art.TipoEPP).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(art.Marca).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(art.FechaVencimiento.ToString("dd/MM/yyyy")).FontSize(9);
+                                table.Cell().Background(bg).Padding(4).Text(textoEst).FontSize(9).FontColor(colorEst);
                                 idx++;
                             }
                         });
 
                         // Resumen de estado
-                        var vigentes = entrega.Articulos
-                            .Count(a => a.Estado == "Vigente");
-                        var vencidos = entrega.Articulos
-                            .Count(a => a.Estado == "Vencido");
+                        var vigentes = entrega.Articulos.Count(a => a.Estado == "Vigente");
+                        var vencidos = entrega.Articulos.Count(a => a.Estado == "Vencido");
 
-                        col.Item()
-                            .Background(vigentes == entrega.Articulos.Count
-                                ? Colors.Green.Lighten5
-                                : Colors.Orange.Lighten5)
+                        col.Item().Background(vigentes == entrega.Articulos.Count ? Colors.Green.Lighten5 : Colors.Orange.Lighten5)
                             .Padding(8).Row(row =>
                             {
-                                row.RelativeItem().Text(
-                            $"Estado general: " +
-                            $"{vigentes} vigentes, " +
-                            $"{vencidos} vencidos de " +
-                            $"{entrega.Articulos.Count} artículos")
-                            .FontSize(10).Bold()
-                            .FontColor(vigentes == entrega.Articulos.Count
-                                ? Colors.Green.Darken2
-                                : Colors.Orange.Darken2);
+                                row.RelativeItem().Text($"Estado general: " + $"{vigentes} vigentes, " + $"{vencidos} vencidos de " + $"{entrega.Articulos.Count} artículos")
+                                    .FontSize(10).Bold().FontColor(vigentes == entrega.Articulos.Count ? Colors.Green.Darken2 : Colors.Orange.Darken2);
                             });
 
                         // Firma del trabajador
@@ -587,15 +417,9 @@ namespace SSTDigitalRD.Server.Services
                         {
                             row.RelativeItem().Column(c =>
                             {
-                                c.Item().Text("Firma de recepción del trabajador")
-                                    .FontSize(10).Bold();
-                                c.Item().PaddingTop(4)
-                                    .Border(1)
-                                    .BorderColor(Colors.Grey.Lighten2)
-                                    .Height(60)
-                                    .Background(entrega.Firmado
-                                        ? Colors.Green.Lighten5
-                                        : Colors.Grey.Lighten4)
+                                c.Item().Text("Firma de recepción del trabajador").FontSize(10).Bold();
+                                c.Item().PaddingTop(4).Border(1).BorderColor(Colors.Grey.Lighten2).Height(60)
+                                    .Background(entrega.Firmado ? Colors.Green.Lighten5 : Colors.Grey.Lighten4)
                                     .AlignCenter().AlignMiddle()
                                     .Text(entrega.Firmado
                                         ? "✓ Firmado digitalmente"

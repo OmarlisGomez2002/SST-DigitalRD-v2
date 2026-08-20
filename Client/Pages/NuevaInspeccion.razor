@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>@(EsEdicion ? "Editar inspección" : "Nueva inspección") · SST-Digital RD</PageTitle>
 
@@ -81,7 +82,7 @@
                         }
                     </select> *@
                     <select value="@Modelo.ObraId"
-                            @onchange="OnObraInspeccionChange">
+                            @onchange="OnObraInspeccionChange" class="@(MostrarErrores && Modelo.ObraId == 0 ? "input-error" : "")">
                         <option value="0">Seleccionar obra...</option>
                         @foreach (var obra in ObrasDisponibles)
                         {
@@ -119,13 +120,18 @@
 
                 <div class="form-field">
                     <label>Tipo de inspección <span class="required">*</span></label>
-                    <select @bind="Modelo.TipoInspeccion">
+                    <select @bind="Modelo.TipoInspeccion" class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.TipoInspeccion) ? "input-error" : "")">
                         <option value="">Seleccionar tipo...</option>
                         @foreach (var tipo in TiposInspeccionDisponibles)
                         {
                             <option value="@tipo.Nombre">@tipo.Nombre</option>
                         }
                     </select>
+
+                    @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.TipoInspeccion))
+                    {
+                        <span class="field-error">Tipo de inspección es requerido</span>
+                    }
                 </div>
 
                 @* <div class="form-field">
@@ -227,8 +233,13 @@
                 <label>Descripción general del área</label>
                 <textarea @bind="Modelo.Descripcion"
                           rows="3"
-                          placeholder="Describa las condiciones generales del área al momento de la inspección...">
+                          placeholder="Describa las condiciones generales del área al momento de la inspección..." class="@(MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Descripcion) ? "input-error" : "")">
                 </textarea>
+
+                @if (MostrarErrores && string.IsNullOrWhiteSpace(Modelo.Descripcion))
+                {
+                    <span class="field-error">Descripción general es requerida</span>
+                }
             </div>
         </div>
 
@@ -392,6 +403,16 @@
                 </div>
             }
 
+
+            @* Error GPS requerido *@
+            @if (MostrarErrorGps && !GpsCargado)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-map-pin-off" aria-hidden="true"></i>
+                    <span>La geolocalización es requerida. Capture su ubicación antes de continuar.</span>
+                </div>
+            }
+
             @if (!string.IsNullOrEmpty(GpsError))
             {
                 <div class="alert-banner danger">
@@ -405,7 +426,7 @@
             <button class="btn-secondary" @onclick="Anterior">
                 <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
             </button>
-            <button class="btn-primary" @onclick="Siguiente" disabled="@(!GpsCargado)">
+            <button class="btn-primary" @onclick="Siguiente"> @* disabled="@(!GpsCargado)" *@
                 Siguiente <i class="ti ti-arrow-right" aria-hidden="true"></i>
             </button>
         </div>
@@ -426,10 +447,15 @@
 
             <div class="firma-info">
                 <div class="firma-quien">
-                    <div class="avatar" style="background:#E6F1FB;color:#185FA5">RG</div>
+                    <div class="avatar" style="background:#E6F1FB;color:#185FA5">
+                        @(string.Concat(Modelo.Inspector.Split(' ')
+                                            .Where(p => !string.IsNullOrEmpty(p))
+                                            .Take(2)
+                                            .Select(p => p[0].ToString().ToUpper())))
+                    </div>
                     <div>
-                        <div class="firma-nombre">Ramón Gómez</div>
-                        <div class="firma-rol">Prevencionista SST · SST-Digital RD</div>
+                    <div class="firma-nombre">@Modelo.Inspector</div>
+                    <div class="firma-rol">@RolUsuario · SST-Digital RD</div>
                     </div>
                 </div>
                 <div class="firma-fecha">
@@ -464,6 +490,15 @@
                 </button>
             </div>
 
+            @* Error firma requerida *@
+            @if (MostrarErrorFirma && !FirmaCapturada)
+            {
+                <div class="alert-banner danger" style="margin-top:12px">
+                    <i class="ti ti-signature-off" aria-hidden="true"></i>
+                    <span>La firma es requerida. Firme en el canvas y confirme antes de enviar.</span>
+                </div>
+            }
+
             @if (FirmaCapturada)
             {
                 <div class="alert-banner ok">
@@ -494,8 +529,8 @@
                 <i class="ti ti-arrow-left" aria-hidden="true"></i> Anterior
             </button>
             <button class="btn-primary"
-                    @onclick="EnviarFormulario"
-                    disabled="@(!FirmaCapturada || Guardando)">
+                    @onclick="EnviarFormulario">
+                    @* disabled="@(!FirmaCapturada || Guardando)"> *@
                 @if (Guardando)
                 {
                     <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
@@ -536,6 +571,11 @@
     private List<EmpleadoSimpleDto> ResponsablesFiltrados = new();
     private List<ZonaObraDto> ZonasDisponibles = new();
 
+    private string RolUsuario = "";
+
+    private bool MostrarErrorGps = false;
+    private bool MostrarErrorFirma = false;
+
     // ── Modelo ─────────────────────────────────────────────────
     private InspeccionFormDto Modelo = new()
     {
@@ -558,9 +598,17 @@
         if (PasoActual == 1)
         {
             MostrarErrores = true;
-            if (Modelo.ObraId == 0 || string.IsNullOrWhiteSpace(Modelo.Area)) return;
+            if (Modelo.ObraId == 0 || string.IsNullOrWhiteSpace(Modelo.Area) || string.IsNullOrWhiteSpace(Modelo.TipoInspeccion) || string.IsNullOrWhiteSpace(Modelo.Descripcion)) return;
             MostrarErrores = false;
         }
+
+        if (PasoActual == 3)
+        {
+            MostrarErrorGps = true;
+            if (!GpsCargado) return;
+            MostrarErrorGps = false;
+        }
+
         if (PasoActual < Pasos.Count) PasoActual++;
     }
 
@@ -667,6 +715,13 @@
     // ── Envío ──────────────────────────────────────────────────
     private async Task EnviarFormulario()
     {
+        MostrarErrorFirma = true;
+        if (!FirmaCapturada)
+        {
+            StateHasChanged();
+            return;
+        }
+
         if (!FormularioValido) return;
         Guardando = true;
         ErrorGeofencing = "";
@@ -865,6 +920,15 @@
             var tipos = await Http.GetFromJsonAsync<List<TipoInspeccionDto>>("api/configuracion/tipos-inspeccion");
             if (tipos is not null)
                 TiposInspeccionDisponibles = tipos;
+
+            // ── Inspector desde JWT ────────────────────────────────
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            Modelo.Inspector = user.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                               ?? user.FindFirst("name")?.Value
+                               ?? "Inspector";
+
+            RolUsuario = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Usuario";
 
             // // Forzar render para que el select tenga las opciones
             // // antes de asignar el valor seleccionado

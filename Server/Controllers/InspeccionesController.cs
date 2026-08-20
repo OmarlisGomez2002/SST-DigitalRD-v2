@@ -254,13 +254,14 @@ namespace SSTDigitalRD.Server.Controllers
                 .ToListAsync();
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("Área,Obra,Inspector,Fecha,Hora,GPS,Estado,Firmado,Trabajadores,Hash SHA-256");
+            sb.AppendLine("Área,Obra,Descripción,Inspector,Fecha,Hora,GPS,Estado,Firmado,Trabajadores,Hash SHA-256");
 
             foreach (var i in inspecciones)
             {
                 sb.AppendLine(string.Join(",",
                     EscaparCsv(i.Area),
                     EscaparCsv(i.Obra),
+                    EscaparCsv(i.Descripcion),
                     EscaparCsv(i.Inspector),
                     i.FechaInspeccion.ToString("dd/MM/yyyy"),
                     i.FechaInspeccion.ToString("hh:mm tt"),
